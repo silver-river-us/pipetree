@@ -1,6 +1,6 @@
-# Ingestion Framework
+# Pipetree
 
-A modular, benchmarkable ingestion framework for large PDFs (3k-10k pages).
+A modular, benchmarkable pipeline framework for large document processing.
 
 ## Features
 
@@ -15,7 +15,7 @@ A modular, benchmarkable ingestion framework for large PDFs (3k-10k pages).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                          Pipeline                               │
+│                          Pipetree                               │
 │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐     │
 │  │  Step 1  │──▶│  Step 2  │──▶│  Router  │──▶│  Step N  │     │
 │  │ (cap: A) │   │ (cap: B) │   │ (cap: C) │   │ (cap: D) │     │
@@ -56,7 +56,7 @@ The base processing unit. Each step declares a capability and implements a `run(
 │ cap: Capability            │
 │ name: str                  │
 ├────────────────────────────┤
-│ run(ctx) → Ctx             │
+│ run(ctx) → Context             │
 └────────────────────────────┘
 ```
 
@@ -75,7 +75,7 @@ A specialized step that branches to different implementations based on context s
  [impl_a] [impl_b] [default]
 ```
 
-### Pipeline
+### Pipetree
 
 Orchestrates step execution with:
 - **Chain validation** - Ensures `provides` from step N satisfies `requires` of step N+1
@@ -105,7 +105,7 @@ step = registry.make("chunking", "semantic")
 
 ## Data Flow
 
-The `Ctx` (context) object flows through the pipeline as a streaming data bus:
+The `Context` (context) object flows through the pipeline as a streaming data bus:
 
 ```
 Input: path → pdf → pages → texts → chunks → vec_batches → done
@@ -165,7 +165,7 @@ pipenv run pytest -v
 pipenv run pytest tests/test_pipeline.py
 
 # Run with coverage (if installed)
-pipenv run pytest --cov=src/ingestion
+pipenv run pytest --cov=pipetree
 ```
 
 ## Linting
@@ -193,7 +193,7 @@ This runs lint, type check, and tests - the same checks as CI.
 
 ```python
 import asyncio
-from ingestion import Pipeline, Capability, BaseStep, Ctx
+from pipetree import Pipetree, Capability, BaseStep, Context
 
 # Define a capability
 my_cap = Capability(
@@ -204,15 +204,15 @@ my_cap = Capability(
 
 # Implement a step
 class MyExtractor(BaseStep):
-    def run(self, ctx: Ctx) -> Ctx:
+    def run(self, ctx: Context) -> Context:
         ctx["texts"] = extract_texts(ctx["pages"])
         return ctx
 
-# Build and run pipeline
-pipeline = Pipeline(steps=[MyExtractor(my_cap, "extractor")])
+# Build and run pipetree
+pipetree = Pipetree(steps=[MyExtractor(my_cap, "extractor")])
 
 async def main():
-    result = await pipeline.run({"pages": my_pages})
+    result = await pipetree.run({"pages": my_pages})
     print(result)
 
 asyncio.run(main())
@@ -223,7 +223,7 @@ Or run directly from the shell:
 ```bash
 pipenv run python -c "
 import asyncio
-from ingestion import Pipeline, BaseStep, Capability, Ctx
+from pipetree import Pipetree, BaseStep, Capability, Context
 
 # Define your steps and run
 async def main():

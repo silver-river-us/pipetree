@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ingestion-framework"
+name = "pipetree"
 version = "0.1.0"
 description = "Modular, benchmarkable ingestion framework for large PDFs"
 readme = "README.md"
@@ -36,7 +36,7 @@ pdf = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -51,7 +51,7 @@ warn_unused_configs = true
 [tool.ruff]
 target-version = "py311"
 line-length = 88
-src = ["src", "tests"]
+src = ["pipetree", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -71,4 +71,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ingestion"]
+known-first-party = ["pipetree"]

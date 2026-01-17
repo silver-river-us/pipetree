@@ -2,18 +2,19 @@
 
 import pytest
 
-from ingestion.benchmark import (
+from pipetree.benchmark import (
     BenchResult,
     BenchRunner,
     Fixture,
     Metrics,
     accuracy_judge,
 )
-from ingestion.capability import Capability
-from ingestion.pipeline import Pipeline
-from ingestion.registry import Registry
-from ingestion.step import BaseStep
-from ingestion.types import Ctx
+from pipetree.capability import Capability
+from pipetree.pipeline import Pipetree
+from pipetree.registry import Registry
+from pipetree.step import BaseStep
+from pipetree.types import Context
+from tests.fixtures import MockContext
 
 
 class TestBenchRunner:
@@ -23,13 +24,13 @@ class TestBenchRunner:
         cap = Capability(name="test", requires=set(), provides={"value"})
 
         class FastStep(BaseStep):
-            def run(self, ctx: Ctx) -> Ctx:
-                ctx["value"] = 10
+            def run(self, ctx: Context) -> Context:
+                ctx.value = 10  # type: ignore
                 return ctx
 
         class SlowStep(BaseStep):
-            def run(self, ctx: Ctx) -> Ctx:
-                ctx["value"] = 20
+            def run(self, ctx: Context) -> Context:
+                ctx.value = 20  # type: ignore
                 return ctx
 
         registry.register("test", "fast", lambda: FastStep(cap, "fast"))
@@ -45,16 +46,20 @@ class TestBenchRunner:
             {"id": "fixture1", "path": "/test1", "expected": {"value": 10}},
         ]
 
-        def judge(fixture: Fixture, ctx: Ctx) -> Metrics:
+        def judge(fixture: Fixture, ctx: Context) -> Metrics:
             expected = fixture.get("expected", {}).get("value")
-            actual = ctx.get("value")
+            actual = ctx.value
             return {"correctness": 1.0 if expected == actual else 0.0}
+
+        def setup_ctx(fixture: Fixture) -> MockContext:
+            return MockContext(path=fixture.get("path", ""))
 
         results = await runner.run_step_ab(
             cap_name="test",
             impls=["fast", "slow"],
             fixtures=fixtures,
             judge=judge,
+            setup_ctx=setup_ctx,
         )
 
         assert len(results) == 2
@@ -70,17 +75,17 @@ class TestBenchRunner:
         cap = Capability(name="test", requires=set(), provides={"result"})
 
         class StepA(BaseStep):
-            def run(self, ctx: Ctx) -> Ctx:
-                ctx["result"] = "A"
+            def run(self, ctx: Context) -> Context:
+                ctx.result = "A"  # type: ignore
                 return ctx
 
         class StepB(BaseStep):
-            def run(self, ctx: Ctx) -> Ctx:
-                ctx["result"] = "B"
+            def run(self, ctx: Context) -> Context:
+                ctx.result = "B"  # type: ignore
                 return ctx
 
-        pipeline_a = Pipeline(steps=[StepA(cap, "step_a")])
-        pipeline_b = Pipeline(steps=[StepB(cap, "step_b")])
+        pipeline_a = Pipetree(steps=[StepA(cap, "step_a")])
+        pipeline_b = Pipetree(steps=[StepB(cap, "step_b")])
 
         runner = BenchRunner(registry=Registry(), track_memory=False)
 
@@ -88,15 +93,19 @@ class TestBenchRunner:
             {"id": "test", "path": "/test", "expected": {"result": "A"}},
         ]
 
-        def judge(fixture: Fixture, ctx: Ctx) -> Metrics:
+        def judge(fixture: Fixture, ctx: Context) -> Metrics:
             expected = fixture.get("expected", {}).get("result")
-            actual = ctx.get("result")
+            actual = ctx.result
             return {"correctness": 1.0 if expected == actual else 0.0}
+
+        def setup_ctx(fixture: Fixture) -> MockContext:
+            return MockContext(path=fixture.get("path", ""))
 
         results = await runner.run_pipeline_ab(
             candidates={"pipeline_a": pipeline_a, "pipeline_b": pipeline_b},
             fixtures=fixtures,
             judge=judge,
+            setup_ctx=setup_ctx,
         )
 
         assert len(results) == 2
@@ -113,14 +122,18 @@ class TestBenchRunner:
 
         fixtures: list[Fixture] = [{"id": "test", "path": "/test"}]
 
-        def judge(fixture: Fixture, ctx: Ctx) -> Metrics:
+        def judge(fixture: Fixture, ctx: Context) -> Metrics:
             return {}
+
+        def setup_ctx(fixture: Fixture) -> MockContext:
+            return MockContext(path=fixture.get("path", ""))
 
         results = await runner.run_step_ab(
             cap_name="test",
             impls=["fast"],
             fixtures=fixtures,
             judge=judge,
+            setup_ctx=setup_ctx,
         )
 
         assert len(results) == 1
@@ -133,7 +146,7 @@ class TestBenchRunner:
         cap = Capability(name="error", requires=set(), provides={"x"})
 
         class ErrorStep(BaseStep):
-            def run(self, ctx: Ctx) -> Ctx:
+            def run(self, ctx: Context) -> Context:
                 raise RuntimeError("Step failed!")
 
         registry.register("error", "failing", lambda: ErrorStep(cap, "error"))
@@ -141,11 +154,15 @@ class TestBenchRunner:
         runner = BenchRunner(registry=registry, track_memory=False)
         fixtures: list[Fixture] = [{"id": "test", "path": "/test"}]
 
+        def setup_ctx(fixture: Fixture) -> MockContext:
+            return MockContext(path=fixture.get("path", ""))
+
         results = await runner.run_step_ab(
             cap_name="error",
             impls=["failing"],
             fixtures=fixtures,
             judge=lambda f, c: {},
+            setup_ctx=setup_ctx,
         )
 
         assert len(results) == 1
@@ -159,7 +176,7 @@ class TestAccuracyJudge:
             "id": "test",
             "expected": {"kind": "ops", "scanned": True},
         }
-        ctx: Ctx = {"kind": "ops", "scanned": True}
+        ctx = MockContext(kind="ops", scanned=True)
 
         metrics = accuracy_judge(fixture, ctx)
         assert metrics["correctness"] == 1.0
@@ -169,7 +186,7 @@ class TestAccuracyJudge:
             "id": "test",
             "expected": {"kind": "ops", "scanned": True},
         }
-        ctx: Ctx = {"kind": "parts", "scanned": False}
+        ctx = MockContext(kind="parts", scanned=False)
 
         metrics = accuracy_judge(fixture, ctx)
         assert metrics["correctness"] == 0.0
@@ -179,14 +196,14 @@ class TestAccuracyJudge:
             "id": "test",
             "expected": {"kind": "ops", "scanned": True},
         }
-        ctx: Ctx = {"kind": "ops", "scanned": False}
+        ctx = MockContext(kind="ops", scanned=False)
 
         metrics = accuracy_judge(fixture, ctx)
         assert metrics["correctness"] == 0.5
 
     def test_empty_expected(self) -> None:
         fixture: Fixture = {"id": "test", "expected": {}}
-        ctx: Ctx = {"kind": "ops"}
+        ctx = MockContext(kind="ops")
 
         metrics = accuracy_judge(fixture, ctx)
         assert metrics["correctness"] == 0.0

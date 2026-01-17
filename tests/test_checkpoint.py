@@ -3,8 +3,8 @@
 import tempfile
 from pathlib import Path
 
-from ingestion.checkpoint import FileCheckpointStore, InMemoryCheckpointStore
-from ingestion.types import Cursor
+from pipetree.checkpoint import FileCheckpointStore, InMemoryCheckpointStore
+from pipetree.types import Cursor
 
 
 class TestInMemoryCheckpointStore:

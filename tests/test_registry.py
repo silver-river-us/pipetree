@@ -2,10 +2,10 @@
 
 import pytest
 
-from ingestion.capability import Capability
-from ingestion.registry import Registry, global_registry, register
-from ingestion.step import BaseStep
-from ingestion.types import Ctx
+from pipetree.capability import Capability
+from pipetree.registry import Registry, global_registry, register
+from pipetree.step import BaseStep
+from pipetree.types import Context
 
 
 class TestRegistry:
@@ -18,8 +18,8 @@ class TestRegistry:
                 super().__init__(cap, "test_step")
                 self.value = value
 
-            def run(self, ctx: Ctx) -> Ctx:
-                ctx["result"] = self.value
+            def run(self, ctx: Context) -> Context:
+                ctx.result = self.value  # type: ignore
                 return ctx
 
         registry.register("test", "impl_a", lambda value=10: TestStep(value))
@@ -91,7 +91,7 @@ class TestRegistry:
         @registry.decorator("test_cap", "decorated_impl")
         def create_step() -> BaseStep:
             class DecoratedStep(BaseStep):
-                def run(self, ctx: Ctx) -> Ctx:
+                def run(self, ctx: Context) -> Context:
                     return ctx
 
             return DecoratedStep(cap, "decorated")
@@ -109,7 +109,7 @@ class TestGlobalRegistry:
         @register("global_test_cap", "global_impl")
         def create_step() -> BaseStep:
             class GlobalStep(BaseStep):
-                def run(self, ctx: Ctx) -> Ctx:
+                def run(self, ctx: Context) -> Context:
                     return ctx
 
             return GlobalStep(cap, "global")

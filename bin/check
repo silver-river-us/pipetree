@@ -9,7 +9,7 @@ pipenv run ruff format --check .
 
 echo ""
 echo "=== Type Check ==="
-pipenv run mypy src/
+pipenv run mypy pipetree/
 
 echo ""
 echo "=== Tests ==="

@@ -1,6 +1,6 @@
 """Tests for the capability system."""
 
-from ingestion.capability import (
+from pipetree.capability import (
     CHUNKING,
     PAGE_ITERATION,
     TEXT_EXTRACTION,
