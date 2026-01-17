@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 typing-extensions = ">=4.0.0"
+pypdf = ">=4.0.0"
 
 [dev-packages]
 pytest = ">=7.0.0"

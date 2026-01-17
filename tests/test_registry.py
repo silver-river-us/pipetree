@@ -2,9 +2,7 @@
 
 import pytest
 
-from pipetree.capability import Capability
-from pipetree.registry import Registry, global_registry, register
-from pipetree.step import BaseStep
+from pipetree import Capability, Registry, Step, global_registry, register
 from pipetree.types import Context
 
 
@@ -13,7 +11,7 @@ class TestRegistry:
         registry = Registry()
         cap = Capability(name="test", requires=set(), provides={"result"})
 
-        class TestStep(BaseStep):
+        class TestStep(Step):
             def __init__(self, value: int) -> None:
                 super().__init__(cap, "test_step")
                 self.value = value
@@ -31,7 +29,7 @@ class TestRegistry:
     def test_list_capabilities(self) -> None:
         registry = Registry()
 
-        def factory() -> BaseStep:
+        def factory() -> Step:
             raise NotImplementedError
 
         registry.register("cap1", "impl1", factory)
@@ -43,7 +41,7 @@ class TestRegistry:
     def test_list_impls(self) -> None:
         registry = Registry()
 
-        def factory() -> BaseStep:
+        def factory() -> Step:
             raise NotImplementedError
 
         registry.register("cap1", "impl_a", factory)
@@ -65,7 +63,7 @@ class TestRegistry:
     def test_get_factory_unknown_impl(self) -> None:
         registry = Registry()
 
-        def factory() -> BaseStep:
+        def factory() -> Step:
             raise NotImplementedError
 
         registry.register("cap1", "known", factory)
@@ -76,7 +74,7 @@ class TestRegistry:
     def test_unregister(self) -> None:
         registry = Registry()
 
-        def factory() -> BaseStep:
+        def factory() -> Step:
             raise NotImplementedError
 
         registry.register("cap1", "impl1", factory)
@@ -89,8 +87,8 @@ class TestRegistry:
         cap = Capability(name="test", requires=set(), provides=set())
 
         @registry.decorator("test_cap", "decorated_impl")
-        def create_step() -> BaseStep:
-            class DecoratedStep(BaseStep):
+        def create_step() -> Step:
+            class DecoratedStep(Step):
                 def run(self, ctx: Context) -> Context:
                     return ctx
 
@@ -107,8 +105,8 @@ class TestGlobalRegistry:
         cap = Capability(name="global_test", requires=set(), provides=set())
 
         @register("global_test_cap", "global_impl")
-        def create_step() -> BaseStep:
-            class GlobalStep(BaseStep):
+        def create_step() -> Step:
+            class GlobalStep(Step):
                 def run(self, ctx: Context) -> Context:
                     return ctx
 

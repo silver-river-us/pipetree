@@ -2,9 +2,7 @@
 
 import pytest
 
-from pipetree.capability import Capability
-from pipetree.pipeline import ContractViolationError, Pipetree
-from pipetree.step import BaseStep
+from pipetree import Capability, ContractViolationError, Pipetree, Step
 from pipetree.types import Context
 from tests.fixtures import MockContext
 
@@ -13,7 +11,7 @@ class TestPipetree:
     def test_pipetree_creation(self) -> None:
         cap = Capability(name="test", requires=set(), provides={"a"})
 
-        class TestStep(BaseStep):
+        class TestStep(Step):
             def run(self, ctx: Context) -> Context:
                 ctx.a = 1  # type: ignore
                 return ctx
@@ -27,13 +25,13 @@ class TestPipetree:
         cap1 = Capability(name="step1", requires=set(), provides={"a"})
         cap2 = Capability(name="step2", requires={"a"}, provides={"b"})
 
-        class Step1(BaseStep):
+        class Step1(Step):
             def run(self, ctx: Context) -> Context:
                 ctx.a = 1  # type: ignore
                 ctx.order = [1]  # type: ignore
                 return ctx
 
-        class Step2(BaseStep):
+        class Step2(Step):
             def run(self, ctx: Context) -> Context:
                 ctx.b = ctx.a + 1  # type: ignore
                 ctx.order.append(2)  # type: ignore
@@ -56,7 +54,7 @@ class TestPipetree:
     async def test_pipetree_validates_preconditions(self) -> None:
         cap = Capability(name="test", requires={"missing_key"}, provides={"a"})
 
-        class TestStep(BaseStep):
+        class TestStep(Step):
             def run(self, ctx: Context) -> Context:
                 ctx.a = 1  # type: ignore
                 return ctx
@@ -70,7 +68,7 @@ class TestPipetree:
     async def test_pipetree_validates_postconditions(self) -> None:
         cap = Capability(name="test", requires=set(), provides={"promised_key"})
 
-        class BadStep(BaseStep):
+        class BadStep(Step):
             def run(self, ctx: Context) -> Context:
                 # Does not provide "promised_key"
                 return ctx
@@ -84,7 +82,7 @@ class TestPipetree:
     async def test_pipetree_supports_async_steps(self) -> None:
         cap = Capability(name="async_test", requires=set(), provides={"result"})
 
-        class AsyncStep(BaseStep):
+        class AsyncStep(Step):
             async def run(self, ctx: Context) -> Context:
                 ctx.result = "async_done"  # type: ignore
                 return ctx
@@ -98,12 +96,12 @@ class TestPipetree:
         cap1 = Capability(name="sync", requires=set(), provides={"a"})
         cap2 = Capability(name="async", requires={"a"}, provides={"b"})
 
-        class SyncStep(BaseStep):
+        class SyncStep(Step):
             def run(self, ctx: Context) -> Context:
                 ctx.a = "sync"  # type: ignore
                 return ctx
 
-        class AsyncStep(BaseStep):
+        class AsyncStep(Step):
             async def run(self, ctx: Context) -> Context:
                 ctx.b = "async"  # type: ignore
                 return ctx
@@ -122,7 +120,7 @@ class TestPipetree:
     def test_pipetree_repr(self) -> None:
         cap = Capability(name="test", requires=set(), provides=set())
 
-        class TestStep(BaseStep):
+        class TestStep(Step):
             def run(self, ctx: Context) -> Context:
                 return ctx
 

@@ -9,10 +9,7 @@ from pipetree.benchmark import (
     Metrics,
     accuracy_judge,
 )
-from pipetree.capability import Capability
-from pipetree.pipeline import Pipetree
-from pipetree.registry import Registry
-from pipetree.step import BaseStep
+from pipetree import Capability, Pipetree, Registry, Step
 from pipetree.types import Context
 from tests.fixtures import MockContext
 
@@ -23,12 +20,12 @@ class TestBenchRunner:
         registry = Registry()
         cap = Capability(name="test", requires=set(), provides={"value"})
 
-        class FastStep(BaseStep):
+        class FastStep(Step):
             def run(self, ctx: Context) -> Context:
                 ctx.value = 10  # type: ignore
                 return ctx
 
-        class SlowStep(BaseStep):
+        class SlowStep(Step):
             def run(self, ctx: Context) -> Context:
                 ctx.value = 20  # type: ignore
                 return ctx
@@ -74,12 +71,12 @@ class TestBenchRunner:
     async def test_run_pipeline_ab(self) -> None:
         cap = Capability(name="test", requires=set(), provides={"result"})
 
-        class StepA(BaseStep):
+        class StepA(Step):
             def run(self, ctx: Context) -> Context:
                 ctx.result = "A"  # type: ignore
                 return ctx
 
-        class StepB(BaseStep):
+        class StepB(Step):
             def run(self, ctx: Context) -> Context:
                 ctx.result = "B"  # type: ignore
                 return ctx
@@ -145,7 +142,7 @@ class TestBenchRunner:
         registry = Registry()
         cap = Capability(name="error", requires=set(), provides={"x"})
 
-        class ErrorStep(BaseStep):
+        class ErrorStep(Step):
             def run(self, ctx: Context) -> Context:
                 raise RuntimeError("Step failed!")
 

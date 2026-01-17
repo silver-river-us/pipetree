@@ -51,7 +51,7 @@ The base processing unit. Each step declares a capability and implements a `run(
 
 ```
 ┌────────────────────────────┐
-│          BaseStep          │
+│          Step          │
 ├────────────────────────────┤
 │ cap: Capability            │
 │ name: str                  │
@@ -193,7 +193,7 @@ This runs lint, type check, and tests - the same checks as CI.
 
 ```python
 import asyncio
-from pipetree import Pipetree, Capability, BaseStep, Context
+from pipetree import Pipetree, Capability, Step, Context
 
 # Define a capability
 my_cap = Capability(
@@ -203,7 +203,7 @@ my_cap = Capability(
 )
 
 # Implement a step
-class MyExtractor(BaseStep):
+class MyExtractor(Step):
     def run(self, ctx: Context) -> Context:
         ctx["texts"] = extract_texts(ctx["pages"])
         return ctx
@@ -223,7 +223,7 @@ Or run directly from the shell:
 ```bash
 pipenv run python -c "
 import asyncio
-from pipetree import Pipetree, BaseStep, Capability, Context
+from pipetree import Pipetree, Step, Capability, Context
 
 # Define your steps and run
 async def main():

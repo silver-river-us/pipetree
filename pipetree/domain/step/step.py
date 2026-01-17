@@ -1,19 +1,23 @@
-"""Step protocol definition."""
+"""Step implementation."""
 
+from abc import ABC, abstractmethod
 from collections.abc import Awaitable
-from typing import Protocol, runtime_checkable
 
 from pipetree.domain.capability.capability import Capability
 from pipetree.domain.types.context import Context
 
 
-@runtime_checkable
-class Step(Protocol):
-    """Protocol for pipeline steps."""
+class Step(ABC):
+    """Base class for implementing steps."""
 
-    cap: Capability
-    name: str
+    def __init__(self, cap: Capability, name: str) -> None:
+        self.cap = cap
+        self.name = name
 
+    @abstractmethod
     def run(self, ctx: Context) -> Context | Awaitable[Context]:
         """Execute the step, transforming context."""
         ...
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(name={self.name!r}, cap={self.cap.name!r})"

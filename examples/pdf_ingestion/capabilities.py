@@ -5,23 +5,17 @@ from pipetree import Capability
 LOAD_PDF = Capability(
     name="load_pdf",
     requires={"path"},
-    provides={"pdf"},
-)
-
-PAGE_EXTRACTION = Capability(
-    name="page_extraction",
-    requires={"pdf"},
-    provides={"pages"},
+    provides={"pdf", "total_pages"},
 )
 
 TEXT_EXTRACTION = Capability(
     name="text_extraction",
-    requires={"pages"},
+    requires={"pdf", "num_cores"},
     provides={"texts"},
 )
 
-CHUNKING = Capability(
-    name="chunking",
-    requires={"texts"},
-    provides={"chunks"},
+SAVE_TEXT = Capability(
+    name="save_text",
+    requires={"texts", "output_path"},
+    provides={"saved"},
 )

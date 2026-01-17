@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+# Run from the project root so imports work
+cd ../..
+
+pipenv run python -m examples.pdf_ingestion.main "$@"

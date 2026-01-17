@@ -20,7 +20,7 @@ from pipetree.domain.capability import Capability
 from pipetree.domain.pipeline import ContractViolationError, Pipetree
 
 # Domain - Step
-from pipetree.domain.step import BaseRouter, BaseStep, Router, Step
+from pipetree.domain.step import Router, Step
 from pipetree.domain.types import (
     Chunk,
     ConcurrencyConfig,
@@ -38,7 +38,7 @@ from pipetree.infrastructure.checkpoint import (
 )
 
 # Infrastructure - Registry
-from pipetree.infrastructure.registry import Registry, global_registry
+from pipetree.infrastructure.registry import Registry, global_registry, register
 
 __all__ = [
     # Types
@@ -53,8 +53,6 @@ __all__ = [
     # Step
     "Step",
     "Router",
-    "BaseStep",
-    "BaseRouter",
     # Pipeline
     "Pipetree",
     "ContractViolationError",
@@ -65,6 +63,7 @@ __all__ = [
     # Registry
     "Registry",
     "global_registry",
+    "register",
     # Benchmarking
     "Fixture",
     "Metrics",

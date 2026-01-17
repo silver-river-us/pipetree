@@ -1,7 +1,6 @@
 """Typed context for the PDF ingestion pipeline."""
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from pipetree import Context
 
@@ -12,15 +11,17 @@ class PdfContext(Context):
 
     # Initial input
     path: str
+    output_path: str | None = None
 
-    # After LoadPdfStep
-    pdf: dict[str, Any] | None = None
+    # Configuration
+    num_cores: int = 1
 
-    # After ExtractPagesStep
-    pages: list[dict[str, Any]] = field(default_factory=list)
+    # After LoadPdfStep - marks PDF as validated, page count extracted
+    pdf: bool = False
+    total_pages: int = 0
 
-    # After ExtractTextStep
+    # After ExtractTextStep (parallel) - pages extracted one by one
     texts: list[str] = field(default_factory=list)
 
-    # After ChunkTextStep
-    chunks: list[dict[str, Any]] = field(default_factory=list)
+    # After SaveTextStep
+    saved: bool = False
