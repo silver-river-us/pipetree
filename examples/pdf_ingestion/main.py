@@ -37,7 +37,7 @@ async def main() -> None:
     """Run the PDF ingestion pipeline."""
     # Configuration - resolve paths relative to this script's directory
     script_dir = Path(__file__).parent
-    pdf_path = script_dir / "WORKSHOP_MANUAL_TB335R.pdf"
+    pdf_path = script_dir / "small_parts.pdf"
     output_path = script_dir / (pdf_path.stem + ".txt")
 
     print(f"PDF Text Extraction Pipeline")
