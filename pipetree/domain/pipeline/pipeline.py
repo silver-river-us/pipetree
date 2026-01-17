@@ -2,11 +2,15 @@
 
 import asyncio
 import inspect
-from typing import TypeVar
+import time
+from typing import TYPE_CHECKING, TypeVar
 
 from pipetree.domain.pipeline.contract_violation_error import ContractViolationError
 from pipetree.domain.step.step import Step
 from pipetree.domain.types.context import Context
+
+if TYPE_CHECKING:
+    from pipetree.infrastructure.progress import ProgressNotifier
 
 # TypeVar for preserving context type through the pipeline
 CtxT = TypeVar("CtxT", bound=Context)
@@ -20,10 +24,16 @@ class Pipetree:
     - Validates preconditions before each step
     - Validates postconditions after each step
     - Supports both sync and async steps transparently
+    - Optional progress notification
     """
 
-    def __init__(self, steps: list[Step]) -> None:
+    def __init__(
+        self,
+        steps: list[Step],
+        progress_notifier: "ProgressNotifier | None" = None,
+    ) -> None:
         self.steps = steps
+        self._notifier = progress_notifier
         self._validate_step_chain()
 
     def _validate_step_chain(self) -> None:
@@ -78,10 +88,41 @@ class Pipetree:
         Returns:
             The same context object after all steps complete
         """
-        for step in self.steps:
-            self._check_preconditions(step, ctx)
-            ctx = await self._run_step(step, ctx)
-            self._check_postconditions(step, ctx)
+        total_steps = len(self.steps)
+
+        # Inject notifier into context for sub-step progress reporting
+        ctx._notifier = self._notifier
+        ctx._total_steps = total_steps
+
+        for i, step in enumerate(self.steps):
+            # Update context with current step info
+            ctx._step_name = step.name
+            ctx._step_index = i
+
+            # Notify step started
+            if self._notifier:
+                self._notifier.step_started(step.name, i, total_steps)
+
+            start_time = time.perf_counter()
+
+            try:
+                self._check_preconditions(step, ctx)
+                ctx = await self._run_step(step, ctx)
+                self._check_postconditions(step, ctx)
+
+                # Notify step completed
+                duration = time.perf_counter() - start_time
+                if self._notifier:
+                    self._notifier.step_completed(step.name, i, total_steps, duration)
+
+            except Exception as e:
+                # Notify step failed
+                duration = time.perf_counter() - start_time
+                if self._notifier:
+                    self._notifier.step_failed(
+                        step.name, i, total_steps, duration, str(e)
+                    )
+                raise
 
         return ctx
 

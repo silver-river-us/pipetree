@@ -1,0 +1,62 @@
+timestamp,step_name,step_index,total_steps,event_type,duration_s,error,current,total,message
+1768692417.144345,load_pdf,0,3,started,,,,,
+1768692417.147756,load_pdf,0,3,completed,0.003396916999918176,,,,
+1768692417.147775,extract_text,1,3,started,,,,,
+1768692417.593297,extract_text,1,3,progress,,,1,55,Extracted page 1
+1768692417.618083,extract_text,1,3,progress,,,2,55,Extracted page 4
+1768692417.620398,extract_text,1,3,progress,,,3,55,Extracted page 5
+1768692417.628886,extract_text,1,3,progress,,,4,55,Extracted page 3
+1768692417.628982,extract_text,1,3,progress,,,5,55,Extracted page 13
+1768692417.6407712,extract_text,1,3,progress,,,6,55,Extracted page 7
+1768692417.64668,extract_text,1,3,progress,,,7,55,Extracted page 9
+1768692417.6467772,extract_text,1,3,progress,,,8,55,Extracted page 11
+1768692417.651359,extract_text,1,3,progress,,,9,55,Extracted page 12
+1768692417.6524,extract_text,1,3,progress,,,10,55,Extracted page 17
+1768692417.657589,extract_text,1,3,progress,,,11,55,Extracted page 16
+1768692417.663691,extract_text,1,3,progress,,,12,55,Extracted page 21
+1768692417.663734,extract_text,1,3,progress,,,13,55,Extracted page 20
+1768692417.666355,extract_text,1,3,progress,,,14,55,Extracted page 15
+1768692417.673517,extract_text,1,3,progress,,,15,55,Extracted page 19
+1768692417.674361,extract_text,1,3,progress,,,16,55,Extracted page 25
+1768692417.675092,extract_text,1,3,progress,,,17,55,Extracted page 27
+1768692417.676403,extract_text,1,3,progress,,,18,55,Extracted page 23
+1768692417.680305,extract_text,1,3,progress,,,19,55,Extracted page 24
+1768692417.686214,extract_text,1,3,progress,,,20,55,Extracted page 30
+1768692417.696501,extract_text,1,3,progress,,,21,55,Extracted page 31
+1768692417.7079198,extract_text,1,3,progress,,,22,55,Extracted page 29
+1768692417.719529,extract_text,1,3,progress,,,23,55,Extracted page 33
+1768692417.757069,extract_text,1,3,progress,,,24,55,Extracted page 26
+1768692417.772806,extract_text,1,3,progress,,,25,55,Extracted page 35
+1768692417.832614,extract_text,1,3,progress,,,26,55,Extracted page 32
+1768692417.857876,extract_text,1,3,progress,,,27,55,Extracted page 8
+1768692417.85997,extract_text,1,3,progress,,,28,55,Extracted page 37
+1768692417.8738182,extract_text,1,3,progress,,,29,55,Extracted page 39
+1768692417.875635,extract_text,1,3,progress,,,30,55,Extracted page 10
+1768692417.8971,extract_text,1,3,progress,,,31,55,Extracted page 41
+1768692417.949512,extract_text,1,3,progress,,,32,55,Extracted page 18
+1768692417.9693031,extract_text,1,3,progress,,,33,55,Extracted page 34
+1768692417.973078,extract_text,1,3,progress,,,34,55,Extracted page 43
+1768692418.005131,extract_text,1,3,progress,,,35,55,Extracted page 45
+1768692418.0291378,extract_text,1,3,progress,,,36,55,Extracted page 22
+1768692418.0316072,extract_text,1,3,progress,,,37,55,Extracted page 6
+1768692418.034229,extract_text,1,3,progress,,,38,55,Extracted page 28
+1768692418.045281,extract_text,1,3,progress,,,39,55,Extracted page 36
+1768692418.04704,extract_text,1,3,progress,,,40,55,Extracted page 47
+1768692418.0527098,extract_text,1,3,progress,,,41,55,Extracted page 51
+1768692418.056121,extract_text,1,3,progress,,,42,55,Extracted page 49
+1768692418.06879,extract_text,1,3,progress,,,43,55,Extracted page 50
+1768692418.070395,extract_text,1,3,progress,,,44,55,Extracted page 53
+1768692418.081239,extract_text,1,3,progress,,,45,55,Extracted page 55
+1768692418.129092,extract_text,1,3,progress,,,46,55,Extracted page 40
+1768692418.1504488,extract_text,1,3,progress,,,47,55,Extracted page 14
+1768692418.2352672,extract_text,1,3,progress,,,48,55,Extracted page 44
+1768692418.257149,extract_text,1,3,progress,,,49,55,Extracted page 54
+1768692418.331886,extract_text,1,3,progress,,,50,55,Extracted page 52
+1768692418.519097,extract_text,1,3,progress,,,51,55,Extracted page 2
+1768692418.641479,extract_text,1,3,progress,,,52,55,Extracted page 42
+1768692418.641531,extract_text,1,3,progress,,,53,55,Extracted page 38
+1768692418.6750798,extract_text,1,3,progress,,,54,55,Extracted page 46
+1768692419.9846861,extract_text,1,3,progress,,,55,55,Extracted page 48
+1768692420.051898,extract_text,1,3,completed,2.904048915999738,,,,
+1768692420.051938,save_text,2,3,started,,,,,
+1768692420.0522282,save_text,2,3,completed,0.00027829200007545296,,,,

@@ -5,6 +5,13 @@ from pipetree.infrastructure.checkpoint import (
     FileCheckpointStore,
     InMemoryCheckpointStore,
 )
+from pipetree.infrastructure.progress import (
+    FileProgressNotifier,
+    InMemoryProgressNotifier,
+    NullProgressNotifier,
+    ProgressEvent,
+    ProgressNotifier,
+)
 from pipetree.infrastructure.registry import (
     Registry,
     StepFactory,
@@ -17,6 +24,12 @@ __all__ = [
     "CheckpointStore",
     "InMemoryCheckpointStore",
     "FileCheckpointStore",
+    # Progress
+    "ProgressEvent",
+    "ProgressNotifier",
+    "NullProgressNotifier",
+    "InMemoryProgressNotifier",
+    "FileProgressNotifier",
     # Registry
     "Registry",
     "StepFactory",

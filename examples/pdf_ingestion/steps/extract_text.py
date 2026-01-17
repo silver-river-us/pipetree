@@ -2,7 +2,7 @@
 
 import os
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
 
 from pypdf import PdfReader
@@ -35,10 +35,20 @@ class ExtractTextStep(Step):
 
         # Use ProcessPoolExecutor for true parallelism
         extract_fn = partial(_extract_page_text, pdf_path)
-        page_nums = list(range(num_pages))
 
+        results: list[tuple[int, str]] = []
         with ProcessPoolExecutor(max_workers=num_cores) as executor:
-            results = list(executor.map(extract_fn, page_nums))
+            # Submit all tasks
+            futures = {
+                executor.submit(extract_fn, page_num): page_num
+                for page_num in range(num_pages)
+            }
+
+            # Collect results and report progress as they complete
+            for i, future in enumerate(as_completed(futures)):
+                result = future.result()
+                results.append(result)
+                ctx.report_progress(i + 1, num_pages, f"Extracted page {result[0] + 1}")
 
         # Sort by page number and extract texts
         results.sort(key=lambda x: x[0])
