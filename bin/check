@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+echo "=== Lint ==="
+pipenv run ruff check .
+pipenv run ruff format --check .
+
+echo ""
+echo "=== Type Check ==="
+pipenv run mypy src/
+
+echo ""
+echo "=== Tests ==="
+pipenv run pytest tests/ -v
+
+echo ""
+echo "=== All checks passed ==="
