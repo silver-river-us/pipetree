@@ -12,7 +12,6 @@ Features:
 """
 
 import asyncio
-import os
 import time
 from pathlib import Path
 
@@ -21,20 +20,6 @@ from pipetree import Pipetree
 from .capabilities import LOAD_PDF, SAVE_TEXT, TEXT_EXTRACTION
 from .context import PdfContext
 from .steps import ExtractTextStep, LoadPdfStep, SaveTextStep
-
-
-def get_cpu_count() -> int:
-    """Get the number of available CPU cores."""
-    # Try to get the number of CPUs available to this process
-    try:
-        return len(os.sched_getaffinity(0))
-    except AttributeError:
-        # sched_getaffinity not available on all platforms
-        pass
-
-    # Fall back to os.cpu_count()
-    count = os.cpu_count()
-    return count if count else 1
 
 
 def create_pipeline() -> Pipetree:
@@ -50,24 +35,22 @@ def create_pipeline() -> Pipetree:
 
 async def main() -> None:
     """Run the PDF ingestion pipeline."""
-    # Configuration
-    pdf_path = "WORKSHOP_MANUAL_TB335R.pdf"
-    output_path = Path(pdf_path).stem + ".txt"
-    num_cores = get_cpu_count()
+    # Configuration - resolve paths relative to this script's directory
+    script_dir = Path(__file__).parent
+    pdf_path = script_dir / "WORKSHOP_MANUAL_TB335R.pdf"
+    output_path = script_dir / (pdf_path.stem + ".txt")
 
     print(f"PDF Text Extraction Pipeline")
     print(f"============================")
     print(f"Input:  {pdf_path}")
     print(f"Output: {output_path}")
-    print(f"Cores:  {num_cores}")
     print()
 
     # Create pipeline and context
     pipeline = create_pipeline()
     ctx = PdfContext(
-        path=pdf_path,
-        output_path=output_path,
-        num_cores=num_cores,
+        path=str(pdf_path),
+        output_path=str(output_path),
     )
 
     # Run the pipeline

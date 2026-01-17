@@ -13,9 +13,6 @@ class PdfContext(Context):
     path: str
     output_path: str | None = None
 
-    # Configuration
-    num_cores: int = 1
-
     # After LoadPdfStep - marks PDF as validated, page count extracted
     pdf: bool = False
     total_pages: int = 0

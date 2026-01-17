@@ -4,13 +4,13 @@ from pipetree import Capability
 
 LOAD_PDF = Capability(
     name="load_pdf",
-    requires={"path"},
+    requires={"path", "output_path"},
     provides={"pdf", "total_pages"},
 )
 
 TEXT_EXTRACTION = Capability(
     name="text_extraction",
-    requires={"pdf", "num_cores"},
+    requires={"pdf"},
     provides={"texts"},
 )
 

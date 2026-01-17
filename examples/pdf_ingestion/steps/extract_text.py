@@ -1,5 +1,6 @@
 """Extract text step with parallel processing."""
 
+import os
 import time
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
@@ -26,7 +27,7 @@ class ExtractTextStep(Step):
             raise ValueError("PDF not loaded")
 
         num_pages = ctx.total_pages
-        num_cores = ctx.num_cores
+        num_cores = os.cpu_count() or 1
         pdf_path = ctx.path
 
         print(f"Extracting text from {num_pages} pages using {num_cores} cores...")

@@ -38,6 +38,9 @@ class Pipetree:
                     f"Step {step.name!r} requires {missing} but previous step "
                     f"{prev_step.name!r} only provides {prev_step.cap.provides}"
                 )
+            # First step's requirements are assumed to come from initial context
+            if i == 0:
+                available.update(step.cap.requires)
             available.update(step.cap.provides)
 
     def _check_preconditions(self, step: Step, ctx: Context) -> None:

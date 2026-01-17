@@ -134,3 +134,37 @@ class TestPipetree:
         repr_str = repr(pipetree)
         assert "step1" in repr_str
         assert "step2" in repr_str
+
+    def test_chain_validation_tracks_initial_context(self) -> None:
+        """Later steps can require values from initial context (first step's requires)."""
+        # First step requires "path" and "output_path" from initial context
+        cap1 = Capability(name="load", requires={"path", "output_path"}, provides={"data"})
+        # Second step requires "data" (from step1) - no issue
+        cap2 = Capability(name="process", requires={"data"}, provides={"result"})
+        # Third step requires "output_path" (from initial context, not from any step)
+        cap3 = Capability(name="save", requires={"result", "output_path"}, provides={"saved"})
+
+        class Step1(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.data = "loaded"  # type: ignore
+                return ctx
+
+        class Step2(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.result = "processed"  # type: ignore
+                return ctx
+
+        class Step3(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.saved = True  # type: ignore
+                return ctx
+
+        # This should NOT raise - output_path is tracked from first step's requires
+        pipetree = Pipetree(
+            steps=[
+                Step1(cap=cap1, name="load"),
+                Step2(cap=cap2, name="process"),
+                Step3(cap=cap3, name="save"),
+            ]
+        )
+        assert len(pipetree.steps) == 3
