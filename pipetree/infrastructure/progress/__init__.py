@@ -13,6 +13,9 @@ from pipetree.infrastructure.progress.progress_notifier import (
     ProgressEvent,
     ProgressNotifier,
 )
+from pipetree.infrastructure.progress.sqlite_progress_notifier import (
+    SQLiteProgressNotifier,
+)
 
 __all__ = [
     "ProgressEvent",
@@ -20,4 +23,5 @@ __all__ = [
     "NullProgressNotifier",
     "InMemoryProgressNotifier",
     "FileProgressNotifier",
+    "SQLiteProgressNotifier",
 ]

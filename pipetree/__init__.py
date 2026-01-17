@@ -44,6 +44,7 @@ from pipetree.infrastructure.progress import (
     NullProgressNotifier,
     ProgressEvent,
     ProgressNotifier,
+    SQLiteProgressNotifier,
 )
 
 # Infrastructure - Registry
@@ -75,6 +76,7 @@ __all__ = [
     "NullProgressNotifier",
     "InMemoryProgressNotifier",
     "FileProgressNotifier",
+    "SQLiteProgressNotifier",
     # Registry
     "Registry",
     "global_registry",

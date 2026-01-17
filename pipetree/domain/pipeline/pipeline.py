@@ -16,6 +16,12 @@ if TYPE_CHECKING:
 CtxT = TypeVar("CtxT", bound=Context)
 
 
+def _generate_run_id() -> str:
+    """Generate a unique run ID."""
+    import uuid
+    return str(uuid.uuid4())
+
+
 class Pipetree:
     """
     Pipeline orchestrator that runs steps sequentially with contract validation.
@@ -31,9 +37,12 @@ class Pipetree:
         self,
         steps: list[Step],
         progress_notifier: "ProgressNotifier | None" = None,
+        name: str = "Pipeline",
     ) -> None:
         self.steps = steps
+        self.name = name
         self._notifier = progress_notifier
+        self._run_id: str | None = None
         self._validate_step_chain()
 
     def _validate_step_chain(self) -> None:
@@ -78,6 +87,31 @@ class Pipetree:
             result = await result
         return result  # type: ignore[return-value]
 
+    @property
+    def run_id(self) -> str | None:
+        """Get the current run ID."""
+        return self._run_id
+
+    def _register_run(self) -> None:
+        """Register this run with the notifier if it supports it."""
+        if self._notifier is None:
+            return
+
+        # Check if notifier supports run registration (SQLiteProgressNotifier)
+        if hasattr(self._notifier, "register_run"):
+            step_names = [s.name for s in self.steps]
+            self._run_id = self._notifier.register_run(self.name, step_names)
+        elif hasattr(self._notifier, "run_id"):
+            self._run_id = self._notifier.run_id
+
+    def _complete_run(self, status: str = "completed") -> None:
+        """Mark the run as completed if the notifier supports it."""
+        if self._notifier is None:
+            return
+
+        if hasattr(self._notifier, "complete_run"):
+            self._notifier.complete_run(status)
+
     async def run(self, ctx: CtxT) -> CtxT:
         """
         Run the pipeline with the given context.
@@ -89,6 +123,9 @@ class Pipetree:
             The same context object after all steps complete
         """
         total_steps = len(self.steps)
+
+        # Register run with notifier (for SQLite, this pre-creates all steps)
+        self._register_run()
 
         # Inject notifier into context for sub-step progress reporting
         ctx._notifier = self._notifier
@@ -122,8 +159,10 @@ class Pipetree:
                     self._notifier.step_failed(
                         step.name, i, total_steps, duration, str(e)
                     )
+                self._complete_run("failed")
                 raise
 
+        self._complete_run("completed")
         return ctx
 
     def run_sync(self, ctx: CtxT) -> CtxT:

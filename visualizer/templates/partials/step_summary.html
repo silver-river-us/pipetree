@@ -1,0 +1,32 @@
+{% if latest_event %}
+<div class="flex items-center gap-3">
+    {% if latest_event.event_type == 'started' %}
+    <span class="text-blue-400">Starting...</span>
+    {% elif latest_event.event_type == 'progress' %}
+    {% if latest_event.current is not none and latest_event.total is not none and latest_event.total > 0 %}
+    <div class="flex items-center gap-2 flex-1">
+        <div class="flex-1 max-w-xs bg-gray-700 rounded-full h-1.5">
+            <div class="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                 style="width: {{ (latest_event.current / latest_event.total * 100) | int }}%"></div>
+        </div>
+        <span class="text-gray-400">{{ latest_event.current }}/{{ latest_event.total }}</span>
+        {% if latest_event.message %}
+        <span class="text-gray-500 truncate max-w-xs">{{ latest_event.message }}</span>
+        {% endif %}
+    </div>
+    {% elif latest_event.message %}
+    <span class="text-gray-400">{{ latest_event.message }}</span>
+    {% else %}
+    <span class="text-gray-400">Processing...</span>
+    {% endif %}
+    {% elif latest_event.event_type == 'completed' %}
+    <span class="text-green-400">Completed in {{ latest_event.duration_s | format_duration }}</span>
+    {% elif latest_event.event_type == 'failed' %}
+    <span class="text-red-400">Failed: {{ latest_event.error or 'Unknown error' }}</span>
+    {% endif %}
+</div>
+{% elif step %}
+<span class="text-gray-500">{% if step.status == 'pending' %}Waiting...{% else %}No output{% endif %}</span>
+{% else %}
+<span class="text-gray-500">-</span>
+{% endif %}

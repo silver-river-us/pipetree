@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}{{ run.name if run else 'Run' }} - Pipetree Visualizer{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-screen-xl mx-auto">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-6" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="/?db={{ db_path }}" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    Runs
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2">{{ run.name if run else run_id[:8] }}</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    {% if run %}
+    <!-- Run header -->
+    <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                {% set colors = get_status_color(run.status) %}
+                <div class="flex items-center justify-center w-12 h-12 rounded-full {{ colors.bg }}">
+                    {% if run.status == 'pending' %}
+                    <svg class="w-6 h-6 {{ colors.text }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    {% elif run.status == 'running' %}
+                    <svg class="w-6 h-6 {{ colors.text }} animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    {% elif run.status == 'completed' %}
+                    <svg class="w-6 h-6 {{ colors.text }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    {% elif run.status == 'failed' %}
+                    <svg class="w-6 h-6 {{ colors.text }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">{{ run.name or 'Pipeline Run' }}</h1>
+                    <p class="text-sm text-gray-500">
+                        ID: {{ run.id }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="text-right">
+                <span class="px-4 py-2 text-sm font-medium rounded-full {{ colors.bg }} {{ colors.text }}">
+                    {{ run.status | capitalize }}
+                </span>
+                <p class="text-sm text-gray-500 mt-2">
+                    Started {{ run.started_at | format_timestamp }}
+                    {% if run.completed_at %}
+                    &bull; Duration: {{ (run.completed_at - run.started_at) | format_duration }}
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Steps visualization - GitHub Actions style -->
+    <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6"
+         id="steps-container"
+         hx-get="/runs/{{ run_id }}/steps?db={{ db_path }}"
+         hx-trigger="every 500ms [document.querySelector('[data-run-status]')?.dataset.runStatus == 'running']"
+         hx-swap="innerHTML"
+         data-run-status="{{ run.status }}">
+        {% include "partials/steps.html" %}
+    </div>
+
+    {% else %}
+    <div class="text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Run not found</h3>
+        <p class="mt-1 text-sm text-gray-500">The requested pipeline run could not be found.</p>
+        <a href="/?db={{ db_path }}" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+            Back to Dashboard
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Step details modal -->
+<div id="step-modal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+            <div id="modal-content">
+                <!-- Content loaded via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openStepModal(runId, stepIndex, dbPath) {
+    const modal = document.getElementById('step-modal');
+    const content = document.getElementById('modal-content');
+
+    // Load step events via HTMX
+    htmx.ajax('GET', `/runs/${runId}/step/${stepIndex}/events?db=${encodeURIComponent(dbPath)}`, {
+        target: '#modal-content',
+        swap: 'innerHTML'
+    });
+
+    modal.classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('step-modal').classList.add('hidden');
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});
+
+// WebSocket for real-time updates
+{% if run and run.status == 'running' %}
+(function() {
+    const ws = new WebSocket(`ws://${window.location.host}/ws/{{ run_id }}?db={{ db_path | urlencode }}`);
+
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'update') {
+            // Trigger HTMX refresh
+            htmx.trigger('#steps-container', 'htmx:trigger');
+        } else if (data.type === 'complete') {
+            // Update run status
+            document.querySelector('[data-run-status]').dataset.runStatus = data.status;
+            // Final refresh
+            htmx.trigger('#steps-container', 'htmx:trigger');
+            location.reload();
+        }
+    };
+
+    ws.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
+})();
+{% endif %}
+</script>
+{% endblock %}

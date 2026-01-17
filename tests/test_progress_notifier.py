@@ -12,6 +12,7 @@ from pipetree import (
     NullProgressNotifier,
     Pipetree,
     ProgressEvent,
+    SQLiteProgressNotifier,
     Step,
 )
 from pipetree.types import Context
@@ -132,6 +133,147 @@ class TestFileProgressNotifier:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "subdir" / "progress.csv"
             notifier = FileProgressNotifier(path)
+            notifier.close()
+            assert path.exists()
+
+
+class TestSQLiteProgressNotifier:
+    def test_creates_database(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "progress.db"
+            notifier = SQLiteProgressNotifier(path)
+            notifier.close()
+            assert path.exists()
+
+    def test_registers_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "progress.db"
+            notifier = SQLiteProgressNotifier(path)
+            run_id = notifier.register_run("Test Pipeline", ["step1", "step2", "step3"])
+
+            run = notifier.get_run(run_id)
+            assert run is not None
+            assert run["name"] == "Test Pipeline"
+            assert run["status"] == "running"
+            assert run["total_steps"] == 3
+
+            steps = notifier.get_steps(run_id)
+            assert len(steps) == 3
+            assert steps[0]["name"] == "step1"
+            assert steps[0]["status"] == "pending"
+
+            notifier.close()
+
+    def test_stores_events(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "progress.db"
+            notifier = SQLiteProgressNotifier(path)
+            notifier.register_run("Test", ["step1"])
+
+            notifier.step_started("step1", 0, 1)
+            notifier.step_completed("step1", 0, 1, 0.5)
+
+            events = notifier.get_events()
+            assert len(events) == 2
+            assert events[0]["event_type"] == "started"
+            assert events[1]["event_type"] == "completed"
+            assert events[1]["duration_s"] == 0.5
+
+            notifier.close()
+
+    def test_updates_step_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "progress.db"
+            notifier = SQLiteProgressNotifier(path)
+            notifier.register_run("Test", ["step1"])
+
+            # Initially pending
+            steps = notifier.get_steps()
+            assert steps[0]["status"] == "pending"
+
+            # After started
+            notifier.step_started("step1", 0, 1)
+            steps = notifier.get_steps()
+            assert steps[0]["status"] == "running"
+
+            # After completed
+            notifier.step_completed("step1", 0, 1, 0.5)
+            steps = notifier.get_steps()
+            assert steps[0]["status"] == "completed"
+            assert steps[0]["duration_s"] == 0.5
+
+            notifier.close()
+
+    def test_stores_progress_events(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "progress.db"
+            notifier = SQLiteProgressNotifier(path)
+            notifier.register_run("Test", ["extract"])
+
+            notifier.step_progress("extract", 0, 1, 50, 100, "Halfway")
+
+            events = notifier.get_events()
+            assert len(events) == 1
+            assert events[0]["event_type"] == "progress"
+            assert events[0]["current"] == 50
+            assert events[0]["total"] == 100
+            assert events[0]["message"] == "Halfway"
+
+            notifier.close()
+
+    def test_complete_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "progress.db"
+            notifier = SQLiteProgressNotifier(path)
+            notifier.register_run("Test", ["step1"])
+            notifier.complete_run("completed")
+
+            run = notifier.get_run()
+            assert run is not None
+            assert run["status"] == "completed"
+            assert run["completed_at"] is not None
+
+            notifier.close()
+
+    def test_get_all_runs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "progress.db"
+
+            # Create multiple runs
+            notifier1 = SQLiteProgressNotifier(path, run_id="run1")
+            notifier1.register_run("Run 1", ["step1"])
+            notifier1.close()
+
+            notifier2 = SQLiteProgressNotifier(path, run_id="run2")
+            notifier2.register_run("Run 2", ["step1", "step2"])
+
+            runs = notifier2.get_all_runs()
+            assert len(runs) == 2
+
+            notifier2.close()
+
+    def test_get_events_since_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "progress.db"
+            notifier = SQLiteProgressNotifier(path)
+            notifier.register_run("Test", ["step1"])
+
+            notifier.step_started("step1", 0, 1)
+            notifier.step_progress("step1", 0, 1, 50, 100)
+            notifier.step_completed("step1", 0, 1, 0.5)
+
+            # Get only events after the first one
+            all_events = notifier.get_events()
+            first_id = all_events[0]["id"]
+            new_events = notifier.get_events(since_id=first_id)
+            assert len(new_events) == 2  # progress + completed
+
+            notifier.close()
+
+    def test_creates_parent_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "subdir" / "progress.db"
+            notifier = SQLiteProgressNotifier(path)
             notifier.close()
             assert path.exists()
 

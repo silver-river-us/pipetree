@@ -1,0 +1,139 @@
+{% if run %}
+<div data-run-status="{{ run.status }}">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">Pipeline Steps</h2>
+
+    <!-- CircleCI-style horizontal workflow -->
+    <div class="bg-gray-50 rounded-lg p-6 mb-6 overflow-x-auto">
+        <div class="flex items-center justify-center gap-0 min-w-max">
+            {% for step in steps %}
+            {% set colors = get_status_color(step.status) %}
+
+            <!-- Step node -->
+            <div class="flex items-center">
+                <div class="relative">
+                    <!-- Circle with status -->
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center
+                        {% if step.status == 'completed' %}bg-green-500
+                        {% elif step.status == 'running' %}bg-blue-500 animate-pulse
+                        {% elif step.status == 'failed' %}bg-red-500
+                        {% else %}bg-gray-300{% endif %}
+                        shadow-md cursor-pointer hover:scale-110 transition-transform"
+                        onclick="openStepModal('{{ run.id }}', {{ step.step_index }}, '{{ db_path }}')">
+
+                        {% if step.status == 'completed' %}
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        {% elif step.status == 'running' %}
+                        <svg class="w-6 h-6 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        {% elif step.status == 'failed' %}
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                        {% else %}
+                        <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        {% endif %}
+                    </div>
+
+                    <!-- Step name label below -->
+                    <div class="absolute top-14 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-center">
+                        <span class="text-sm font-medium text-gray-700">{{ step.name }}</span>
+                        {% if step.duration_s %}
+                        <br><span class="text-xs text-gray-500">{{ step.duration_s | format_duration }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Connector line to next step -->
+                {% if not loop.last %}
+                <div class="w-16 h-1 mx-2
+                    {% if step.status == 'completed' %}bg-green-500
+                    {% elif step.status == 'running' %}bg-gradient-to-r from-blue-500 to-gray-300
+                    {% else %}bg-gray-300{% endif %}">
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Spacer for labels -->
+    <div class="h-8"></div>
+
+    <!-- GitHub Actions-style step list with inline progress -->
+    <div class="space-y-2">
+        {% for step in steps %}
+        {% set colors = get_status_color(step.status) %}
+        <div class="border rounded-lg {{ colors.border }} overflow-hidden">
+            <button onclick="openStepModal('{{ run.id }}', {{ step.step_index }}, '{{ db_path }}')"
+                    class="w-full text-left">
+                <!-- Step header -->
+                <div class="flex items-center justify-between p-4 {{ colors.bg }} hover:opacity-90">
+                    <div class="flex items-center gap-3">
+                        <!-- Step number -->
+                        <span class="flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold
+                            {% if step.status == 'completed' %}bg-green-500 text-white
+                            {% elif step.status == 'running' %}bg-blue-500 text-white
+                            {% elif step.status == 'failed' %}bg-red-500 text-white
+                            {% else %}bg-gray-200 text-gray-600{% endif %}">
+                            {{ step.step_index + 1 }}
+                        </span>
+
+                        <!-- Status icon -->
+                        {% if step.status == 'pending' %}
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        {% elif step.status == 'running' %}
+                        <svg class="w-5 h-5 text-blue-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        {% elif step.status == 'completed' %}
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        {% elif step.status == 'failed' %}
+                        <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                        {% endif %}
+
+                        <!-- Step name -->
+                        <span class="font-semibold text-gray-900">{{ step.name }}</span>
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                        <!-- Duration -->
+                        <span class="text-sm text-gray-500 w-16 text-right font-mono">
+                            {{ step.duration_s | format_duration if step.duration_s else '-' }}
+                        </span>
+
+                        <!-- Expand icon -->
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Inline progress summary (GitHub Actions style) -->
+                {% if step.status == 'running' or step.status == 'completed' or step.status == 'failed' %}
+                <div class="px-4 py-2 bg-gray-900 text-gray-300 font-mono text-xs border-t border-gray-700"
+                     id="step-summary-{{ step.step_index }}"
+                     hx-get="/runs/{{ run.id }}/step/{{ step.step_index }}/summary?db={{ db_path }}"
+                     hx-trigger="load, every 500ms [closest('[data-run-status]').dataset.runStatus == 'running']"
+                     hx-swap="innerHTML">
+                    <span class="text-gray-500">Loading...</span>
+                </div>
+                {% endif %}
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<p class="text-gray-500">No step information available.</p>
+{% endif %}
