@@ -3,7 +3,7 @@
 .tree-controls {
     display: flex;
     gap: 0.5rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0;
 }
 
 .tree-controls button {
@@ -97,11 +97,12 @@
 
 <div data-run-status="{{ run.status }}">
     {% include "partials/steps_data.html" %}
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Pipeline Steps</h2>
-
-    <div class="tree-controls">
-        <button id="btn-h" onclick="setLayout('horizontal')">Horizontal</button>
-        <button id="btn-v" class="active" onclick="setLayout('vertical')">Vertical</button>
+    <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg font-semibold text-gray-900">Pipeline Steps</h2>
+        <div class="tree-controls">
+            <button id="btn-h" onclick="setLayout('horizontal')">Horizontal</button>
+            <button id="btn-v" class="active" onclick="setLayout('vertical')">Vertical</button>
+        </div>
     </div>
 
     <div class="tree-container">
