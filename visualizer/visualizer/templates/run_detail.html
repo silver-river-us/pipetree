@@ -43,7 +43,7 @@
                 <h1 class="text-2xl font-bold text-gray-900">{{ run.name or 'Run' }}</h1>
 
                 <!-- Status badge -->
-                <span class="badge inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-full {{ colors.bg }} {{ colors.text }}">
+                <span id="run-status-badge" class="badge inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-full {{ colors.bg }} {{ colors.text }}" data-status="{{ run.status }}">
                     {% if run.status == 'completed' %}
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -61,7 +61,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     {% endif %}
-                    {{ run.status | capitalize }}
+                    <span id="run-status-text">{{ run.status | capitalize }}</span>
                 </span>
             </div>
 
@@ -91,7 +91,7 @@
                 <!-- Duration / Finished -->
                 <div class="p-4">
                     <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Duration / Finished</div>
-                    <div class="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                    <div id="run-duration" class="flex items-center gap-2 text-sm font-semibold text-gray-900" data-started-at="{{ run.started_at }}">
                         <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
@@ -216,39 +216,149 @@ document.addEventListener('keydown', function(e) {
 
     function updateStepSummary(event) {
         const summaryEl = document.querySelector(`.step-summary[data-step-index="${event.step_index}"]`);
-        if (!summaryEl) return;
+        if (summaryEl) {
+            summaryEl.textContent = '';
 
-        summaryEl.textContent = '';
+            if (event.event_type === 'progress') {
+                setSummaryClasses(summaryEl, ['text-blue-600']);
+                if (event.current != null && event.total != null && event.total > 0) {
+                    const count = document.createElement('span');
+                    count.className = 'font-medium';
+                    count.textContent = `${event.current}/${event.total}`;
+                    summaryEl.appendChild(count);
+                    if (event.message) {
+                        const msg = document.createElement('span');
+                        msg.className = 'ml-1 text-gray-500';
+                        msg.textContent = event.message;
+                        summaryEl.appendChild(msg);
+                    }
+                } else if (event.message) {
+                    summaryEl.textContent = event.message;
+                } else {
+                    summaryEl.textContent = 'Processing...';
+                    summaryEl.classList.add('italic');
+                }
+            } else if (event.event_type === 'started') {
+                setSummaryClasses(summaryEl, ['text-gray-500', 'italic']);
+                summaryEl.textContent = 'Starting...';
+            } else if (event.event_type === 'completed') {
+                setSummaryClasses(summaryEl, ['text-green-600']);
+                summaryEl.textContent = '✓';
+            } else if (event.event_type === 'failed') {
+                setSummaryClasses(summaryEl, ['text-red-600']);
+                summaryEl.textContent = event.error || 'Failed';
+            }
+        }
 
-        if (event.event_type === 'progress') {
-            setSummaryClasses(summaryEl, ['text-blue-600']);
+        // Update the current step status bar
+        updateCurrentStepBar(event);
+    }
+
+    function updateCurrentStepBar(event) {
+        const bar = document.getElementById('current-step-bar');
+        const nameEl = document.getElementById('current-step-name');
+        const progressEl = document.getElementById('current-step-progress');
+        if (!bar || !nameEl || !progressEl) return;
+
+        if (event.event_type === 'started') {
+            // Show bar and update with new step
+            bar.classList.remove('hidden');
+            nameEl.textContent = event.step_name;
+            progressEl.dataset.stepIndex = event.step_index;
+            progressEl.textContent = 'Starting...';
+        } else if (event.event_type === 'progress') {
+            // Update progress on current step
+            bar.classList.remove('hidden');
+            nameEl.textContent = event.step_name;
+            progressEl.dataset.stepIndex = event.step_index;
             if (event.current != null && event.total != null && event.total > 0) {
-                const count = document.createElement('span');
-                count.className = 'font-medium';
-                count.textContent = `${event.current}/${event.total}`;
-                summaryEl.appendChild(count);
+                progressEl.innerHTML = `<span class="font-medium">${event.current}/${event.total}</span>`;
                 if (event.message) {
-                    const msg = document.createElement('span');
-                    msg.className = 'ml-1 text-gray-500';
-                    msg.textContent = event.message;
-                    summaryEl.appendChild(msg);
+                    progressEl.innerHTML += ` <span class="text-gray-500">${event.message}</span>`;
                 }
             } else if (event.message) {
-                summaryEl.textContent = event.message;
+                progressEl.textContent = event.message;
             } else {
-                summaryEl.textContent = 'Processing...';
-                summaryEl.classList.add('italic');
+                progressEl.textContent = 'Processing...';
             }
-        } else if (event.event_type === 'started') {
-            setSummaryClasses(summaryEl, ['text-gray-500', 'italic']);
-            summaryEl.textContent = 'Starting...';
-        } else if (event.event_type === 'completed') {
-            setSummaryClasses(summaryEl, ['text-green-600']);
-            summaryEl.textContent = '✓';
-        } else if (event.event_type === 'failed') {
-            setSummaryClasses(summaryEl, ['text-red-600']);
-            summaryEl.textContent = event.error || 'Failed';
+        } else if (event.event_type === 'completed' || event.event_type === 'failed') {
+            // Hide bar when step completes/fails (will show again if another step starts)
+            if (progressEl.dataset.stepIndex == event.step_index) {
+                bar.classList.add('hidden');
+                nameEl.textContent = '';
+                progressEl.textContent = '';
+            }
         }
+    }
+
+    function updateRunStatusBadge(status) {
+        const badge = document.getElementById('run-status-badge');
+        const textEl = document.getElementById('run-status-text');
+        if (!badge || !textEl) return;
+
+        // Remove old color classes
+        badge.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800', 'bg-gray-100', 'text-gray-800');
+
+        // Update icon and colors based on status
+        let iconSvg = '';
+        if (status === 'completed') {
+            badge.classList.add('bg-green-100', 'text-green-800');
+            iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+        } else if (status === 'failed') {
+            badge.classList.add('bg-red-100', 'text-red-800');
+            iconSvg = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+        }
+
+        // Update badge content
+        badge.innerHTML = iconSvg + `<span id="run-status-text">${status.charAt(0).toUpperCase() + status.slice(1)}</span>`;
+        badge.dataset.status = status;
+    }
+
+    function updateRunDuration(completedAt) {
+        const durationEl = document.getElementById('run-duration');
+        if (!durationEl) {
+            console.error('run-duration element not found');
+            return;
+        }
+
+        const startedAt = parseFloat(durationEl.dataset.startedAt);
+        console.log('updateRunDuration:', { startedAt, completedAt, dataset: durationEl.dataset });
+
+        if (isNaN(startedAt) || startedAt === 0) {
+            console.error('Invalid startedAt:', startedAt);
+            return;
+        }
+        if (completedAt == null || completedAt === 0) {
+            console.error('Invalid completedAt:', completedAt);
+            return;
+        }
+
+        const durationSec = completedAt - startedAt;
+        const durationStr = formatDuration(durationSec);
+        const finishedStr = formatTimestamp(completedAt);
+
+        // Keep the clock icon, update the rest
+        durationEl.innerHTML = `
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>${durationStr}</span>
+            <span class="text-gray-400 font-normal">/</span>
+            <span class="font-medium">${finishedStr}</span>
+        `;
+    }
+
+    function formatDuration(seconds) {
+        if (seconds < 1) return Math.round(seconds * 1000) + 'ms';
+        if (seconds < 60) return seconds.toFixed(2) + 's';
+        const mins = Math.floor(seconds / 60);
+        const secs = (seconds % 60).toFixed(1);
+        return mins + 'm ' + secs + 's';
+    }
+
+    function formatTimestamp(unixTimestamp) {
+        const date = new Date(unixTimestamp * 1000);
+        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     }
 
     ws.onmessage = function(event) {
@@ -274,12 +384,24 @@ document.addEventListener('keydown', function(e) {
                 }
             }
         } else if (data.type === 'complete') {
+            console.log('WebSocket complete message:', data);
+
             // Update run status
             document.querySelector('[data-run-status]').dataset.runStatus = data.status;
-            // Final refresh
+
+            // Update status badge
+            updateRunStatusBadge(data.status);
+
+            // Update duration
+            updateRunDuration(data.completed_at);
+
+            // Hide current step bar
+            const bar = document.getElementById('current-step-bar');
+            if (bar) bar.classList.add('hidden');
+
+            // Final refresh of steps
             htmx.trigger('#steps-data', 'steps:update');
             htmx.trigger('#step-list', 'steps:update');
-            location.reload();
         }
     };
 
