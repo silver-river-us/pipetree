@@ -1,8 +1,29 @@
-src/ingestion_framework.egg-info/
+# Python
 __pycache__/
 *.pyc
 *.pyo
-.pytest_cache/
-.env
+*.egg-info/
+
+# Virtual environments
 .venv/
+
+# Testing
+.pytest_cache/
+
+# Linting/Type checking
+.ruff_cache/
+.mypy_cache/
+
+# Environment files
+.env
+
+# Claude
 .claude/
+
+# Generated data files
+*/**/*.txt
+*/**/*.csv
+*/**/*.db
+
+*/**/node_modules/
+

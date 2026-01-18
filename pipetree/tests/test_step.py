@@ -1,0 +1,121 @@
+"""Tests for Step and Router classes."""
+
+import pytest
+
+from pipetree import Capability, Router, Step
+from pipetree.types import Context
+from tests.fixtures import MockContext
+
+
+class TestStep:
+    def test_step_creation(self) -> None:
+        cap = Capability(name="test", requires={"a"}, provides={"b"})
+
+        class DummyStep(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.b = "value"  # type: ignore
+                return ctx
+
+        step = DummyStep(cap=cap, name="my_step")
+        assert step.name == "my_step"
+        assert step.cap.name == "test"
+
+    def test_step_run(self) -> None:
+        cap = Capability(name="test", requires=set(), provides={"result"})
+
+        class DummyStep(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.result = 42  # type: ignore
+                return ctx
+
+        step = DummyStep(cap=cap, name="my_step")
+        result = step.run(MockContext())
+        assert result.result == 42
+
+    def test_step_repr(self) -> None:
+        cap = Capability(name="test_cap", requires=set(), provides=set())
+
+        class DummyStep(Step):
+            def run(self, ctx: Context) -> Context:
+                return ctx
+
+        step = DummyStep(cap=cap, name="my_step")
+        repr_str = repr(step)
+        assert "DummyStep" in repr_str
+        assert "my_step" in repr_str
+        assert "test_cap" in repr_str
+
+
+class TestRouter:
+    @pytest.mark.asyncio
+    async def test_router_picks_correct_route(self) -> None:
+        cap = Capability(name="router", requires={"signal"}, provides={"output"})
+
+        class StepA(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.output = "A"  # type: ignore
+                return ctx
+
+        class StepB(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.output = "B"  # type: ignore
+                return ctx
+
+        step_a = StepA(cap=cap, name="step_a")
+        step_b = StepB(cap=cap, name="step_b")
+
+        class DummyRouter(Router):
+            def pick(self, ctx: Context) -> str:
+                return "route_a" if ctx.signal == "a" else "route_b"  # type: ignore
+
+        router = DummyRouter(
+            cap=cap,
+            name="test_router",
+            table={"route_a": step_a, "route_b": step_b},
+        )
+
+        ctx_a = MockContext(signal="a")
+        result_a = await router.run(ctx_a)
+        assert result_a.output == "A"
+
+        ctx_b = MockContext(signal="b")
+        result_b = await router.run(ctx_b)
+        assert result_b.output == "B"
+
+    @pytest.mark.asyncio
+    async def test_router_uses_default(self) -> None:
+        cap = Capability(name="router", requires=set(), provides={"output"})
+
+        class DefaultStep(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.output = "default"  # type: ignore
+                return ctx
+
+        default_step = DefaultStep(cap=cap, name="default")
+
+        class DummyRouter(Router):
+            def pick(self, ctx: Context) -> str:
+                return "unknown_route"
+
+        router = DummyRouter(
+            cap=cap,
+            name="test_router",
+            table={"known": default_step},
+            default="known",
+        )
+
+        result = await router.run(MockContext())
+        assert result.output == "default"
+
+    @pytest.mark.asyncio
+    async def test_router_raises_on_unknown_route(self) -> None:
+        cap = Capability(name="router", requires=set(), provides=set())
+
+        class DummyRouter(Router):
+            def pick(self, ctx: Context) -> str:
+                return "unknown"
+
+        router = DummyRouter(cap=cap, name="test_router", table={})
+
+        with pytest.raises(ValueError, match="unknown route"):
+            await router.run(MockContext())

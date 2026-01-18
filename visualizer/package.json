@@ -1,0 +1,19 @@
+{
+  "name": "visualizer",
+  "version": "1.0.0",
+  "main": "tailwind.config.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i ./visualizer/static/css/tailwind-input.css -o ./visualizer/static/vendor/css/tailwind.min.css --minify",
+    "watch:css": "tailwindcss -i ./visualizer/static/css/tailwind-input.css -o ./visualizer/static/vendor/css/tailwind.min.css --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  }
+}

@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipetree-visualizer"
+version = "0.1.0"
+description = "Real-time monitoring dashboard for pipetree"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Pipetree Team"}
+]
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "jinja2>=3.1.0",
+    "websockets>=12.0",
+    "python-multipart>=0.0.6",
+    "python-dotenv",
+    "sqlmodel>=0.0.16",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "mypy>=1.0.0",
+    "httpx",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+check_untyped_defs = false
+disable_error_code = ["type-arg", "assignment", "no-untyped-def", "arg-type", "import-not-found"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "RUF",    # ruff-specific
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["visualizer"]

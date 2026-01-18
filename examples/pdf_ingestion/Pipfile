@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pipetree = {path = "../../pipetree", editable = true}
+pypdf = ">=4.0.0"
+sqlmodel = "*"
+
+[dev-packages]
+pytest = ">=7.0.0"
+pytest-asyncio = ">=0.21.0"
+mypy = ">=1.0.0"
+ruff = ">=0.4.0"
+python-dotenv = "*"
+
+[pipenv]
+path = ".venv"

@@ -1,0 +1,20 @@
+{% if latest_event %}
+{% if latest_event.event_type == 'started' %}
+<span class="italic">Starting...</span>
+{% elif latest_event.event_type == 'progress' %}
+{% if latest_event.current is not none and latest_event.total is not none and latest_event.total > 0 %}
+<span class="font-medium">{{ latest_event.current }}/{{ latest_event.total }}</span>
+{% if latest_event.message %}<span class="ml-1 text-gray-500">{{ latest_event.message }}</span>{% endif %}
+{% elif latest_event.message %}
+{{ latest_event.message }}
+{% else %}
+<span class="italic">Processing...</span>
+{% endif %}
+{% elif latest_event.event_type == 'completed' %}
+<span class="text-green-600">✓</span>
+{% elif latest_event.event_type == 'failed' %}
+<span class="text-red-600">{{ latest_event.error or 'Failed' }}</span>
+{% endif %}
+{% elif step %}
+{% if step.status == 'pending' %}<span class="text-gray-400 italic">Waiting...</span>{% endif %}
+{% endif %}

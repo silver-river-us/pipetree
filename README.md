@@ -1,6 +1,15 @@
-# Ingestion Framework
+<div align="center">
+  <img src="assets/logo.png" alt="Pipetree Logo" width="150"/>
+  <h1>Pipetree</h1>
 
-A modular, benchmarkable ingestion framework for large PDFs (3k-10k pages).
+  **A modular, benchmarkable pipeline framework for large document processing.**
+
+  [![CI](https://github.com/matiasgutierrez/pipetree/actions/workflows/test.yml/badge.svg)](https://github.com/matiasgutierrez/pipetree/actions/workflows/test.yml)
+  [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+</div>
+
+---
 
 ## Features
 
@@ -15,7 +24,7 @@ A modular, benchmarkable ingestion framework for large PDFs (3k-10k pages).
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                          Pipeline                               │
+│                          Pipetree                               │
 │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐     │
 │  │  Step 1  │──▶│  Step 2  │──▶│  Router  │──▶│  Step N  │     │
 │  │ (cap: A) │   │ (cap: B) │   │ (cap: C) │   │ (cap: D) │     │
@@ -51,12 +60,12 @@ The base processing unit. Each step declares a capability and implements a `run(
 
 ```
 ┌────────────────────────────┐
-│          BaseStep          │
+│          Step          │
 ├────────────────────────────┤
 │ cap: Capability            │
 │ name: str                  │
 ├────────────────────────────┤
-│ run(ctx) → Ctx             │
+│ run(ctx) → Context             │
 └────────────────────────────┘
 ```
 
@@ -75,7 +84,7 @@ A specialized step that branches to different implementations based on context s
  [impl_a] [impl_b] [default]
 ```
 
-### Pipeline
+### Pipetree
 
 Orchestrates step execution with:
 - **Chain validation** - Ensures `provides` from step N satisfies `requires` of step N+1
@@ -105,7 +114,7 @@ step = registry.make("chunking", "semantic")
 
 ## Data Flow
 
-The `Ctx` (context) object flows through the pipeline as a streaming data bus:
+The `Context` (context) object flows through the pipeline as a streaming data bus:
 
 ```
 Input: path → pdf → pages → texts → chunks → vec_batches → done
@@ -165,7 +174,7 @@ pipenv run pytest -v
 pipenv run pytest tests/test_pipeline.py
 
 # Run with coverage (if installed)
-pipenv run pytest --cov=src/ingestion
+pipenv run pytest --cov=pipetree
 ```
 
 ## Linting
@@ -193,7 +202,7 @@ This runs lint, type check, and tests - the same checks as CI.
 
 ```python
 import asyncio
-from ingestion import Pipeline, Capability, BaseStep, Ctx
+from pipetree import Pipetree, Capability, Step, Context
 
 # Define a capability
 my_cap = Capability(
@@ -203,16 +212,16 @@ my_cap = Capability(
 )
 
 # Implement a step
-class MyExtractor(BaseStep):
-    def run(self, ctx: Ctx) -> Ctx:
+class MyExtractor(Step):
+    def run(self, ctx: Context) -> Context:
         ctx["texts"] = extract_texts(ctx["pages"])
         return ctx
 
-# Build and run pipeline
-pipeline = Pipeline(steps=[MyExtractor(my_cap, "extractor")])
+# Build and run pipetree
+pipetree = Pipetree(steps=[MyExtractor(my_cap, "extractor")])
 
 async def main():
-    result = await pipeline.run({"pages": my_pages})
+    result = await pipetree.run({"pages": my_pages})
     print(result)
 
 asyncio.run(main())
@@ -223,7 +232,7 @@ Or run directly from the shell:
 ```bash
 pipenv run python -c "
 import asyncio
-from ingestion import Pipeline, BaseStep, Capability, Ctx
+from pipetree import Pipetree, Step, Capability, Context
 
 # Define your steps and run
 async def main():
@@ -232,6 +241,37 @@ async def main():
 
 asyncio.run(main())
 "
+```
+
+## Visualizer
+
+Pipetree includes a real-time monitoring dashboard built with FastAPI, HTMX, and Tailwind CSS.
+
+```bash
+cd visualizer
+pipenv install
+pipenv run uvicorn visualizer.app:app --reload
+```
+
+Features:
+- Real-time pipeline progress via WebSocket
+- Multiple database support
+- Interactive step visualization (horizontal, vertical, list views)
+- CircleCI-inspired UI
+
+## Project Structure
+
+```
+pipetree/
+├── pipetree/              # Core library
+│   ├── pipetree/          # Main package
+│   └── tests/             # Unit tests
+├── visualizer/            # Monitoring dashboard
+│   ├── visualizer/        # FastAPI app
+│   └── templates/         # Jinja2 templates
+└── examples/
+    ├── pdf_ingestion/     # PDF processing example
+    └── stress_test/       # Load testing example
 ```
 
 ## License
