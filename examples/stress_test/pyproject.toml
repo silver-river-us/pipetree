@@ -1,0 +1,11 @@
+[project]
+name = "stress-test"
+version = "0.1.0"
+description = "Stress test pipeline for testing the Pipetree visualizer with many steps"
+requires-python = ">=3.11"
+dependencies = [
+    "pipetree",
+]
+
+[project.scripts]
+stress-test = "stress_test.main:main"
