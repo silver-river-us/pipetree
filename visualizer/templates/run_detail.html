@@ -77,10 +77,7 @@
     <!-- Steps visualization - GitHub Actions style -->
     <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6"
          id="steps-container"
-         data-run-status="{{ run.status }}"
-         hx-get="/runs/{{ run.id }}/steps?db={{ db_path }}"
-         hx-trigger="steps:update"
-         hx-swap="innerHTML">
+         data-run-status="{{ run.status }}">
         {% include "partials/steps.html" %}
     </div>
 
@@ -205,14 +202,16 @@ document.addEventListener('keydown', function(e) {
 
                 const hasStatusEvent = data.events.some(ev => stepUpdateTypes.has(ev.event_type));
                 if (hasStatusEvent) {
-                    htmx.trigger('#steps-container', 'steps:update');
+                    htmx.trigger('#steps-data', 'steps:update');
+                    htmx.trigger('#step-list', 'steps:update');
                 }
             }
         } else if (data.type === 'complete') {
             // Update run status
             document.querySelector('[data-run-status]').dataset.runStatus = data.status;
             // Final refresh
-            htmx.trigger('#steps-container', 'steps:update');
+            htmx.trigger('#steps-data', 'steps:update');
+            htmx.trigger('#step-list', 'steps:update');
             location.reload();
         }
     };

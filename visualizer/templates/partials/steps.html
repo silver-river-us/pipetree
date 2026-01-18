@@ -1,8 +1,4 @@
 {% if run %}
-{% set organized = organize_steps_with_branches(steps) %}
-{% set main_steps = organized.main %}
-{% set branches_by_parent = organized.branches_by_parent %}
-
 <style>
 .tree-controls {
     display: flex;
@@ -100,6 +96,7 @@
 </style>
 
 <div data-run-status="{{ run.status }}">
+    {% include "partials/steps_data.html" %}
     <h2 class="text-lg font-semibold text-gray-900 mb-3">Pipeline Steps</h2>
 
     <div class="tree-controls">
@@ -113,10 +110,9 @@
 
     <script>
     (function() {
-        const mainSteps = {{ main_steps | tojson }};
-        const branchesByParent = {{ branches_by_parent | tojson }};
-        const runId = "{{ run.id }}";
-        const dbPath = "{{ db_path }}";
+        let currentData = null;
+        let currentRunId = "";
+        let currentDbPath = "";
 
         const NODE_H = 36;
         const H_GAP = 24;
@@ -150,13 +146,36 @@
             render();
         }
 
+        function readStepsData() {
+            const el = document.getElementById('steps-data');
+            if (!el) return null;
+            return {
+                mainSteps: JSON.parse(el.dataset.mainSteps || '[]'),
+                branchesByParent: JSON.parse(el.dataset.branchesByParent || '{}'),
+                runId: el.dataset.runId || '',
+                dbPath: el.dataset.dbPath || ''
+            };
+        }
+
+        function setData() {
+            currentData = readStepsData();
+            currentRunId = currentData ? currentData.runId : "";
+            currentDbPath = currentData ? currentData.dbPath : "";
+        }
+
         function render() {
+            if (!currentData) return;
             const svg = document.getElementById('tree-svg');
+            const container = svg.closest('.tree-container');
+            const prevScrollLeft = container ? container.scrollLeft : 0;
+            const prevScrollTop = container ? container.scrollTop : 0;
             svg.innerHTML = '';
 
             const isH = layout === 'horizontal';
             const nodes = [];
             const links = [];
+            const mainSteps = currentData.mainSteps;
+            const branchesByParent = currentData.branchesByParent;
 
             // Find which main step has branches and which is the final step
             let routerIndex = -1;
@@ -514,7 +533,7 @@
                 } else {
                     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                     g.setAttribute('class', 'node-group');
-                    g.onclick = () => openStepModal(runId, node.step_index, dbPath);
+                    g.onclick = () => openStepModal(currentRunId, node.step_index, currentDbPath);
 
                     // White rect with gray border
                     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -649,20 +668,37 @@
                     svg.appendChild(g);
                 }
             });
+
+            if (container) {
+                container.scrollLeft = prevScrollLeft;
+                container.scrollTop = prevScrollTop;
+            }
+        }
+
+        function handleStepsUpdate(evt) {
+            if (evt.target && evt.target.id === 'steps-data') {
+                setData();
+                render();
+            }
         }
 
         // Initial
+        setData();
         document.getElementById('btn-h').classList.toggle('active', layout === 'horizontal');
         document.getElementById('btn-v').classList.toggle('active', layout === 'vertical');
         render();
 
+        document.body.addEventListener('htmx:afterSwap', handleStepsUpdate);
         window.setLayout = setLayout;
     })();
     </script>
 
     <!-- Step list -->
     <div class="mt-4 border-t border-gray-200 pt-4"
-         id="step-list">
+         id="step-list"
+         hx-get="/runs/{{ run.id }}/steps/list?db={{ db_path }}"
+         hx-trigger="steps:update"
+         hx-swap="innerHTML">
         {% include "partials/step_list.html" %}
     </div>
 </div>
