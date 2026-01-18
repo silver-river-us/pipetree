@@ -4,8 +4,8 @@
     <div class="flex items-center justify-between mb-2">
         <h2 class="text-lg font-semibold text-gray-900">Steps</h2>
         <div class="tree-controls">
-            <button id="btn-h" onclick="pipetreeViz.setLayout('horizontal')">Horizontal</button>
-            <button id="btn-v" onclick="pipetreeViz.setLayout('vertical')">Vertical</button>
+            <button id="btn-h">Horizontal</button>
+            <button id="btn-v">Vertical</button>
         </div>
     </div>
 
@@ -13,24 +13,43 @@
         <svg id="tree-svg"></svg>
     </div>
 
-    <script src="/static/js/pipetree.js"></script>
-    <script>
-    (function() {
-        // Initialize the pipetree visualization
-        window.pipetreeViz = new PipetreeViz({
-            svgSelector: '#tree-svg',
-            dataSelector: '#steps-data',
-            containerSelector: '.tree-container',
-            onNodeClick: function(runId, stepIndex, dbPath) {
-                openStepModal(runId, stepIndex, dbPath);
-            }
-        }).init();
+    <script type="module">
+    import { PipetreeViz } from '/static/js/pipetree/index.js';
 
-        // Update button states
-        var layout = localStorage.getItem('pipetreeLayout') || 'vertical';
-        document.getElementById('btn-h').classList.toggle('active', layout === 'horizontal');
-        document.getElementById('btn-v').classList.toggle('active', layout === 'vertical');
-    })();
+    const btnH = document.getElementById('btn-h');
+    const btnV = document.getElementById('btn-v');
+
+    function updateButtonStates(layout) {
+        btnH.classList.toggle('active', layout === 'horizontal');
+        btnV.classList.toggle('active', layout === 'vertical');
+    }
+
+    // Initialize the pipetree visualization
+    const viz = new PipetreeViz({
+        svgSelector: '#tree-svg',
+        dataSelector: '#steps-data',
+        containerSelector: '.tree-container',
+        onNodeClick: function(runId, stepIndex, dbPath) {
+            openStepModal(runId, stepIndex, dbPath);
+        }
+    }).init();
+
+    // Expose globally for debugging
+    window.pipetreeViz = viz;
+
+    // Set up button handlers
+    btnH.addEventListener('click', () => {
+        viz.setLayout('horizontal');
+        updateButtonStates('horizontal');
+    });
+
+    btnV.addEventListener('click', () => {
+        viz.setLayout('vertical');
+        updateButtonStates('vertical');
+    });
+
+    // Set initial button states
+    updateButtonStates(viz.layout);
     </script>
 
     <!-- Step list -->
