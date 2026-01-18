@@ -77,7 +77,10 @@
     <!-- Steps visualization - GitHub Actions style -->
     <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6"
          id="steps-container"
-         data-run-status="{{ run.status }}">
+         data-run-status="{{ run.status }}"
+         hx-get="/runs/{{ run.id }}/steps?db={{ db_path }}"
+         hx-trigger="steps:update"
+         hx-swap="innerHTML">
         {% include "partials/steps.html" %}
     </div>
 
@@ -138,19 +141,78 @@ document.addEventListener('keydown', function(e) {
 // WebSocket for real-time updates
 {% if run and run.status == 'running' %}
 (function() {
-    const ws = new WebSocket(`ws://${window.location.host}/ws/{{ run_id }}?db={{ db_path | urlencode }}`);
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${protocol}://${window.location.host}/ws/{{ run_id }}?db={{ db_path | urlencode }}`);
+    const stepUpdateTypes = new Set(['started', 'completed', 'failed']);
+
+    function setSummaryClasses(el, classes) {
+        el.classList.remove('text-blue-600', 'text-green-600', 'text-red-600', 'text-gray-500', 'italic');
+        classes.forEach(cls => el.classList.add(cls));
+    }
+
+    function updateStepSummary(event) {
+        const summaryEl = document.querySelector(`.step-summary[data-step-index="${event.step_index}"]`);
+        if (!summaryEl) return;
+
+        summaryEl.textContent = '';
+
+        if (event.event_type === 'progress') {
+            setSummaryClasses(summaryEl, ['text-blue-600']);
+            if (event.current != null && event.total != null && event.total > 0) {
+                const count = document.createElement('span');
+                count.className = 'font-medium';
+                count.textContent = `${event.current}/${event.total}`;
+                summaryEl.appendChild(count);
+                if (event.message) {
+                    const msg = document.createElement('span');
+                    msg.className = 'ml-1 text-gray-500';
+                    msg.textContent = event.message;
+                    summaryEl.appendChild(msg);
+                }
+            } else if (event.message) {
+                summaryEl.textContent = event.message;
+            } else {
+                summaryEl.textContent = 'Processing...';
+                summaryEl.classList.add('italic');
+            }
+        } else if (event.event_type === 'started') {
+            setSummaryClasses(summaryEl, ['text-gray-500', 'italic']);
+            summaryEl.textContent = 'Starting...';
+        } else if (event.event_type === 'completed') {
+            setSummaryClasses(summaryEl, ['text-green-600']);
+            summaryEl.textContent = '✓';
+        } else if (event.event_type === 'failed') {
+            setSummaryClasses(summaryEl, ['text-red-600']);
+            summaryEl.textContent = event.error || 'Failed';
+        }
+    }
 
     ws.onmessage = function(event) {
         const data = JSON.parse(event.data);
 
         if (data.type === 'update') {
-            // Trigger HTMX refresh
-            htmx.trigger('#steps-container', 'htmx:trigger');
+            if (data.run_status) {
+                const statusEl = document.querySelector('[data-run-status]');
+                if (statusEl) statusEl.dataset.runStatus = data.run_status;
+            }
+
+            if (Array.isArray(data.events)) {
+                const latestByStep = new Map();
+                data.events.forEach(ev => {
+                    latestByStep.set(ev.step_index, ev);
+                });
+                latestByStep.forEach(updateStepSummary);
+
+                const hasStatusEvent = data.events.some(ev => stepUpdateTypes.has(ev.event_type));
+                if (hasStatusEvent) {
+                    htmx.trigger('#steps-container', 'steps:update');
+                }
+            }
         } else if (data.type === 'complete') {
             // Update run status
             document.querySelector('[data-run-status]').dataset.runStatus = data.status;
             // Final refresh
-            htmx.trigger('#steps-container', 'htmx:trigger');
+            htmx.trigger('#steps-container', 'steps:update');
             location.reload();
         }
     };

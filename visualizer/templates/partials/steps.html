@@ -14,7 +14,7 @@
     padding: 0.5rem 1rem;
     font-size: 0.8125rem;
     font-weight: 500;
-    border-radius: 6px;
+    border-radius: 0;
     border: 1px solid #d0d7de;
     background: white;
     color: #24292f;
@@ -35,7 +35,7 @@
 .tree-container {
     background: white;
     border: 1px solid #d0d7de;
-    border-radius: 6px;
+    border-radius: 0;
     overflow: auto;
     padding: 24px;
 }
@@ -46,8 +46,8 @@
 
 /* CircleCI-style nodes - white background, gray border */
 #tree-svg .node-rect {
-    rx: 6;
-    ry: 6;
+    rx: 0;
+    ry: 0;
     fill: white;
     stroke: #d0d7de;
     stroke-width: 1;
@@ -202,14 +202,17 @@
                 const branchEndPoints = [];
                 let maxX = branchStartX;
 
+                // Helper to check if a step actually ran (not just pending)
+                const stepRan = (step) => step && (step.status === 'completed' || step.status === 'running');
+
                 // Stack branches vertically, each extending horizontally
                 branchNames.forEach((bname, bi) => {
                     const bsteps = branches[bname];
-                    const isActive = bsteps[0] && bsteps[0].status !== 'skipped';
+                    const branchRan = stepRan(bsteps[0]);
                     const branchY = centerY + (bi - (branchNames.length - 1) / 2) * (NODE_H + BRANCH_GAP);
 
                     // Branch label above the first step
-                    nodes.push({ type: 'label', name: bname, x: branchStartX, y: branchY - NODE_H/2 - 14, active: isActive });
+                    nodes.push({ type: 'label', name: bname, x: branchStartX, y: branchY - NODE_H/2 - 14, active: branchRan });
 
                     let bx = branchStartX;
 
@@ -218,12 +221,11 @@
                         const bnode = { ...bstep, x: bx, y: branchY - NODE_H/2, w: bw, h: NODE_H, isRouter: bstep.name.startsWith('route_') };
                         nodes.push(bnode);
 
-                        // Link from router to first step
+                        // Link from router to first step - only active if router completed AND branch ran
                         if (si === 0) {
                             const targetIsRouter = bstep.name.startsWith('route_');
-                            // Purple only for active path to another router
-                            const isRouterLink = targetIsRouter && isActive;
-                            links.push({ type: 'h', x1: router.x + router.w, y1: centerY, x2: bx, y2: branchY, active: router.status === 'completed' && isActive, isRouter: isRouterLink });
+                            const isRouterLink = targetIsRouter && branchRan;
+                            links.push({ type: 'h', x1: router.x + router.w, y1: centerY, x2: bx, y2: branchY, active: stepRan(router) && branchRan, isRouter: isRouterLink });
                         }
 
                         // Handle nested branches (extend further right)
@@ -234,26 +236,27 @@
 
                             nestedNames.forEach((nname, ni) => {
                                 const nsteps = nested[nname];
-                                const nActive = nsteps[0] && nsteps[0].status !== 'skipped';
+                                const nestedRan = stepRan(nsteps[0]);
                                 const nestedY = branchY + (ni - (nestedNames.length - 1) / 2) * (NODE_H + 24);
 
-                                nodes.push({ type: 'label', name: nname, x: nestedStartX, y: nestedY - NODE_H/2 - 14, active: nActive });
+                                nodes.push({ type: 'label', name: nname, x: nestedStartX, y: nestedY - NODE_H/2 - 14, active: nestedRan });
 
                                 let nx = nestedStartX;
                                 nsteps.forEach(nstep => {
                                     const nw = textWidth(nstep.name, nstep.duration_s);
                                     const nnode = { ...nstep, x: nx, y: nestedY - NODE_H/2, w: nw, h: NODE_H };
                                     nodes.push(nnode);
-                                    // Purple only for active path from router
-                                    const isRouterLink = bnode.isRouter && nActive;
-                                    links.push({ type: 'h', x1: bx + bw, y1: branchY, x2: nx, y2: nestedY, active: bnode.status === 'completed' && nActive, isRouter: isRouterLink });
-                                    branchEndPoints.push({ x: nx + nw, y: nestedY, active: nstep.status === 'completed' });
+                                    // Purple only if router completed AND nested branch ran
+                                    const isRouterLink = bnode.isRouter && nestedRan;
+                                    links.push({ type: 'h', x1: bx + bw, y1: branchY, x2: nx, y2: nestedY, active: bnode.status === 'completed' && nestedRan, isRouter: isRouterLink });
+                                    branchEndPoints.push({ x: nx + nw, y: nestedY, center: nestedY, active: nstep.status === 'completed' });
                                     maxX = Math.max(maxX, nx + nw);
                                     nx += nw + H_GAP;
                                 });
                             });
                         } else {
-                            branchEndPoints.push({ x: bx + bw, y: branchY, active: bstep.status === 'completed' });
+                            // Use center of node for proper visual alignment
+                            branchEndPoints.push({ x: bx + bw, y: branchY, center: branchY, active: bstep.status === 'completed' });
                             maxX = Math.max(maxX, bx + bw);
                         }
 
@@ -264,10 +267,10 @@
                 // Convergence point - all branches meet at right side
                 const convergeX = maxX + H_GAP * 2;
 
-                // Calculate vertical center of all branch endpoints
-                const minY = Math.min(...branchEndPoints.map(p => p.y));
-                const maxY = Math.max(...branchEndPoints.map(p => p.y));
-                const convergeY = (minY + maxY) / 2;
+                // Calculate vertical center based on node centers (not tops)
+                const minCenter = Math.min(...branchEndPoints.map(p => p.center));
+                const maxCenter = Math.max(...branchEndPoints.map(p => p.center));
+                const convergeY = (minCenter + maxCenter) / 2;
 
                 // Draw convergence lines (horizontal to convergence X, then vertical to center)
                 branchEndPoints.forEach(pt => {
@@ -279,8 +282,9 @@
                     const finalStep = postRouterSteps[0];
                     const fw = textWidth(finalStep.name, finalStep.duration_s);
                     const finalX = convergeX + H_GAP;
+                    const finalRan = finalStep.status === 'completed' || finalStep.status === 'running';
                     nodes.push({ ...finalStep, x: finalX, y: convergeY - NODE_H/2, w: fw, h: NODE_H });
-                    links.push({ type: 'h', x1: convergeX, y1: convergeY, x2: finalX, y2: convergeY, active: true });
+                    links.push({ type: 'h', x1: convergeX, y1: convergeY, x2: finalX, y2: convergeY, active: finalRan });
                     maxX = finalX + fw;
                 }
 
@@ -335,13 +339,16 @@
                 // Calculate branch positions
                 const branchStartX = centerX - totalBranchWidth / 2;
 
+                // Helper to check if a step actually ran (not just pending)
+                const stepRan = (step) => step && (step.status === 'completed' || step.status === 'running');
+
                 branchNames.forEach((bname, bi) => {
                     const bsteps = branches[bname];
-                    const isActive = bsteps[0] && bsteps[0].status !== 'skipped';
+                    const branchRan = stepRan(bsteps[0]);
                     const branchX = branchStartX + bi * branchSpacing;
 
                     // Branch label
-                    nodes.push({ type: 'label', name: bname, x: branchX - 30, y: y - 16, active: isActive });
+                    nodes.push({ type: 'label', name: bname, x: branchX - 30, y: y - 16, active: branchRan });
 
                     let by = y;
 
@@ -351,10 +358,10 @@
                         nodes.push(bnode);
 
                         if (si === 0) {
-                            // Link from router down to branch
+                            // Link from router down to branch - only active if router completed AND branch ran
                             const targetIsRouter = bstep.name.startsWith('route_');
-                            const isRouterLink = targetIsRouter && isActive;
-                            links.push({ type: 'v', x1: centerX, y1: router.y + NODE_H, x2: branchX, y2: by, active: router.status === 'completed' && isActive, isRouter: isRouterLink });
+                            const isRouterLink = targetIsRouter && branchRan;
+                            links.push({ type: 'v', x1: centerX, y1: router.y + NODE_H, x2: branchX, y2: by, active: stepRan(router) && branchRan, isRouter: isRouterLink });
                         }
 
                         // Handle nested branches
@@ -368,19 +375,19 @@
 
                             nestedNames.forEach((nname, ni) => {
                                 const nsteps = nested[nname];
-                                const nActive = nsteps[0] && nsteps[0].status !== 'skipped';
+                                const nestedRan = stepRan(nsteps[0]);
                                 const nestedX = nestedStartX + ni * nestedSpacing;
 
-                                nodes.push({ type: 'label', name: nname, x: nestedX - 30, y: nestedY - 16, active: nActive });
+                                nodes.push({ type: 'label', name: nname, x: nestedX - 30, y: nestedY - 16, active: nestedRan });
 
                                 let ny = nestedY;
                                 nsteps.forEach(nstep => {
                                     const nw = textWidth(nstep.name, nstep.duration_s);
                                     const nnode = { ...nstep, x: nestedX - nw/2, y: ny, w: nw, h: NODE_H };
                                     nodes.push(nnode);
-                                    // Purple only for active path from router
-                                    const isRouterLink = bnode.isRouter && nActive;
-                                    links.push({ type: 'v', x1: branchX, y1: bnode.y + NODE_H, x2: nestedX, y2: ny, active: bnode.status === 'completed' && nActive, isRouter: isRouterLink });
+                                    // Purple only if router completed AND nested branch actually ran
+                                    const isRouterLink = bnode.isRouter && nestedRan;
+                                    links.push({ type: 'v', x1: branchX, y1: bnode.y + NODE_H, x2: nestedX, y2: ny, active: bnode.status === 'completed' && nestedRan, isRouter: isRouterLink });
                                     branchEndPoints.push({ x: nestedX, y: ny + NODE_H, active: nstep.status === 'completed' });
                                     maxBranchY = Math.max(maxBranchY, ny + NODE_H);
                                     maxWidth = Math.max(maxWidth, nestedX + nw/2 + margin);
@@ -411,8 +418,9 @@
                     const finalStep = postRouterSteps[0];
                     const fw = textWidth(finalStep.name, finalStep.duration_s);
                     const finalY = convergeY + V_GAP / 2;
+                    const finalRan = finalStep.status === 'completed' || finalStep.status === 'running';
                     nodes.push({ ...finalStep, x: centerX - fw/2, y: finalY, w: fw, h: NODE_H });
-                    links.push({ type: 'v', x1: centerX, y1: convergeY, x2: centerX, y2: finalY, active: true });
+                    links.push({ type: 'v', x1: centerX, y1: convergeY, x2: centerX, y2: finalY, active: finalRan });
                     y = finalY + NODE_H + margin;
                 } else {
                     y = convergeY + margin;
@@ -451,8 +459,12 @@
             svg.setAttribute('width', svgW);
             svg.setAttribute('height', svgH);
 
-            // Draw links first
-            links.forEach(link => {
+            // Draw links first (inactive first so active paths sit on top)
+            const sortedLinks = [...links].sort((a, b) => {
+                const rank = (l) => (l.isRouter ? 1 : (l.active ? 2 : 0));
+                return rank(a) - rank(b);
+            });
+            sortedLinks.forEach(link => {
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 let d;
 
@@ -650,11 +662,7 @@
 
     <!-- Step list -->
     <div class="mt-4 border-t border-gray-200 pt-4"
-         id="step-list"
-         hx-get="/runs/{{ run.id }}/steps/list?db={{ db_path }}"
-         hx-trigger="every 1s [document.querySelector('[data-run-status]')?.dataset.runStatus == 'running']"
-         hx-swap="innerHTML"
-         hx-preserve="true">
+         id="step-list">
         {% include "partials/step_list.html" %}
     </div>
 </div>

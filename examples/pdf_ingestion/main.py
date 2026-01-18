@@ -221,7 +221,7 @@ async def main() -> None:
     """Run the PDF ingestion pipeline."""
     # Configuration - resolve paths relative to this script's directory
     script_dir = Path(__file__).parent
-    pdf_path = script_dir / "big.pdf"
+    pdf_path = script_dir / "small.pdf"
     output_path = script_dir / (pdf_path.stem + ".txt")
     db_path = script_dir / "progress.db"
 
