@@ -1,6 +1,15 @@
-# Pipetree
+<div align="center">
+  <img src="assets/logo.png" alt="Pipetree Logo" width="150"/>
+  <h1>Pipetree</h1>
 
-A modular, benchmarkable pipeline framework for large document processing.
+  **A modular, benchmarkable pipeline framework for large document processing.**
+
+  [![CI](https://github.com/matiasgutierrez/pipetree/actions/workflows/test.yml/badge.svg)](https://github.com/matiasgutierrez/pipetree/actions/workflows/test.yml)
+  [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+</div>
+
+---
 
 ## Features
 
@@ -232,6 +241,37 @@ async def main():
 
 asyncio.run(main())
 "
+```
+
+## Visualizer
+
+Pipetree includes a real-time monitoring dashboard built with FastAPI, HTMX, and Tailwind CSS.
+
+```bash
+cd visualizer
+pipenv install
+pipenv run uvicorn visualizer.app:app --reload
+```
+
+Features:
+- Real-time pipeline progress via WebSocket
+- Multiple database support
+- Interactive step visualization (horizontal, vertical, list views)
+- CircleCI-inspired UI
+
+## Project Structure
+
+```
+pipetree/
+├── pipetree/              # Core library
+│   ├── pipetree/          # Main package
+│   └── tests/             # Unit tests
+├── visualizer/            # Monitoring dashboard
+│   ├── visualizer/        # FastAPI app
+│   └── templates/         # Jinja2 templates
+└── examples/
+    ├── pdf_ingestion/     # PDF processing example
+    └── stress_test/       # Load testing example
 ```
 
 ## License
