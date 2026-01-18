@@ -196,6 +196,22 @@
             const preRouterSteps = mainSteps.slice(0, routerIndex + 1);
             const postRouterSteps = mainSteps.slice(routerIndex + 1);
 
+            const stepRan = (step) => step && (step.status === 'completed' || step.status === 'running' || step.status === 'failed');
+
+            function branchHasActivity(steps, branchesMap) {
+                if (!Array.isArray(steps) || steps.length === 0) return false;
+                for (const step of steps) {
+                    if (stepRan(step)) return true;
+                    const nested = branchesMap[step.name];
+                    if (nested) {
+                        for (const nestedSteps of Object.values(nested)) {
+                            if (branchHasActivity(nestedSteps, branchesMap)) return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
             if (isH) {
                 // Horizontal: main flow left-to-right, branches extend right
                 let x = margin;
@@ -221,13 +237,10 @@
                 const branchEndPoints = [];
                 let maxX = branchStartX;
 
-                // Helper to check if a step actually ran (not just pending)
-                const stepRan = (step) => step && (step.status === 'completed' || step.status === 'running');
-
                 // Stack branches vertically, each extending horizontally
                 branchNames.forEach((bname, bi) => {
                     const bsteps = branches[bname];
-                    const branchRan = stepRan(bsteps[0]);
+                    const branchRan = branchHasActivity(bsteps, branchesByParent);
                     const branchY = centerY + (bi - (branchNames.length - 1) / 2) * (NODE_H + BRANCH_GAP);
 
                     // Branch label above the first step
@@ -242,8 +255,7 @@
 
                         // Link from router to first step - only active if router completed AND branch ran
                         if (si === 0) {
-                            const targetIsRouter = bstep.name.startsWith('route_');
-                            const isRouterLink = targetIsRouter && branchRan;
+                            const isRouterLink = router.isRouter && branchRan;
                             links.push({ type: 'h', x1: router.x + router.w, y1: centerY, x2: bx, y2: branchY, active: stepRan(router) && branchRan, isRouter: isRouterLink });
                         }
 
@@ -255,7 +267,7 @@
 
                             nestedNames.forEach((nname, ni) => {
                                 const nsteps = nested[nname];
-                                const nestedRan = stepRan(nsteps[0]);
+                                const nestedRan = branchHasActivity(nsteps, branchesByParent);
                                 const nestedY = branchY + (ni - (nestedNames.length - 1) / 2) * (NODE_H + 24);
 
                                 nodes.push({ type: 'label', name: nname, x: nestedStartX, y: nestedY - NODE_H/2 - 14, active: nestedRan });
@@ -358,12 +370,9 @@
                 // Calculate branch positions
                 const branchStartX = centerX - totalBranchWidth / 2;
 
-                // Helper to check if a step actually ran (not just pending)
-                const stepRan = (step) => step && (step.status === 'completed' || step.status === 'running');
-
                 branchNames.forEach((bname, bi) => {
                     const bsteps = branches[bname];
-                    const branchRan = stepRan(bsteps[0]);
+                    const branchRan = branchHasActivity(bsteps, branchesByParent);
                     const branchX = branchStartX + bi * branchSpacing;
 
                     // Branch label
@@ -378,8 +387,7 @@
 
                         if (si === 0) {
                             // Link from router down to branch - only active if router completed AND branch ran
-                            const targetIsRouter = bstep.name.startsWith('route_');
-                            const isRouterLink = targetIsRouter && branchRan;
+                            const isRouterLink = router.isRouter && branchRan;
                             links.push({ type: 'v', x1: centerX, y1: router.y + NODE_H, x2: branchX, y2: by, active: stepRan(router) && branchRan, isRouter: isRouterLink });
                         }
 
@@ -394,7 +402,7 @@
 
                             nestedNames.forEach((nname, ni) => {
                                 const nsteps = nested[nname];
-                                const nestedRan = stepRan(nsteps[0]);
+                                const nestedRan = branchHasActivity(nsteps, branchesByParent);
                                 const nestedX = nestedStartX + ni * nestedSpacing;
 
                                 nodes.push({ type: 'label', name: nname, x: nestedX - 30, y: nestedY - 16, active: nestedRan });
