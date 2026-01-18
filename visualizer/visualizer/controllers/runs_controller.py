@@ -3,7 +3,8 @@
 from pathlib import Path
 from typing import Any
 
-from ..lib.db import get_db_connection
+from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
+from sqlmodel import select
 
 
 class RunsController:
@@ -12,15 +13,15 @@ class RunsController:
     @classmethod
     def index(cls, db_path: Path) -> dict[str, Any]:
         """Main dashboard page - shows all runs."""
-        runs = []
+        runs: list[dict] = []
         if db_path.exists():
             try:
-                conn = get_db_connection(db_path)
-                cursor = conn.execute(
-                    "SELECT * FROM runs ORDER BY started_at DESC LIMIT 50"
-                )
-                runs = [dict(row) for row in cursor.fetchall()]
-                conn.close()
+                with get_session(db_path) as session:
+                    statement = (
+                        select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
+                    )
+                    results = session.exec(statement).all()
+                    runs = [run.model_dump() for run in results]
             except Exception:
                 pass
 
@@ -32,25 +33,25 @@ class RunsController:
     @classmethod
     def detail(cls, run_id: str, db_path: Path) -> dict[str, Any]:
         """Detail view for a specific run."""
-        run = None
+        run: dict | None = None
         steps: list[dict] = []
 
         if db_path.exists():
             try:
-                conn = get_db_connection(db_path)
+                with get_session(db_path) as session:
+                    # Get run
+                    run_obj = session.get(Run, run_id)
+                    if run_obj:
+                        run = run_obj.model_dump()
 
-                cursor = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,))
-                row = cursor.fetchone()
-                if row:
-                    run = dict(row)
-
-                cursor = conn.execute(
-                    "SELECT * FROM steps WHERE run_id = ? ORDER BY step_index",
-                    (run_id,),
-                )
-                steps = [dict(row) for row in cursor.fetchall()]
-
-                conn.close()
+                    # Get steps
+                    statement = (
+                        select(Step)
+                        .where(Step.run_id == run_id)
+                        .order_by(Step.step_index)
+                    )
+                    results = session.exec(statement).all()
+                    steps = [step.model_dump() for step in results]
             except Exception:
                 pass
 
@@ -67,15 +68,15 @@ class RunsController:
     @classmethod
     def list_partial(cls, db_path: Path) -> dict[str, Any]:
         """HTMX partial for runs list."""
-        runs = []
+        runs: list[dict] = []
         if db_path.exists():
             try:
-                conn = get_db_connection(db_path)
-                cursor = conn.execute(
-                    "SELECT * FROM runs ORDER BY started_at DESC LIMIT 50"
-                )
-                runs = [dict(row) for row in cursor.fetchall()]
-                conn.close()
+                with get_session(db_path) as session:
+                    statement = (
+                        select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
+                    )
+                    results = session.exec(statement).all()
+                    runs = [run.model_dump() for run in results]
             except Exception:
                 pass
 
@@ -91,38 +92,41 @@ class RunsController:
 
         if db_path.exists():
             try:
-                conn = get_db_connection(db_path)
+                with get_session(db_path) as session:
+                    # Get run
+                    run_obj = session.get(Run, run_id)
+                    if run_obj:
+                        data["run"] = run_obj.model_dump()
 
-                cursor = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,))
-                row = cursor.fetchone()
-                if row:
-                    data["run"] = dict(row)
+                    # Get steps
+                    statement = (
+                        select(Step)
+                        .where(Step.run_id == run_id)
+                        .order_by(Step.step_index)
+                    )
+                    steps = session.exec(statement).all()
+                    step_dicts = []
 
-                cursor = conn.execute(
-                    "SELECT * FROM steps WHERE run_id = ? ORDER BY step_index",
-                    (run_id,),
-                )
-                steps = [dict(row) for row in cursor.fetchall()]
+                    for step in steps:
+                        step_dict = step.model_dump()
+                        if step.status == "running":
+                            # Get latest progress event
+                            progress_stmt = (
+                                select(Event)
+                                .where(Event.run_id == run_id)
+                                .where(Event.step_index == step.step_index)
+                                .where(Event.event_type == "progress")
+                                .order_by(Event.id.desc())  # type: ignore[union-attr]
+                                .limit(1)
+                            )
+                            progress_event = session.exec(progress_stmt).first()
+                            if progress_event:
+                                step_dict["current"] = progress_event.current
+                                step_dict["total"] = progress_event.total
+                                step_dict["message"] = progress_event.message
+                        step_dicts.append(step_dict)
 
-                for step in steps:
-                    if step["status"] == "running":
-                        cursor = conn.execute(
-                            """
-                            SELECT current, total, message FROM events
-                            WHERE run_id = ? AND step_index = ? AND event_type = 'progress'
-                            ORDER BY id DESC LIMIT 1
-                            """,
-                            (run_id, step["step_index"]),
-                        )
-                        progress_row = cursor.fetchone()
-                        if progress_row:
-                            step["current"] = progress_row["current"]
-                            step["total"] = progress_row["total"]
-                            step["message"] = progress_row["message"]
-
-                data["steps"] = steps
-
-                conn.close()
+                    data["steps"] = step_dicts
             except Exception:
                 pass
 

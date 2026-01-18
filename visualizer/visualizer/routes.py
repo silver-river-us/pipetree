@@ -7,9 +7,10 @@ from typing import TYPE_CHECKING
 
 from fastapi import Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
+from sqlmodel import select
 
 from .controllers import RunsController, StepsController
-from .lib.db import get_db_connection
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -164,49 +165,47 @@ def register_routes(
             while True:
                 if db_path.exists():
                     try:
-                        conn = get_db_connection(db_path)
+                        with get_session(db_path) as session:
+                            # Get run status
+                            run_obj = session.get(Run, run_id)
+                            run_status = run_obj.status if run_obj else None
 
-                        cursor = conn.execute(
-                            "SELECT status FROM runs WHERE id = ?", (run_id,)
-                        )
-                        row = cursor.fetchone()
-                        run_status = row["status"] if row else None
-
-                        cursor = conn.execute(
-                            """
-                            SELECT * FROM events
-                            WHERE run_id = ? AND id > ?
-                            ORDER BY id
-                            """,
-                            (run_id, last_event_id),
-                        )
-                        events = [dict(row) for row in cursor.fetchall()]
-
-                        if events:
-                            last_event_id = events[-1]["id"]
-
-                            cursor = conn.execute(
-                                "SELECT * FROM steps WHERE run_id = ? ORDER BY step_index",
-                                (run_id,),
+                            # Get new events
+                            events_stmt = (
+                                select(Event)
+                                .where(Event.run_id == run_id)
+                                .where(Event.id > last_event_id)  # type: ignore[operator]
+                                .order_by(Event.id)
                             )
-                            steps = [dict(row) for row in cursor.fetchall()]
+                            event_results = session.exec(events_stmt).all()
+                            events = [e.model_dump() for e in event_results]
 
-                            await websocket.send_json(
-                                {
-                                    "type": "update",
-                                    "run_status": run_status,
-                                    "events": events,
-                                    "steps": steps,
-                                }
-                            )
+                            if events:
+                                last_event_id = events[-1]["id"]
 
-                        conn.close()
+                                # Get updated steps
+                                steps_stmt = (
+                                    select(Step)
+                                    .where(Step.run_id == run_id)
+                                    .order_by(Step.step_index)
+                                )
+                                step_results = session.exec(steps_stmt).all()
+                                steps = [s.model_dump() for s in step_results]
 
-                        if run_status in ("completed", "failed"):
-                            await websocket.send_json(
-                                {"type": "complete", "status": run_status}
-                            )
-                            break
+                                await websocket.send_json(
+                                    {
+                                        "type": "update",
+                                        "run_status": run_status,
+                                        "events": events,
+                                        "steps": steps,
+                                    }
+                                )
+
+                            if run_status in ("completed", "failed"):
+                                await websocket.send_json(
+                                    {"type": "complete", "status": run_status}
+                                )
+                                break
 
                     except Exception as e:
                         await websocket.send_json({"type": "error", "message": str(e)})

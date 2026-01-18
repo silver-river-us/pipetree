@@ -23,6 +23,7 @@ classifiers = [
 ]
 dependencies = [
     "typing-extensions>=4.0.0",
+    "sqlmodel>=0.0.16",
 ]
 
 [project.optional-dependencies]
@@ -47,6 +48,11 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = "pipetree.infrastructure.progress.models.*"
+strict = false
+disable_error_code = ["arg-type"]
 
 [tool.ruff]
 target-version = "py311"

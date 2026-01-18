@@ -3,7 +3,8 @@
 from pathlib import Path
 from typing import Any
 
-from ..lib.db import get_db_connection
+from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
+from sqlmodel import func, select
 
 
 class StepsController:
@@ -12,25 +13,23 @@ class StepsController:
     @classmethod
     def steps_partial(cls, run_id: str, db_path: Path) -> dict[str, Any]:
         """HTMX partial for steps list (for polling updates)."""
-        run = None
+        run: dict | None = None
         steps: list[dict] = []
 
         if db_path.exists():
             try:
-                conn = get_db_connection(db_path)
+                with get_session(db_path) as session:
+                    run_obj = session.get(Run, run_id)
+                    if run_obj:
+                        run = run_obj.model_dump()
 
-                cursor = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,))
-                row = cursor.fetchone()
-                if row:
-                    run = dict(row)
-
-                cursor = conn.execute(
-                    "SELECT * FROM steps WHERE run_id = ? ORDER BY step_index",
-                    (run_id,),
-                )
-                steps = [dict(row) for row in cursor.fetchall()]
-
-                conn.close()
+                    statement = (
+                        select(Step)
+                        .where(Step.run_id == run_id)
+                        .order_by(Step.step_index)
+                    )
+                    results = session.exec(statement).all()
+                    steps = [step.model_dump() for step in results]
             except Exception:
                 pass
 
@@ -47,25 +46,23 @@ class StepsController:
     @classmethod
     def steps_data_partial(cls, run_id: str, db_path: Path) -> dict[str, Any]:
         """HTMX partial for steps data (tree updates)."""
-        run = None
+        run: dict | None = None
         steps: list[dict] = []
 
         if db_path.exists():
             try:
-                conn = get_db_connection(db_path)
+                with get_session(db_path) as session:
+                    run_obj = session.get(Run, run_id)
+                    if run_obj:
+                        run = run_obj.model_dump()
 
-                cursor = conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,))
-                row = cursor.fetchone()
-                if row:
-                    run = dict(row)
-
-                cursor = conn.execute(
-                    "SELECT * FROM steps WHERE run_id = ? ORDER BY step_index",
-                    (run_id,),
-                )
-                steps = [dict(row) for row in cursor.fetchall()]
-
-                conn.close()
+                    statement = (
+                        select(Step)
+                        .where(Step.run_id == run_id)
+                        .order_by(Step.step_index)
+                    )
+                    results = session.exec(statement).all()
+                    steps = [step.model_dump() for step in results]
             except Exception:
                 pass
 
@@ -86,15 +83,14 @@ class StepsController:
 
         if db_path.exists():
             try:
-                conn = get_db_connection(db_path)
-
-                cursor = conn.execute(
-                    "SELECT * FROM steps WHERE run_id = ? ORDER BY step_index",
-                    (run_id,),
-                )
-                steps = [dict(row) for row in cursor.fetchall()]
-
-                conn.close()
+                with get_session(db_path) as session:
+                    statement = (
+                        select(Step)
+                        .where(Step.run_id == run_id)
+                        .order_by(Step.step_index)
+                    )
+                    results = session.exec(statement).all()
+                    steps = [step.model_dump() for step in results]
             except Exception:
                 pass
 
@@ -109,50 +105,53 @@ class StepsController:
     ) -> dict[str, Any]:
         """Get events for a specific step (modal content)."""
         events: list[dict] = []
-        step = None
+        step: dict | None = None
         total_events = 0
 
         if db_path.exists():
             try:
-                conn = get_db_connection(db_path)
-
-                cursor = conn.execute(
-                    "SELECT * FROM steps WHERE run_id = ? AND step_index = ?",
-                    (run_id, step_index),
-                )
-                row = cursor.fetchone()
-                if row:
-                    step = dict(row)
-
-                cursor = conn.execute(
-                    "SELECT COUNT(*) FROM events WHERE run_id = ? AND step_index = ?",
-                    (run_id, step_index),
-                )
-                total_events = cursor.fetchone()[0]
-
-                if since_id > 0:
-                    cursor = conn.execute(
-                        """
-                        SELECT * FROM events
-                        WHERE run_id = ? AND step_index = ? AND id > ?
-                        ORDER BY id
-                        """,
-                        (run_id, step_index, since_id),
+                with get_session(db_path) as session:
+                    # Get step
+                    statement = (
+                        select(Step)
+                        .where(Step.run_id == run_id)
+                        .where(Step.step_index == step_index)
                     )
-                else:
-                    cursor = conn.execute(
-                        """
-                        SELECT * FROM events
-                        WHERE run_id = ? AND step_index = ?
-                        ORDER BY id DESC LIMIT 50
-                        """,
-                        (run_id, step_index),
-                    )
-                events = [dict(row) for row in cursor.fetchall()]
-                if since_id == 0:
-                    events.reverse()
+                    step_obj = session.exec(statement).first()
+                    if step_obj:
+                        step = step_obj.model_dump()
 
-                conn.close()
+                    # Count total events
+                    count_stmt = (
+                        select(func.count())
+                        .select_from(Event)
+                        .where(Event.run_id == run_id)
+                        .where(Event.step_index == step_index)
+                    )
+                    total_events = session.exec(count_stmt).one()
+
+                    # Get events
+                    if since_id > 0:
+                        events_stmt = (
+                            select(Event)
+                            .where(Event.run_id == run_id)
+                            .where(Event.step_index == step_index)
+                            .where(Event.id > since_id)  # type: ignore[operator]
+                            .order_by(Event.id)
+                        )
+                    else:
+                        events_stmt = (
+                            select(Event)
+                            .where(Event.run_id == run_id)
+                            .where(Event.step_index == step_index)
+                            .order_by(Event.id.desc())  # type: ignore[union-attr]
+                            .limit(50)
+                        )
+
+                    results = session.exec(events_stmt).all()
+                    events = [event.model_dump() for event in results]
+                    if since_id == 0:
+                        events.reverse()
             except Exception:
                 pass
 
@@ -171,34 +170,33 @@ class StepsController:
     @classmethod
     def summary(cls, run_id: str, step_index: int, db_path: Path) -> dict[str, Any]:
         """Get a brief summary of the latest step activity."""
-        latest_event = None
-        step = None
+        latest_event: dict | None = None
+        step: dict | None = None
 
         if db_path.exists():
             try:
-                conn = get_db_connection(db_path)
+                with get_session(db_path) as session:
+                    # Get step
+                    statement = (
+                        select(Step)
+                        .where(Step.run_id == run_id)
+                        .where(Step.step_index == step_index)
+                    )
+                    step_obj = session.exec(statement).first()
+                    if step_obj:
+                        step = step_obj.model_dump()
 
-                cursor = conn.execute(
-                    "SELECT * FROM steps WHERE run_id = ? AND step_index = ?",
-                    (run_id, step_index),
-                )
-                row = cursor.fetchone()
-                if row:
-                    step = dict(row)
-
-                cursor = conn.execute(
-                    """
-                    SELECT * FROM events
-                    WHERE run_id = ? AND step_index = ?
-                    ORDER BY id DESC LIMIT 1
-                    """,
-                    (run_id, step_index),
-                )
-                row = cursor.fetchone()
-                if row:
-                    latest_event = dict(row)
-
-                conn.close()
+                    # Get latest event
+                    events_stmt = (
+                        select(Event)
+                        .where(Event.run_id == run_id)
+                        .where(Event.step_index == step_index)
+                        .order_by(Event.id.desc())  # type: ignore[union-attr]
+                        .limit(1)
+                    )
+                    event_obj = session.exec(events_stmt).first()
+                    if event_obj:
+                        latest_event = event_obj.model_dump()
             except Exception:
                 pass
 

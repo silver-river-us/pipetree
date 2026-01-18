@@ -14,6 +14,7 @@ authors = [
 dependencies = [
     "pipetree",
     "pypdf>=4.0.0",
+    "sqlmodel>=0.0.16",
 ]
 
 [project.optional-dependencies]
@@ -34,7 +35,7 @@ testpaths = ["tests"]
 python_version = "3.11"
 strict = false
 disallow_untyped_defs = false
-disable_error_code = ["import-untyped", "import-not-found", "attr-defined", "misc", "index"]
+disable_error_code = ["import-untyped", "import-not-found", "attr-defined", "misc", "index", "arg-type"]
 
 [tool.ruff]
 target-version = "py311"
