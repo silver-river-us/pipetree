@@ -13,6 +13,8 @@ export class PipetreeViz {
     this.onNodeClick = options.onNodeClick || function () {};
     this.layout = localStorage.getItem("pipetreeLayout") || "vertical";
     this.data = null;
+    // Track the last active step index for auto-scrolling
+    this.lastActiveStepIndex = -1;
   }
 
   /**
@@ -39,6 +41,62 @@ export class PipetreeViz {
   }
 
   /**
+   * Find the active step (running) or last completed/failed step
+   */
+  findActiveStepIndex(nodes) {
+    let activeIndex = -1;
+    let lastCompletedIndex = -1;
+
+    for (const node of nodes) {
+      if (node.type === "label") continue;
+      if (node.status === "running") {
+        activeIndex = node.step_index;
+        break; // Running step takes priority
+      }
+      if (node.status === "completed" || node.status === "failed") {
+        lastCompletedIndex = node.step_index;
+      }
+    }
+
+    return activeIndex !== -1 ? activeIndex : lastCompletedIndex;
+  }
+
+  /**
+   * Scroll a node into view within the container
+   */
+  scrollNodeIntoView(container, node) {
+    if (!container || !node) return;
+
+    const isH = this.layout === "horizontal";
+
+    if (isH) {
+      // Horizontal: scroll so node is visible with some padding
+      const nodeRight = node.x + node.w;
+      const viewLeft = container.scrollLeft;
+      const viewRight = viewLeft + container.clientWidth;
+
+      if (nodeRight > viewRight - 50) {
+        // Node is off the right edge, scroll to show it
+        container.scrollLeft = nodeRight - container.clientWidth + 100;
+      } else if (node.x < viewLeft + 50) {
+        // Node is off the left edge
+        container.scrollLeft = Math.max(0, node.x - 100);
+      }
+    } else {
+      // Vertical: scroll so node is visible
+      const nodeBottom = node.y + node.h;
+      const viewTop = container.scrollTop;
+      const viewBottom = viewTop + container.clientHeight;
+
+      if (nodeBottom > viewBottom - 50) {
+        container.scrollTop = nodeBottom - container.clientHeight + 100;
+      } else if (node.y < viewTop + 50) {
+        container.scrollTop = Math.max(0, node.y - 100);
+      }
+    }
+  }
+
+  /**
    * Render the tree
    */
   render() {
@@ -49,8 +107,6 @@ export class PipetreeViz {
     const container = svg ? svg.closest(this.containerSelector) : null;
     if (!svg) return;
 
-    const prevScrollLeft = container ? container.scrollLeft : 0;
-    const prevScrollTop = container ? container.scrollTop : 0;
     svg.innerHTML = "";
 
     const isH = this.layout === "horizontal";
@@ -131,10 +187,18 @@ export class PipetreeViz {
       });
     });
 
-    // Restore scroll position
-    if (container) {
-      container.scrollLeft = prevScrollLeft;
-      container.scrollTop = prevScrollTop;
+    // Find and scroll to active step if it changed
+    const activeStepIndex = this.findActiveStepIndex(nodes);
+    if (activeStepIndex !== -1 && activeStepIndex !== this.lastActiveStepIndex) {
+      this.lastActiveStepIndex = activeStepIndex;
+      const activeNode = nodes.find(
+        (n) => n.type !== "label" && n.step_index === activeStepIndex
+      );
+      if (activeNode && container) {
+        requestAnimationFrame(() => {
+          this.scrollNodeIntoView(container, activeNode);
+        });
+      }
     }
   }
 
@@ -153,8 +217,9 @@ export class PipetreeViz {
   init() {
     this.render();
 
-    // Listen for HTMX updates
     const self = this;
+
+    // Re-render after HTMX updates
     document.body.addEventListener("htmx:afterSwap", function (evt) {
       self.handleUpdate(evt);
     });
