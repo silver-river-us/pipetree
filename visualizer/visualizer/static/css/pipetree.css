@@ -11,8 +11,13 @@ main.rounded-3xl {
 }
 
 /* Reset border-radius on all content elements except badges */
-main.rounded-3xl *:not([class*="badge"]):not([class*="rounded-full"]):not([class*="pill"]) {
+main.rounded-3xl *:not(.badge):not([class*="rounded-full"]):not([class*="pill"]) {
   border-radius: 0 !important;
+}
+
+/* Ensure badges keep their rounded style */
+.badge {
+  border-radius: 9999px !important;
 }
 
 /* ========================================
