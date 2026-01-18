@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+fastapi = ">=0.109.0"
+uvicorn = {extras = ["standard"], version = ">=0.27.0"}
+jinja2 = ">=3.1.0"
+websockets = ">=12.0"
+python-multipart = ">=0.0.6"
+python-dotenv = "*"
+
+[dev-packages]
+pytest = ">=7.0.0"
+mypy = ">=1.0.0"
+ruff = ">=0.4.0"
+httpx = "*"
+
+[pipenv]
+path = ".venv"

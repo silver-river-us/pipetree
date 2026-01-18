@@ -9,7 +9,7 @@ pipenv run ruff format --check .
 
 echo ""
 echo "=== Type Check ==="
-pipenv run mypy visualizer/
+pipenv run mypy pdf_ingestion/
 
 echo ""
 echo "=== Tests ==="

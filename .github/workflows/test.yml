@@ -6,8 +6,12 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  pipetree:
+    name: pipetree
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipetree
 
     steps:
       - uses: actions/checkout@v4
@@ -23,14 +27,27 @@ jobs:
       - name: Install dependencies
         run: pipenv install --dev
 
-      - name: Run ruff check
+      - name: Install package
+        run: pipenv run pip install -e .
+
+      - name: Run linter
         run: pipenv run ruff check .
 
-      - name: Run ruff format check
+      - name: Run formatter check
         run: pipenv run ruff format --check .
 
-  type-check:
+      - name: Run type check
+        run: pipenv run mypy pipetree/
+
+      - name: Run tests
+        run: pipenv run pytest tests/ -v
+
+  visualizer:
+    name: visualizer
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: visualizer
 
     steps:
       - uses: actions/checkout@v4
@@ -49,28 +66,56 @@ jobs:
       - name: Install package
         run: pipenv run pip install -e .
 
-      - name: Run mypy
-        run: pipenv run mypy src/
+      - name: Run linter
+        run: pipenv run ruff check .
 
-  test:
+      - name: Run formatter check
+        run: pipenv run ruff format --check .
+
+      - name: Run type check
+        run: pipenv run mypy visualizer/
+
+      - name: Run tests
+        run: pipenv run pytest tests/ -v
+
+  pdf-ingestion:
+    name: pdf-ingestion
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/pdf_ingestion
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.14
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.11"
 
       - name: Install pipenv
         run: pip install pipenv
+
+      - name: Install pipetree first
+        run: |
+          cd ../../pipetree
+          pipenv install --dev
+          pipenv run pip install -e .
 
       - name: Install dependencies
         run: pipenv install --dev
 
       - name: Install package
         run: pipenv run pip install -e .
+
+      - name: Run linter
+        run: pipenv run ruff check .
+
+      - name: Run formatter check
+        run: pipenv run ruff format --check .
+
+      - name: Run type check
+        run: pipenv run mypy pdf_ingestion/
 
       - name: Run tests
         run: pipenv run pytest tests/ -v
