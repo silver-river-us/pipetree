@@ -1,29 +1,103 @@
+{% set organized = organize_steps_with_branches(steps) %}
+{% set main_steps = organized.main %}
+{% set branches_by_parent = organized.branches_by_parent %}
+{% set ran_statuses = ['completed', 'running', 'failed'] %}
+
+{% macro steps_active(steps) -%}
+    {% set ns = namespace(active=false) %}
+    {% for step in steps %}
+        {% if step.status in ran_statuses %}
+            {% set ns.active = true %}
+        {% endif %}
+        {% if not ns.active and branches_by_parent.get(step.name) %}
+            {% for child_steps in branches_by_parent.get(step.name).values() %}
+                {% if steps_active(child_steps) | trim == '1' %}
+                    {% set ns.active = true %}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+    {{- '1' if ns.active else '0' -}}
+{%- endmacro %}
+
+{% macro should_show_step(step) -%}
+    {% if step.status in ran_statuses %}
+        {{- '1' -}}
+    {% elif step.name.startswith('route_') and branches_by_parent.get(step.name) %}
+        {% set ns = namespace(active=false) %}
+        {% for child_steps in branches_by_parent.get(step.name).values() %}
+            {% if steps_active(child_steps) | trim == '1' %}
+                {% set ns.active = true %}
+            {% endif %}
+        {% endfor %}
+        {{- '1' if ns.active else '0' -}}
+    {% else %}
+        {{- '0' -}}
+    {% endif %}
+{%- endmacro %}
+
+{% macro render_step(step, depth) -%}
+    {% if should_show_step(step) | trim == '1' %}
+    {% set status_display = step.status %}
+    {% if step.name.startswith('route_') and branches_by_parent.get(step.name) %}
+        {% set ns = namespace(active=false) %}
+        {% for child_steps in branches_by_parent.get(step.name).values() %}
+            {% if steps_active(child_steps) | trim == '1' %}
+                {% set ns.active = true %}
+            {% endif %}
+        {% endfor %}
+        {% if ns.active %}
+            {% set status_display = 'router_active' %}
+        {% endif %}
+    {% endif %}
+    <div class="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer"
+         style="margin-left: {{ depth * 16 }}px;"
+         data-step-index="{{ step.step_index }}"
+         onclick="openStepModal('{{ run_id }}', {{ step.step_index }}, '{{ db_path }}')">
+        <span class="w-2 h-2 rounded-full flex-shrink-0
+            {% if status_display == 'completed' %}bg-green-600
+            {% elif status_display == 'running' %}bg-blue-600 animate-pulse
+            {% elif status_display == 'failed' %}bg-red-600
+            {% elif status_display == 'router_active' %}bg-purple-600
+            {% elif status_display == 'skipped' %}bg-gray-300
+            {% else %}bg-gray-400{% endif %}"></span>
+        {% if step.branch %}
+        <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">{{ step.branch }}</span>
+        {% endif %}
+        <span class="text-sm {% if status_display == 'skipped' %}text-gray-400{% else %}text-gray-700{% endif %} {% if status_display != 'running' %}flex-1{% endif %}">{{ step.name }}</span>
+        {% if status_display == 'running' %}
+        <span class="flex-1 text-xs text-blue-600 truncate step-summary"
+              data-step-index="{{ step.step_index }}"
+              hx-get="/runs/{{ run_id }}/step/{{ step.step_index }}/summary?db={{ db_path }}"
+              hx-trigger="load"
+              hx-swap="innerHTML">
+        </span>
+        {% endif %}
+        <span class="text-xs text-gray-400 font-mono">
+            {% if step.duration_s and not step.name.startswith('route_') %}
+                {{ step.duration_s | format_duration }}
+            {% else %}
+                -
+            {% endif %}
+        </span>
+    </div>
+    {% endif %}
+{%- endmacro %}
+
+{% macro render_steps(steps, depth) -%}
+    {% for step in steps %}
+        {{ render_step(step, depth) }}
+        {% if step.name.startswith('route_') and branches_by_parent.get(step.name) %}
+            {% for child_steps in branches_by_parent.get(step.name).values() %}
+                {% if steps_active(child_steps) | trim == '1' %}
+                    {{ render_steps(child_steps, depth + 1) }}
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+{%- endmacro %}
+
 <div class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">All Steps</div>
 <div class="space-y-0.5">
-{% for step in steps %}
-{% set is_branch = step.branch is not none %}
-<div class="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer {% if is_branch %}ml-4{% endif %}"
-     data-step-index="{{ step.step_index }}"
-     onclick="openStepModal('{{ run_id }}', {{ step.step_index }}, '{{ db_path }}')">
-    <span class="w-2 h-2 rounded-full flex-shrink-0
-        {% if step.status == 'completed' %}bg-green-600
-        {% elif step.status == 'running' %}bg-blue-600 animate-pulse
-        {% elif step.status == 'failed' %}bg-red-600
-        {% elif step.status == 'skipped' %}bg-gray-300
-        {% else %}bg-gray-400{% endif %}"></span>
-    {% if step.branch %}
-    <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">{{ step.branch }}</span>
-    {% endif %}
-    <span class="text-sm {% if step.status == 'skipped' %}text-gray-400{% else %}text-gray-700{% endif %} {% if step.status != 'running' %}flex-1{% endif %}">{{ step.name }}</span>
-    {% if step.status == 'running' %}
-    <span class="flex-1 text-xs text-blue-600 truncate step-summary"
-          data-step-index="{{ step.step_index }}"
-          hx-get="/runs/{{ run_id }}/step/{{ step.step_index }}/summary?db={{ db_path }}"
-          hx-trigger="load"
-          hx-swap="innerHTML">
-    </span>
-    {% endif %}
-    <span class="text-xs text-gray-400 font-mono">{{ step.duration_s | format_duration if step.duration_s else '-' }}</span>
-</div>
-{% endfor %}
+    {{ render_steps(main_steps, 0) }}
 </div>
