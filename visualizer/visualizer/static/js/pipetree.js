@@ -1,7 +1,7 @@
 /**
- * Pipeline Tree Visualization Library
+ * Pipetree Visualization Library
  *
- * Renders pipeline steps as an interactive SVG tree diagram.
+ * Renders steps as an interactive SVG tree diagram.
  * Supports horizontal and vertical layouts with branching.
  */
 
@@ -743,15 +743,15 @@
   }
 
   /**
-   * PipelineTree class
+   * PipetreeViz class
    */
-  class PipelineTree {
+  class PipetreeViz {
     constructor(options) {
       this.svgSelector = options.svgSelector || "#tree-svg";
       this.dataSelector = options.dataSelector || "#steps-data";
       this.containerSelector = options.containerSelector || ".tree-container";
       this.onNodeClick = options.onNodeClick || function () {};
-      this.layout = localStorage.getItem("pipelineLayout") || "vertical";
+      this.layout = localStorage.getItem("pipetreeLayout") || "vertical";
       this.data = null;
     }
 
@@ -774,7 +774,7 @@
      */
     setLayout(layout) {
       this.layout = layout;
-      localStorage.setItem("pipelineLayout", layout);
+      localStorage.setItem("pipetreeLayout", layout);
       this.render();
     }
 
@@ -916,5 +916,5 @@
   }
 
   // Export to global
-  global.PipelineTree = PipelineTree;
+  global.PipetreeViz = PipetreeViz;
 })(typeof window !== "undefined" ? window : this);

@@ -1,4 +1,4 @@
-"""Controller for pipeline steps."""
+"""Controller for pipetree steps."""
 
 from pathlib import Path
 from typing import Any
@@ -8,7 +8,7 @@ from sqlmodel import func, select
 
 
 class StepsController:
-    """Handles pipeline step requests."""
+    """Handles pipetree step requests."""
 
     @classmethod
     def steps_partial(cls, run_id: str, db_path: Path) -> dict[str, Any]:

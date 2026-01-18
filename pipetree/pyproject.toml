@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "Pipeline Team"}
+    {name = "Pipetree Team"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

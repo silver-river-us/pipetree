@@ -1,5 +1,5 @@
 """
-Pipetree Visualizer - Real-time pipeline monitoring dashboard.
+Pipetree Visualizer - Real-time monitoring dashboard.
 
 A FastAPI application with WebSocket support for live progress updates.
 Styled with Tailwind CSS and Flowbite, uses HTMX for dynamic updates.

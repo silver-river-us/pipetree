@@ -1,1 +1,1 @@
-"""Pipetree Visualizer - Real-time pipeline monitoring dashboard."""
+"""Pipetree Visualizer - Real-time monitoring dashboard."""

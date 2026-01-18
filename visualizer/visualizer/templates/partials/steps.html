@@ -2,10 +2,10 @@
 <div data-run-status="{{ run.status }}">
     {% include "partials/steps_data.html" %}
     <div class="flex items-center justify-between mb-2">
-        <h2 class="text-lg font-semibold text-gray-900">Pipeline Steps</h2>
+        <h2 class="text-lg font-semibold text-gray-900">Steps</h2>
         <div class="tree-controls">
-            <button id="btn-h" onclick="pipelineTree.setLayout('horizontal')">Horizontal</button>
-            <button id="btn-v" onclick="pipelineTree.setLayout('vertical')">Vertical</button>
+            <button id="btn-h" onclick="pipetreeViz.setLayout('horizontal')">Horizontal</button>
+            <button id="btn-v" onclick="pipetreeViz.setLayout('vertical')">Vertical</button>
         </div>
     </div>
 
@@ -13,11 +13,11 @@
         <svg id="tree-svg"></svg>
     </div>
 
-    <script src="/static/js/pipeline-tree.js"></script>
+    <script src="/static/js/pipetree.js"></script>
     <script>
     (function() {
-        // Initialize the pipeline tree
-        window.pipelineTree = new PipelineTree({
+        // Initialize the pipetree visualization
+        window.pipetreeViz = new PipetreeViz({
             svgSelector: '#tree-svg',
             dataSelector: '#steps-data',
             containerSelector: '.tree-container',
@@ -27,7 +27,7 @@
         }).init();
 
         // Update button states
-        var layout = localStorage.getItem('pipelineLayout') || 'vertical';
+        var layout = localStorage.getItem('pipetreeLayout') || 'vertical';
         document.getElementById('btn-h').classList.toggle('active', layout === 'horizontal');
         document.getElementById('btn-v').classList.toggle('active', layout === 'vertical');
     })();

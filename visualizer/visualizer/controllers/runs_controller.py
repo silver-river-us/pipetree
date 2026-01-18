@@ -1,4 +1,4 @@
-"""Controller for pipeline runs."""
+"""Controller for pipetree runs."""
 
 from pathlib import Path
 from typing import Any
@@ -8,7 +8,7 @@ from sqlmodel import select
 
 
 class RunsController:
-    """Handles pipeline run requests."""
+    """Handles pipetree run requests."""
 
     @classmethod
     def index(cls, db_path: Path) -> dict[str, Any]:
