@@ -3,6 +3,19 @@
  */
 
 /* ========================================
+   Main Content Layout
+   ======================================== */
+
+main.rounded-3xl {
+  border-radius: 1.5rem !important;
+}
+
+/* Reset border-radius on all content elements except badges */
+main.rounded-3xl *:not([class*="badge"]):not([class*="rounded-full"]):not([class*="pill"]) {
+  border-radius: 0 !important;
+}
+
+/* ========================================
    Sidebar Navigation
    ======================================== */
 
