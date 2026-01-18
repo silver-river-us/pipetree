@@ -6,19 +6,25 @@ Styled with Tailwind CSS and Flowbite, uses HTMX for dynamic updates.
 """
 
 import asyncio
-import json
+import contextlib
+import os
 import sqlite3
-import time
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+load_dotenv()
+
 # Configuration
-DEFAULT_DB_PATH = Path(__file__).parent.parent / "examples" / "pdf_ingestion" / "progress.db"
+_default_db = (
+    Path(__file__).parent.parent / "examples" / "pdf_ingestion" / "db" / "progress.db"
+)
+DEFAULT_DB_PATH = Path(os.getenv("DB_PATH", str(_default_db)))
 
 app = FastAPI(title="Pipetree Visualizer", version="1.0.0")
 
@@ -26,7 +32,9 @@ app = FastAPI(title="Pipetree Visualizer", version="1.0.0")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 # Static files
-app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+app.mount(
+    "/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static"
+)
 
 
 def get_db_connection(db_path: Path) -> sqlite3.Connection:
@@ -54,6 +62,7 @@ def format_timestamp(ts: float | None) -> str:
     if ts is None:
         return "-"
     import datetime
+
     dt = datetime.datetime.fromtimestamp(ts)
     return dt.strftime("%H:%M:%S")
 
@@ -61,11 +70,36 @@ def format_timestamp(ts: float | None) -> str:
 def get_status_color(status: str) -> dict[str, str]:
     """Get Tailwind color classes for a status."""
     colors = {
-        "pending": {"bg": "bg-gray-100", "text": "text-gray-600", "border": "border-gray-300", "icon": "clock"},
-        "running": {"bg": "bg-blue-100", "text": "text-blue-600", "border": "border-blue-400", "icon": "play"},
-        "completed": {"bg": "bg-green-100", "text": "text-green-600", "border": "border-green-400", "icon": "check"},
-        "failed": {"bg": "bg-red-100", "text": "text-red-600", "border": "border-red-400", "icon": "x"},
-        "skipped": {"bg": "bg-gray-50", "text": "text-gray-400", "border": "border-gray-200", "icon": "skip"},
+        "pending": {
+            "bg": "bg-gray-100",
+            "text": "text-gray-600",
+            "border": "border-gray-300",
+            "icon": "clock",
+        },
+        "running": {
+            "bg": "bg-blue-100",
+            "text": "text-blue-600",
+            "border": "border-blue-400",
+            "icon": "play",
+        },
+        "completed": {
+            "bg": "bg-green-100",
+            "text": "text-green-600",
+            "border": "border-green-400",
+            "icon": "check",
+        },
+        "failed": {
+            "bg": "bg-red-100",
+            "text": "text-red-600",
+            "border": "border-red-400",
+            "icon": "x",
+        },
+        "skipped": {
+            "bg": "bg-gray-50",
+            "text": "text-gray-400",
+            "border": "border-gray-200",
+            "icon": "skip",
+        },
     }
     return colors.get(status, colors["pending"])
 
@@ -204,7 +238,9 @@ async def run_detail(request: Request, run_id: str, db: str = Query(default=None
 
 
 @app.get("/runs/{run_id}/steps", response_class=HTMLResponse)
-async def run_steps_partial(request: Request, run_id: str, db: str = Query(default=None)):
+async def run_steps_partial(
+    request: Request, run_id: str, db: str = Query(default=None)
+):
     """HTMX partial for steps list (for polling updates)."""
     db_path = Path(db) if db else DEFAULT_DB_PATH
 
@@ -232,12 +268,20 @@ async def run_steps_partial(request: Request, run_id: str, db: str = Query(defau
 
     return templates.TemplateResponse(
         "partials/steps.html",
-        {"request": request, "run": run, "steps": steps, "run_id": run_id, "db_path": str(db_path)},
+        {
+            "request": request,
+            "run": run,
+            "steps": steps,
+            "run_id": run_id,
+            "db_path": str(db_path),
+        },
     )
 
 
 @app.get("/runs/{run_id}/steps/data", response_class=HTMLResponse)
-async def run_steps_data_partial(request: Request, run_id: str, db: str = Query(default=None)):
+async def run_steps_data_partial(
+    request: Request, run_id: str, db: str = Query(default=None)
+):
     """HTMX partial for steps data (tree updates without re-rendering container)."""
     db_path = Path(db) if db else DEFAULT_DB_PATH
 
@@ -265,12 +309,20 @@ async def run_steps_data_partial(request: Request, run_id: str, db: str = Query(
 
     return templates.TemplateResponse(
         "partials/steps_data.html",
-        {"request": request, "run": run, "steps": steps, "run_id": run_id, "db_path": str(db_path)},
+        {
+            "request": request,
+            "run": run,
+            "steps": steps,
+            "run_id": run_id,
+            "db_path": str(db_path),
+        },
     )
 
 
 @app.get("/runs/{run_id}/steps/list", response_class=HTMLResponse)
-async def run_steps_list_partial(request: Request, run_id: str, db: str = Query(default=None)):
+async def run_steps_list_partial(
+    request: Request, run_id: str, db: str = Query(default=None)
+):
     """HTMX partial for just the step list (lightweight polling)."""
     db_path = Path(db) if db else DEFAULT_DB_PATH
 
@@ -507,24 +559,26 @@ class ConnectionManager:
         self.active_connections[run_id].append(websocket)
 
     def disconnect(self, websocket: WebSocket, run_id: str):
-        if run_id in self.active_connections:
-            if websocket in self.active_connections[run_id]:
-                self.active_connections[run_id].remove(websocket)
+        if (
+            run_id in self.active_connections
+            and websocket in self.active_connections[run_id]
+        ):
+            self.active_connections[run_id].remove(websocket)
 
     async def broadcast(self, run_id: str, message: dict):
         if run_id in self.active_connections:
             for connection in self.active_connections[run_id]:
-                try:
+                with contextlib.suppress(Exception):
                     await connection.send_json(message)
-                except Exception:
-                    pass
 
 
 manager = ConnectionManager()
 
 
 @app.websocket("/ws/{run_id}")
-async def websocket_endpoint(websocket: WebSocket, run_id: str, db: str = Query(default=None)):
+async def websocket_endpoint(
+    websocket: WebSocket, run_id: str, db: str = Query(default=None)
+):
     """WebSocket endpoint for real-time updates."""
     db_path = Path(db) if db else DEFAULT_DB_PATH
 
@@ -567,18 +621,22 @@ async def websocket_endpoint(websocket: WebSocket, run_id: str, db: str = Query(
                         )
                         steps = [dict(row) for row in cursor.fetchall()]
 
-                        await websocket.send_json({
-                            "type": "update",
-                            "run_status": run_status,
-                            "events": events,
-                            "steps": steps,
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "update",
+                                "run_status": run_status,
+                                "events": events,
+                                "steps": steps,
+                            }
+                        )
 
                     conn.close()
 
                     # Stop polling if run is completed
                     if run_status in ("completed", "failed"):
-                        await websocket.send_json({"type": "complete", "status": run_status})
+                        await websocket.send_json(
+                            {"type": "complete", "status": run_status}
+                        )
                         break
 
                 except Exception as e:
@@ -593,4 +651,5 @@ async def websocket_endpoint(websocket: WebSocket, run_id: str, db: str = Query(
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

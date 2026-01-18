@@ -52,3 +52,16 @@ SAVE_TEXT = Capability(
     requires={"texts", "output_path"},
     provides={"saved"},
 )
+
+# Router capabilities
+ROUTE_PARTS_TYPE = Capability(
+    name="route_parts_type",
+    requires={"texts", "category"},
+    provides={"processed_mechanical", "processed_electrical", "processed_parts"},
+)
+
+ROUTE_BY_CATEGORY = Capability(
+    name="process_document",
+    requires={"texts", "category"},
+    provides={"processed_ops", "processed_parts", "processed_mechanical", "processed_electrical"},
+)

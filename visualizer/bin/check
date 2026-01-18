@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/../.."
+
+echo "=== Lint (visualizer) ==="
+pipenv run ruff check visualizer/
+pipenv run ruff format --check visualizer/
+
+echo ""
+echo "=== Type Check (visualizer) ==="
+pipenv run mypy visualizer/
+
+echo ""
+echo "=== Tests (visualizer) ==="
+pipenv run pytest visualizer/tests/ -v
+
+echo ""
+echo "=== All checks passed ==="

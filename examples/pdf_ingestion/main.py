@@ -14,12 +14,11 @@ Features:
 """
 
 import asyncio
-import sys
 import time
 from pathlib import Path
 from threading import Event, Thread
 
-from pipetree import Capability, Pipetree, SQLiteProgressNotifier
+from pipetree import Pipetree, SQLiteProgressNotifier
 
 from .capabilities import (
     CATEGORIZE,
@@ -27,6 +26,8 @@ from .capabilities import (
     PROCESS_ELECTRICAL,
     PROCESS_MECHANICAL,
     PROCESS_OPS,
+    ROUTE_BY_CATEGORY,
+    ROUTE_PARTS_TYPE,
     SAVE_TEXT,
     TEXT_EXTRACTION,
 )
@@ -42,54 +43,35 @@ from .steps import (
     ProcessOpsStep,
     SaveTextStep,
 )
+from .watch import watch_sqlite_progress
 
 
 def create_pipeline(db_path: Path | None = None) -> tuple[Pipetree, SQLiteProgressNotifier | None]:
     """Create the PDF ingestion pipeline with nested branching."""
     notifier = SQLiteProgressNotifier(db_path) if db_path else None
 
-    # Nested router capability for parts -> mechanical/electrical
-    PARTS_ROUTER_CAP = Capability(
-        name="route_parts_type",
-        requires={"texts", "category"},
-        provides={"processed_mechanical", "processed_electrical", "processed_parts"},
-    )
-
-    # Create the nested router for parts type
-    parts_type_router = PartsTypeRouter(
-        cap=PARTS_ROUTER_CAP,
-        name="route_parts_type",
-        table={
-            "mechanical": ProcessMechanicalStep(PROCESS_MECHANICAL, "process_mechanical"),
-            "electrical": ProcessElectricalStep(PROCESS_ELECTRICAL, "process_electrical"),
-        },
-        default="mechanical",
-    )
-
-    # Top-level router capability
-    ROUTER_CAP = Capability(
-        name="process_document",
-        requires={"texts", "category"},
-        provides={"processed_ops", "processed_parts", "processed_mechanical", "processed_electrical"},
-    )
-
-    # Create the top-level router with branch steps
-    category_router = CategoryRouter(
-        cap=ROUTER_CAP,
-        name="route_by_category",
-        table={
-            "ops": ProcessOpsStep(PROCESS_OPS, "process_ops"),
-            "parts": parts_type_router,  # Nested router!
-        },
-        default="ops",
-    )
-
     pipeline = Pipetree(
         steps=[
             LoadPdfStep(LOAD_PDF, "load_pdf"),
             ExtractTextStep(TEXT_EXTRACTION, "extract_text"),
             CategorizeStep(CATEGORIZE, "categorize"),
-            category_router,
+            CategoryRouter(
+                cap=ROUTE_BY_CATEGORY,
+                name="route_by_category",
+                table={
+                    "ops": ProcessOpsStep(PROCESS_OPS, "process_ops"),
+                    "parts": PartsTypeRouter(
+                        cap=ROUTE_PARTS_TYPE,
+                        name="route_parts_type",
+                        table={
+                            "mechanical": ProcessMechanicalStep(PROCESS_MECHANICAL, "process_mechanical"),
+                            "electrical": ProcessElectricalStep(PROCESS_ELECTRICAL, "process_electrical"),
+                        },
+                        default="mechanical",
+                    ),
+                },
+                default="ops",
+            ),
             SaveTextStep(SAVE_TEXT, "save_text"),
         ],
         progress_notifier=notifier,
@@ -128,102 +110,13 @@ def create_pipeline(db_path: Path | None = None) -> tuple[Pipetree, SQLiteProgre
     return pipeline, notifier
 
 
-def watch_sqlite_progress(db_path: Path, run_id: str, stop_event: Event) -> None:
-    """Watch SQLite database and print updates to console."""
-    import sqlite3
-
-    # Wait for database to be created
-    while not db_path.exists() and not stop_event.is_set():
-        time.sleep(0.01)
-
-    if stop_event.is_set():
-        return
-
-    time.sleep(0.05)
-
-    last_event_id = 0
-    last_progress_line = ""
-
-    while not stop_event.is_set():
-        try:
-            conn = sqlite3.connect(str(db_path))
-            conn.row_factory = sqlite3.Row
-
-            # Get new events
-            cursor = conn.execute(
-                """
-                SELECT * FROM events
-                WHERE run_id = ? AND id > ?
-                ORDER BY id
-                """,
-                (run_id, last_event_id),
-            )
-            events = [dict(row) for row in cursor.fetchall()]
-
-            for event in events:
-                last_event_id = event["id"]
-                event_type = event["event_type"]
-                step_name = event["step_name"]
-
-                if event_type == "started":
-                    if last_progress_line:
-                        sys.stdout.write("\r" + " " * len(last_progress_line) + "\r")
-                        last_progress_line = ""
-                    print(f"[{step_name}] Started")
-
-                elif event_type == "completed":
-                    if last_progress_line:
-                        sys.stdout.write("\r" + " " * len(last_progress_line) + "\r")
-                        last_progress_line = ""
-                    duration = event.get("duration_s")
-                    if duration:
-                        print(f"[{step_name}] Completed in {duration:.2f}s")
-                    else:
-                        print(f"[{step_name}] Completed")
-
-                elif event_type == "failed":
-                    if last_progress_line:
-                        sys.stdout.write("\r" + " " * len(last_progress_line) + "\r")
-                        last_progress_line = ""
-                    error = event.get("error", "unknown error")
-                    print(f"[{step_name}] FAILED: {error}")
-
-                elif event_type == "progress":
-                    current = event.get("current")
-                    total = event.get("total")
-
-                    if current is not None and total is not None and total > 0:
-                        pct = current / total * 100
-                        bar_width = 30
-                        filled = int(bar_width * current / total)
-                        bar = "=" * filled + "-" * (bar_width - filled)
-
-                        progress_line = f"[{step_name}] [{bar}] {pct:5.1f}% ({current}/{total})"
-
-                        sys.stdout.write("\r" + progress_line)
-                        sys.stdout.flush()
-                        last_progress_line = progress_line
-
-            conn.close()
-
-        except Exception:
-            pass
-
-        time.sleep(0.05)
-
-    # Clear any remaining progress line
-    if last_progress_line:
-        sys.stdout.write("\r" + " " * len(last_progress_line) + "\r")
-        sys.stdout.flush()
-
-
 async def main() -> None:
     """Run the PDF ingestion pipeline."""
     # Configuration - resolve paths relative to this script's directory
     script_dir = Path(__file__).parent
-    pdf_path = script_dir / "small.pdf"
-    output_path = script_dir / (pdf_path.stem + ".txt")
-    db_path = script_dir / "progress.db"
+    pdf_path = script_dir / "assets" / "small.pdf"
+    output_path = script_dir / "assets" / (pdf_path.stem + ".txt")
+    db_path = script_dir / "db" / "progress.db"
 
     print("PDF Processing Pipeline (with Nested Branching)")
     print("================================================")
