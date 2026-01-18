@@ -11,7 +11,9 @@ class RunsController:
     """Handles pipetree run requests."""
 
     @classmethod
-    def index(cls, db_path: Path, databases: list[dict] | None = None) -> dict[str, Any]:
+    def index(
+        cls, db_path: Path, databases: list[dict] | None = None
+    ) -> dict[str, Any]:
         """Main dashboard page - shows all runs from all databases."""
         all_runs: list[dict] = []
 
@@ -97,7 +99,9 @@ class RunsController:
         }
 
     @classmethod
-    def list_partial(cls, db_path: Path, databases: list[dict] | None = None) -> dict[str, Any]:
+    def list_partial(
+        cls, db_path: Path, databases: list[dict] | None = None
+    ) -> dict[str, Any]:
         """HTMX partial for runs list from all databases."""
         all_runs: list[dict] = []
 

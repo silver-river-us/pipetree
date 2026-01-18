@@ -84,6 +84,7 @@ def remove_database(path: str) -> bool:
         return True
     return False
 
+
 # Create FastAPI app
 app = FastAPI(title="Pipetree Visualizer", version="1.0.0")
 

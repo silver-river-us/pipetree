@@ -116,7 +116,7 @@ def watch_progress(db_path: Path, run_id: str, stop_event: Event) -> None:
                 )
 
                 for row in cursor.fetchall():
-                    event_id, step_index, event_type, message, current, total = row
+                    event_id, _step_index, _event_type, _message, _current, _total = row
                     last_event_id = event_id
 
                 conn.close()
@@ -158,9 +158,15 @@ def create_pipeline(
                 cap=ROUTE_BY_QUALITY,
                 name="route_by_quality",
                 table={
-                    "high": ProcessHighQualityStep(PROCESS_HIGH_QUALITY, "process_high_quality"),
-                    "medium": ProcessMediumQualityStep(PROCESS_MEDIUM_QUALITY, "process_medium_quality"),
-                    "low": ProcessLowQualityStep(PROCESS_LOW_QUALITY, "process_low_quality"),
+                    "high": ProcessHighQualityStep(
+                        PROCESS_HIGH_QUALITY, "process_high_quality"
+                    ),
+                    "medium": ProcessMediumQualityStep(
+                        PROCESS_MEDIUM_QUALITY, "process_medium_quality"
+                    ),
+                    "low": ProcessLowQualityStep(
+                        PROCESS_LOW_QUALITY, "process_low_quality"
+                    ),
                 },
                 default="medium",
             ),

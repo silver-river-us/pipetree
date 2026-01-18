@@ -1,5 +1,11 @@
 """Steps for the stress test pipeline."""
 
+from .branches import (
+    ProcessHighQualityStep,
+    ProcessLowQualityStep,
+    ProcessMediumQualityStep,
+    QualityRouter,
+)
 from .stages import (
     AggregateStep,
     AnalyzeAdvancedStep,
@@ -22,12 +28,6 @@ from .stages import (
     SerializeStep,
     TransformStep,
     ValidateStep,
-)
-from .branches import (
-    QualityRouter,
-    ProcessHighQualityStep,
-    ProcessMediumQualityStep,
-    ProcessLowQualityStep,
 )
 
 __all__ = [

@@ -73,13 +73,17 @@ class QualityRouter(Router):
 
             duration = time.perf_counter() - start_time
             if notifier:
-                notifier.step_completed(target.name, ctx._step_index, ctx._total_steps, duration)
+                notifier.step_completed(
+                    target.name, ctx._step_index, ctx._total_steps, duration
+                )
 
             return result
         except Exception as e:
             duration = time.perf_counter() - start_time
             if notifier:
-                notifier.step_failed(target.name, ctx._step_index, ctx._total_steps, duration, str(e))
+                notifier.step_failed(
+                    target.name, ctx._step_index, ctx._total_steps, duration, str(e)
+                )
             raise
         finally:
             ctx._step_name = old_step_name
@@ -93,7 +97,7 @@ class ProcessHighQualityStep(Step):
 
         for i in range(5):
             await asyncio.sleep(random.uniform(0.1, 0.2))
-            ctx.report_progress(i + 1,5,f"High quality processing {i + 1}/5")
+            ctx.report_progress(i + 1, 5, f"High quality processing {i + 1}/5")
 
         ctx.branch_a_result = {
             "quality": "high",
@@ -113,7 +117,7 @@ class ProcessMediumQualityStep(Step):
 
         for i in range(7):
             await asyncio.sleep(random.uniform(0.1, 0.25))
-            ctx.report_progress(i + 1,7,f"Medium quality processing {i + 1}/7")
+            ctx.report_progress(i + 1, 7, f"Medium quality processing {i + 1}/7")
 
         ctx.branch_b_result = {
             "quality": "medium",
@@ -129,11 +133,13 @@ class ProcessLowQualityStep(Step):
     """Process low quality results with extra validation."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
-        print("    [Branch: LOW] Processing low quality results with extra validation...")
+        print(
+            "    [Branch: LOW] Processing low quality results with extra validation..."
+        )
 
         for i in range(10):
             await asyncio.sleep(random.uniform(0.15, 0.3))
-            ctx.report_progress(i + 1,10,f"Low quality validation {i + 1}/10")
+            ctx.report_progress(i + 1, 10, f"Low quality validation {i + 1}/10")
 
         ctx.branch_c_result = {
             "quality": "low",

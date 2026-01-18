@@ -34,12 +34,14 @@ class IngestDataStep(Step):
         # Simulate ingesting multiple records with progress
         for i in range(ctx.iterations):
             await asyncio.sleep(random.uniform(0.1, 0.3))
-            ctx.raw_data.append({
-                "id": i + 1,
-                "value": random.randint(1, 100),
-                "timestamp": time.time(),
-                "source": f"source_{random.choice(['a', 'b', 'c'])}",
-            })
+            ctx.raw_data.append(
+                {
+                    "id": i + 1,
+                    "value": random.randint(1, 100),
+                    "timestamp": time.time(),
+                    "source": f"source_{random.choice(['a', 'b', 'c'])}",
+                }
+            )
             ctx.report_progress(i + 1, ctx.iterations, f"Record {i + 1}")
 
         ctx.ingested = True
@@ -109,7 +111,7 @@ class EnrichStage1Step(Step):
                 "category": random.choice(["high", "medium", "low"]),
                 "priority": random.randint(1, 5),
             }
-            ctx.report_progress(i + 1,len(ctx.normalized_data),"Enriching")
+            ctx.report_progress(i + 1, len(ctx.normalized_data), "Enriching")
 
         ctx.enriched_stage1 = True
         ctx.current_stage = 5
@@ -130,7 +132,7 @@ class EnrichStage2Step(Step):
                 "external_score": random.uniform(0, 1),
                 "tags": random.sample(["tag1", "tag2", "tag3", "tag4", "tag5"], k=2),
             }
-            ctx.report_progress(i + 1,len(ctx.normalized_data),"External data")
+            ctx.report_progress(i + 1, len(ctx.normalized_data), "External data")
 
         ctx.enriched_stage2 = True
         ctx.current_stage = 6
@@ -149,12 +151,12 @@ class EnrichStage3Step(Step):
             await asyncio.sleep(random.uniform(0.05, 0.1))
             record["enriched_3"] = {
                 "derived_score": (
-                    record["normalized_value"] * 0.5 +
-                    record["enriched_2"]["external_score"] * 0.5
+                    record["normalized_value"] * 0.5
+                    + record["enriched_2"]["external_score"] * 0.5
                 ),
                 "computed_at": time.time(),
             }
-            ctx.report_progress(i + 1,len(ctx.normalized_data),"Computing")
+            ctx.report_progress(i + 1, len(ctx.normalized_data), "Computing")
 
         ctx.enriched_stage3 = True
         ctx.current_stage = 7
@@ -182,7 +184,7 @@ class TransformStep(Step):
                 "processed_at": time.time(),
             }
             ctx.transformed_data.append(transformed)
-            ctx.report_progress(i + 1,len(ctx.normalized_data),"Transforming")
+            ctx.report_progress(i + 1, len(ctx.normalized_data), "Transforming")
 
         ctx.transformed = True
         ctx.current_stage = 8
@@ -198,17 +200,20 @@ class AnalyzeBasicStep(Step):
         print("[9/21] Running basic analysis...")
 
         await asyncio.sleep(random.uniform(0.5, 1.0))
-        ctx.report_progress(1,3,"Computing stats")
+        ctx.report_progress(1, 3, "Computing stats")
 
         await asyncio.sleep(random.uniform(0.3, 0.6))
-        ctx.report_progress(2,3,"Aggregating")
+        ctx.report_progress(2, 3, "Aggregating")
 
         await asyncio.sleep(random.uniform(0.3, 0.6))
-        ctx.report_progress(3,3,"Finalizing")
+        ctx.report_progress(3, 3, "Finalizing")
 
         ctx.analysis_results["basic"] = {
             "count": len(ctx.transformed_data),
-            "avg_value": sum(r["final_value"] for r in ctx.transformed_data) / len(ctx.transformed_data) if ctx.transformed_data else 0,
+            "avg_value": sum(r["final_value"] for r in ctx.transformed_data)
+            / len(ctx.transformed_data)
+            if ctx.transformed_data
+            else 0,
         }
 
         ctx.analyzed_basic = True
@@ -227,13 +232,18 @@ class AnalyzeAdvancedStep(Step):
         # Simulate complex analysis
         for i in range(5):
             await asyncio.sleep(random.uniform(0.2, 0.4))
-            ctx.report_progress(i + 1,5,f"Analysis pass {i + 1}")
+            ctx.report_progress(i + 1, 5, f"Analysis pass {i + 1}")
 
         values = [r["final_value"] for r in ctx.transformed_data]
         ctx.analysis_results["advanced"] = {
             "min": min(values) if values else 0,
             "max": max(values) if values else 0,
-            "variance": sum((v - ctx.analysis_results["basic"]["avg_value"]) ** 2 for v in values) / len(values) if values else 0,
+            "variance": sum(
+                (v - ctx.analysis_results["basic"]["avg_value"]) ** 2 for v in values
+            )
+            / len(values)
+            if values
+            else 0,
         }
 
         ctx.analyzed_advanced = True
@@ -252,7 +262,7 @@ class AnalyzeDeepStep(Step):
         # Simulate deep learning analysis
         for i in range(8):
             await asyncio.sleep(random.uniform(0.15, 0.3))
-            ctx.report_progress(i + 1,8,f"Deep analysis {i + 1}/8")
+            ctx.report_progress(i + 1, 8, f"Deep analysis {i + 1}/8")
 
         # Category distribution
         categories = {}
@@ -262,7 +272,11 @@ class AnalyzeDeepStep(Step):
 
         ctx.analysis_results["deep"] = {
             "category_distribution": categories,
-            "insights": ["Pattern A detected", "Anomaly B identified", "Trend C observed"],
+            "insights": [
+                "Pattern A detected",
+                "Anomaly B identified",
+                "Trend C observed",
+            ],
         }
 
         ctx.analyzed_deep = True
@@ -279,17 +293,19 @@ class AggregateStep(Step):
         print("[12/21] Aggregating results...")
 
         await asyncio.sleep(random.uniform(0.5, 1.0))
-        ctx.report_progress(1,2,"Merging results")
+        ctx.report_progress(1, 2, "Merging results")
 
         await asyncio.sleep(random.uniform(0.3, 0.6))
-        ctx.report_progress(2,2,"Computing summary")
+        ctx.report_progress(2, 2, "Computing summary")
 
         ctx.aggregation_results = {
             "summary": {
                 "total_records": len(ctx.transformed_data),
                 "basic_stats": ctx.analysis_results.get("basic", {}),
                 "advanced_stats": ctx.analysis_results.get("advanced", {}),
-                "deep_insights": ctx.analysis_results.get("deep", {}).get("insights", []),
+                "deep_insights": ctx.analysis_results.get("deep", {}).get(
+                    "insights", []
+                ),
             },
             "aggregated_at": time.time(),
         }
@@ -314,7 +330,7 @@ class QualityCheckStep(Step):
             await asyncio.sleep(random.uniform(0.2, 0.4))
             score = random.uniform(0.7, 1.0)
             scores.append(score)
-            ctx.report_progress(i + 1,len(checks),f"Checking {check}")
+            ctx.report_progress(i + 1, len(checks), f"Checking {check}")
 
         ctx.quality_score = sum(scores) / len(scores)
 
@@ -335,7 +351,7 @@ class OptimizeStep(Step):
 
         for i in range(4):
             await asyncio.sleep(random.uniform(0.2, 0.4))
-            ctx.report_progress(i + 1,4,f"Optimization pass {i + 1}")
+            ctx.report_progress(i + 1, 4, f"Optimization pass {i + 1}")
 
         ctx.optimized = True
         ctx.current_stage = 14
@@ -351,12 +367,12 @@ class SerializeStep(Step):
         print("[15/21] Serializing results...")
 
         await asyncio.sleep(random.uniform(0.3, 0.6))
-        ctx.report_progress(1,2,"Converting to JSON")
+        ctx.report_progress(1, 2, "Converting to JSON")
 
         ctx.serialized_data = json.dumps(ctx.aggregation_results, indent=2, default=str)
 
         await asyncio.sleep(random.uniform(0.2, 0.4))
-        ctx.report_progress(2,2,"Serialization complete")
+        ctx.report_progress(2, 2, "Serialization complete")
 
         ctx.serialized = True
         ctx.current_stage = 15
@@ -372,7 +388,7 @@ class CompressStep(Step):
         print("[16/21] Compressing data...")
 
         await asyncio.sleep(random.uniform(0.4, 0.8))
-        ctx.report_progress(1,1,"Compressing")
+        ctx.report_progress(1, 1, "Compressing")
 
         ctx.compressed = True
         ctx.current_stage = 16
@@ -388,10 +404,10 @@ class EncryptStep(Step):
         print("[17/21] Encrypting data...")
 
         await asyncio.sleep(random.uniform(0.3, 0.6))
-        ctx.report_progress(1,2,"Generating keys")
+        ctx.report_progress(1, 2, "Generating keys")
 
         await asyncio.sleep(random.uniform(0.3, 0.6))
-        ctx.report_progress(2,2,"Encrypting")
+        ctx.report_progress(2, 2, "Encrypting")
 
         ctx.encrypted = True
         ctx.current_stage = 17
@@ -408,7 +424,7 @@ class GenerateOutputStep(Step):
 
         for i in range(3):
             await asyncio.sleep(random.uniform(0.2, 0.4))
-            ctx.report_progress(i + 1,3,f"Generating output {i + 1}/3")
+            ctx.report_progress(i + 1, 3, f"Generating output {i + 1}/3")
 
         ctx.output_generated = True
         ctx.current_stage = 18
@@ -426,7 +442,7 @@ class NotifyStep(Step):
         notifications = ["email", "slack", "webhook"]
         for i, notif in enumerate(notifications):
             await asyncio.sleep(random.uniform(0.2, 0.4))
-            ctx.report_progress(i + 1,len(notifications),f"Sending {notif}")
+            ctx.report_progress(i + 1, len(notifications), f"Sending {notif}")
 
         ctx.notified = True
         ctx.current_stage = 19
@@ -442,10 +458,10 @@ class CleanupStep(Step):
         print("[20/21] Cleaning up...")
 
         await asyncio.sleep(random.uniform(0.3, 0.6))
-        ctx.report_progress(1,2,"Removing temp files")
+        ctx.report_progress(1, 2, "Removing temp files")
 
         await asyncio.sleep(random.uniform(0.2, 0.4))
-        ctx.report_progress(2,2,"Releasing resources")
+        ctx.report_progress(2, 2, "Releasing resources")
 
         ctx.cleaned_up = True
         ctx.current_stage = 20
