@@ -11,6 +11,7 @@ websockets = ">=12.0"
 python-multipart = ">=0.0.6"
 python-dotenv = "*"
 sqlmodel = "*"
+pipetree = {path = "../pipetree", editable = true}
 
 [dev-packages]
 pytest = ">=7.0.0"

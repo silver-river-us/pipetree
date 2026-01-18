@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "43d7fc86458eedb2173854c956739eb2a761a2a46216ed269ef05d78fbb6031a"
+            "sha256": "a5a0681c21d3c40a8983a98c26714ffa80d1292974bbbba50cb9ac3b138097de"
         },
         "pipfile-spec": 6,
         "requires": {},
@@ -223,6 +223,10 @@
             ],
             "markers": "python_version >= '3.9'",
             "version": "==3.0.3"
+        },
+        "pipetree": {
+            "editable": true,
+            "path": "../pipetree"
         },
         "pydantic": {
             "hashes": [
