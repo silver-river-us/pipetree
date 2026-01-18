@@ -2,15 +2,15 @@
 PDF Ingestion Pipeline Example
 
 This example demonstrates how to build a PDF ingestion pipeline
-using the pipetree framework with parallel text extraction.
+using the pipetree framework with parallel text extraction and nested branching.
 
 Features:
 - Automatic CPU core detection
 - Parallel text extraction using all available cores
-- Memory-efficient page-by-page processing
+- Document categorization (ops vs parts)
+- Nested branching: parts -> mechanical/electrical
 - Progress reporting to SQLite for real-time monitoring
 - Web visualizer at http://localhost:8000
-- Output to text file
 """
 
 import asyncio
@@ -19,26 +19,111 @@ import time
 from pathlib import Path
 from threading import Event, Thread
 
-from pipetree import Pipetree, SQLiteProgressNotifier
+from pipetree import Capability, Pipetree, SQLiteProgressNotifier
 
-from .capabilities import LOAD_PDF, SAVE_TEXT, TEXT_EXTRACTION
+from .capabilities import (
+    CATEGORIZE,
+    LOAD_PDF,
+    PROCESS_ELECTRICAL,
+    PROCESS_MECHANICAL,
+    PROCESS_OPS,
+    SAVE_TEXT,
+    TEXT_EXTRACTION,
+)
 from .context import PdfContext
-from .steps import ExtractTextStep, LoadPdfStep, SaveTextStep
+from .steps import (
+    CategorizeStep,
+    CategoryRouter,
+    ExtractTextStep,
+    LoadPdfStep,
+    PartsTypeRouter,
+    ProcessElectricalStep,
+    ProcessMechanicalStep,
+    ProcessOpsStep,
+    SaveTextStep,
+)
 
 
 def create_pipeline(db_path: Path | None = None) -> tuple[Pipetree, SQLiteProgressNotifier | None]:
-    """Create the PDF ingestion pipeline."""
+    """Create the PDF ingestion pipeline with nested branching."""
     notifier = SQLiteProgressNotifier(db_path) if db_path else None
+
+    # Nested router capability for parts -> mechanical/electrical
+    PARTS_ROUTER_CAP = Capability(
+        name="route_parts_type",
+        requires={"texts", "category"},
+        provides={"processed_mechanical", "processed_electrical", "processed_parts"},
+    )
+
+    # Create the nested router for parts type
+    parts_type_router = PartsTypeRouter(
+        cap=PARTS_ROUTER_CAP,
+        name="route_parts_type",
+        table={
+            "mechanical": ProcessMechanicalStep(PROCESS_MECHANICAL, "process_mechanical"),
+            "electrical": ProcessElectricalStep(PROCESS_ELECTRICAL, "process_electrical"),
+        },
+        default="mechanical",
+    )
+
+    # Top-level router capability
+    ROUTER_CAP = Capability(
+        name="process_document",
+        requires={"texts", "category"},
+        provides={"processed_ops", "processed_parts", "processed_mechanical", "processed_electrical"},
+    )
+
+    # Create the top-level router with branch steps
+    category_router = CategoryRouter(
+        cap=ROUTER_CAP,
+        name="route_by_category",
+        table={
+            "ops": ProcessOpsStep(PROCESS_OPS, "process_ops"),
+            "parts": parts_type_router,  # Nested router!
+        },
+        default="ops",
+    )
 
     pipeline = Pipetree(
         steps=[
             LoadPdfStep(LOAD_PDF, "load_pdf"),
             ExtractTextStep(TEXT_EXTRACTION, "extract_text"),
+            CategorizeStep(CATEGORIZE, "categorize"),
+            category_router,
             SaveTextStep(SAVE_TEXT, "save_text"),
         ],
         progress_notifier=notifier,
-        name="PDF Text Extraction",
+        name="PDF Processing Pipeline",
     )
+
+    # Register branches with the notifier
+    if notifier:
+        # Register the two top-level branches
+        notifier.register_branch(
+            parent_step="route_by_category",
+            branch_name="ops",
+            step_names=["process_ops"],
+            start_index=4,
+        )
+        notifier.register_branch(
+            parent_step="route_by_category",
+            branch_name="parts",
+            step_names=["route_parts_type"],
+            start_index=4,
+        )
+        # Register nested branches under parts
+        notifier.register_branch(
+            parent_step="route_parts_type",
+            branch_name="mechanical",
+            step_names=["process_mechanical"],
+            start_index=5,
+        )
+        notifier.register_branch(
+            parent_step="route_parts_type",
+            branch_name="electrical",
+            step_names=["process_electrical"],
+            start_index=5,
+        )
 
     return pipeline, notifier
 
@@ -136,18 +221,33 @@ async def main() -> None:
     """Run the PDF ingestion pipeline."""
     # Configuration - resolve paths relative to this script's directory
     script_dir = Path(__file__).parent
-    pdf_path = script_dir / "big.pdf"
+    pdf_path = script_dir / "small.pdf"
     output_path = script_dir / (pdf_path.stem + ".txt")
     db_path = script_dir / "progress.db"
 
-    print("PDF Text Extraction Pipeline")
-    print("============================")
+    # Remove old database to start fresh
+    if db_path.exists():
+        db_path.unlink()
+
+    print("PDF Processing Pipeline (with Nested Branching)")
+    print("================================================")
     print(f"Input:    {pdf_path}")
     print(f"Output:   {output_path}")
     print(f"Database: {db_path}")
     print()
+    print("Pipeline structure:")
+    print("  load_pdf -> extract_text -> categorize -> route_by_category")
+    print("                                              |")
+    print("                                   +----------+----------+")
+    print("                                   |                     |")
+    print("                                  ops                  parts")
+    print("                                   |                     |")
+    print("                             process_ops         route_parts_type")
+    print("                                              +----------+----------+")
+    print("                                              |                     |")
+    print("                                         mechanical            electrical")
+    print()
     print("View progress at: http://localhost:8000")
-    print("(Run: pipenv run python -m visualizer.app)")
     print()
 
     # Create pipeline and get the run_id
@@ -178,8 +278,14 @@ async def main() -> None:
         print()
         print("--- Pipeline Complete ---")
         print(f"Pages processed: {result.total_pages}")
+        print(f"Category: {result.category}")
         print(f"Total time: {total_time:.2f}s")
-        print(f"Output saved to: {result.output_path}")
+        if result.processed_ops:
+            print(f"Ops results: {len(result.processed_ops.get('procedures', []))} procedures found")
+        if result.processed_mechanical:
+            print(f"Mechanical: {len(result.processed_mechanical.get('torque_specs', []))} torque specs found")
+        if result.processed_electrical:
+            print(f"Electrical: {len(result.processed_electrical.get('wire_gauges', []))} wire gauges found")
         print()
         print(f"View run at: http://localhost:8000/runs/{run_id}?db={db_path}")
 

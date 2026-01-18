@@ -20,5 +20,16 @@ class PdfContext(Context):
     # After ExtractTextStep (parallel) - pages extracted one by one
     texts: list[str] = field(default_factory=list)
 
+    # After CategorizeStep - category of the document
+    category: str | None = None  # "ops" or "parts"
+
+    # After branch-specific processing
+    processed_ops: dict | None = None
+    processed_parts: dict | None = None
+
+    # After nested branch processing (parts -> mechanical/electrical)
+    processed_mechanical: dict | None = None
+    processed_electrical: dict | None = None
+
     # After SaveTextStep
     saved: bool = False

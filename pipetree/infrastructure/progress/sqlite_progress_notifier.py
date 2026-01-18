@@ -56,6 +56,8 @@ class SQLiteProgressNotifier(ProgressNotifier):
                 completed_at REAL,
                 duration_s REAL,
                 error TEXT,
+                branch TEXT,
+                parent_step TEXT,
                 FOREIGN KEY (run_id) REFERENCES runs(id)
             );
 
@@ -72,12 +74,14 @@ class SQLiteProgressNotifier(ProgressNotifier):
                 current INTEGER,
                 total INTEGER,
                 message TEXT,
+                branch TEXT,
                 FOREIGN KEY (run_id) REFERENCES runs(id)
             );
 
             CREATE INDEX IF NOT EXISTS idx_events_run_id ON events(run_id);
             CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
             CREATE INDEX IF NOT EXISTS idx_steps_run_id ON steps(run_id);
+            CREATE INDEX IF NOT EXISTS idx_steps_branch ON steps(branch);
             """
         )
         self._conn.commit()
@@ -126,6 +130,50 @@ class SQLiteProgressNotifier(ProgressNotifier):
         self._conn.commit()
         return self.run_id
 
+    def register_branch(
+        self,
+        parent_step: str,
+        branch_name: str,
+        step_names: list[str],
+        start_index: int,
+    ) -> None:
+        """
+        Register a branch's steps.
+
+        Args:
+            parent_step: Name of the router step that creates this branch
+            branch_name: Name of this branch (e.g., "ops", "parts")
+            step_names: List of step names in this branch
+            start_index: Starting step index for this branch
+        """
+        if self._conn is None:
+            return
+
+        for i, step_name in enumerate(step_names):
+            self._conn.execute(
+                """
+                INSERT INTO steps (run_id, name, step_index, status, branch, parent_step)
+                VALUES (?, ?, ?, 'pending', ?, ?)
+                """,
+                (self.run_id, step_name, start_index + i, branch_name, parent_step),
+            )
+
+        self._conn.commit()
+
+    def set_branch_skipped(self, branch_name: str) -> None:
+        """Mark all steps in a branch as skipped."""
+        if self._conn is None:
+            return
+
+        self._conn.execute(
+            """
+            UPDATE steps SET status = 'skipped'
+            WHERE run_id = ? AND branch = ?
+            """,
+            (self.run_id, branch_name),
+        )
+        self._conn.commit()
+
     def complete_run(self, status: str = "completed") -> None:
         """Mark the run as completed."""
         if self._conn is None:
@@ -168,35 +216,35 @@ class SQLiteProgressNotifier(ProgressNotifier):
             ),
         )
 
-        # Update step status based on event type
+        # Update step status based on event type (use name for lookup to support branches)
         if event.event_type == "started":
             self._conn.execute(
                 """
                 UPDATE steps SET status = 'running', started_at = ?
-                WHERE run_id = ? AND step_index = ?
+                WHERE run_id = ? AND name = ? AND status = 'pending'
                 """,
-                (event.timestamp, self.run_id, event.step_index),
+                (event.timestamp, self.run_id, event.step_name),
             )
         elif event.event_type == "completed":
             self._conn.execute(
                 """
                 UPDATE steps SET status = 'completed', completed_at = ?, duration_s = ?
-                WHERE run_id = ? AND step_index = ?
+                WHERE run_id = ? AND name = ? AND status = 'running'
                 """,
-                (event.timestamp, event.duration_s, self.run_id, event.step_index),
+                (event.timestamp, event.duration_s, self.run_id, event.step_name),
             )
         elif event.event_type == "failed":
             self._conn.execute(
                 """
                 UPDATE steps SET status = 'failed', completed_at = ?, duration_s = ?, error = ?
-                WHERE run_id = ? AND step_index = ?
+                WHERE run_id = ? AND name = ? AND status = 'running'
                 """,
                 (
                     event.timestamp,
                     event.duration_s,
                     event.error,
                     self.run_id,
-                    event.step_index,
+                    event.step_name,
                 ),
             )
 
@@ -214,17 +262,43 @@ class SQLiteProgressNotifier(ProgressNotifier):
         row = cursor.fetchone()
         return dict(row) if row else None
 
-    def get_steps(self, run_id: str | None = None) -> list[dict[str, Any]]:
-        """Get all steps for a run."""
+    def get_steps(self, run_id: str | None = None, branch: str | None = None) -> list[dict[str, Any]]:
+        """Get all steps for a run, optionally filtered by branch."""
+        if self._conn is None:
+            return []
+
+        run_id = run_id or self.run_id
+
+        if branch is not None:
+            cursor = self._conn.execute(
+                "SELECT * FROM steps WHERE run_id = ? AND branch = ? ORDER BY step_index",
+                (run_id, branch),
+            )
+        else:
+            # Order: main steps first (branch IS NULL), then branches by parent_step and step_index
+            cursor = self._conn.execute(
+                """
+                SELECT * FROM steps WHERE run_id = ?
+                ORDER BY
+                    CASE WHEN branch IS NULL THEN 0 ELSE 1 END,
+                    step_index,
+                    branch
+                """,
+                (run_id,),
+            )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_branches(self, run_id: str | None = None) -> list[str]:
+        """Get all branch names for a run."""
         if self._conn is None:
             return []
 
         run_id = run_id or self.run_id
         cursor = self._conn.execute(
-            "SELECT * FROM steps WHERE run_id = ? ORDER BY step_index",
+            "SELECT DISTINCT branch FROM steps WHERE run_id = ? AND branch IS NOT NULL",
             (run_id,),
         )
-        return [dict(row) for row in cursor.fetchall()]
+        return [row[0] for row in cursor.fetchall()]
 
     def get_events(
         self,
