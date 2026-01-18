@@ -3,8 +3,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from visualizer.app import (
-    app,
+from visualizer.app import app
+from visualizer.lib import (
     format_duration,
     format_timestamp,
     get_status_color,

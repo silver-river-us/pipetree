@@ -18,47 +18,7 @@
     <script src="https://unpkg.com/idiomorph@0.3.0/dist/idiomorph-ext.min.js"></script>
 
     <!-- Custom styles -->
-    <style>
-        *, *::before, *::after {
-            border-radius: 0 !important;
-        }
-        .step-connector {
-            position: absolute;
-            top: 50%;
-            left: 100%;
-            width: 32px;
-            height: 2px;
-            background: #e5e7eb;
-        }
-        .step-connector.completed {
-            background: #10b981;
-        }
-        .step-connector.running {
-            background: linear-gradient(90deg, #3b82f6 0%, #e5e7eb 100%);
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .step-card {
-            transition: all 0.3s ease;
-        }
-        .step-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .step-card.running {
-            animation: glow 2s ease-in-out infinite;
-        }
-        @keyframes glow {
-            0%, 100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
-            50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.8); }
-        }
-        .progress-bar {
-            transition: width 0.3s ease;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/pipeline.css">
 
     {% block head %}{% endblock %}
 </head>
