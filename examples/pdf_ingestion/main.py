@@ -225,9 +225,7 @@ async def main() -> None:
     output_path = script_dir / (pdf_path.stem + ".txt")
     db_path = script_dir / "progress.db"
 
-    # Remove old database to start fresh
-    if db_path.exists():
-        db_path.unlink()
+    # Keep existing database to preserve previous runs
 
     print("PDF Processing Pipeline (with Nested Branching)")
     print("================================================")

@@ -487,6 +487,24 @@
                 maxX += shiftX;
             }
 
+            // Center the vertical layout in the container by shifting content
+            if (!isH && container) {
+                const viewWidth = container.clientWidth;
+                const contentWidth = maxX + margin;
+                if (viewWidth > contentWidth) {
+                    const shiftX = Math.floor((viewWidth - contentWidth) / 2);
+                    nodes.forEach(n => {
+                        if (n.x != null) n.x += shiftX;
+                    });
+                    links.forEach(l => {
+                        if (l.x1 != null) l.x1 += shiftX;
+                        if (l.x2 != null) l.x2 += shiftX;
+                        if (l.x3 != null) l.x3 += shiftX;
+                    });
+                    maxX += shiftX;
+                }
+            }
+
             const svgW = maxX + margin;
             svg.setAttribute('width', svgW);
             svg.setAttribute('height', svgH);
