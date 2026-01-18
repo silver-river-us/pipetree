@@ -1,16 +1,39 @@
 {% if run %}
 <div data-run-status="{{ run.status }}">
     {% include "partials/steps_data.html" %}
-    <div class="flex items-center justify-between mb-2">
+    <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-gray-900">Steps</h2>
         <div class="tree-controls">
-            <button id="btn-h">Horizontal</button>
-            <button id="btn-v">Vertical</button>
+            <button id="btn-h" title="Horizontal layout">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+                </svg>
+            </button>
+            <button id="btn-v" title="Vertical layout">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                </svg>
+            </button>
+            <button id="btn-list" title="List view">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+            </button>
         </div>
     </div>
 
-    <div class="tree-container">
+    <!-- SVG Tree View (shown for horizontal/vertical layouts) -->
+    <div class="tree-container" id="tree-view">
         <svg id="tree-svg"></svg>
+    </div>
+
+    <!-- List View (shown for list layout) -->
+    <div class="list-view hidden"
+         id="list-view"
+         hx-get="/runs/{{ run.id }}/steps/list?db={{ db_path }}"
+         hx-trigger="steps:update"
+         hx-swap="innerHTML">
+        {% include "partials/step_list.html" %}
     </div>
 
     <script type="module">
@@ -18,10 +41,23 @@
 
     const btnH = document.getElementById('btn-h');
     const btnV = document.getElementById('btn-v');
+    const btnList = document.getElementById('btn-list');
+    const treeView = document.getElementById('tree-view');
+    const listView = document.getElementById('list-view');
 
     function updateButtonStates(layout) {
         btnH.classList.toggle('active', layout === 'horizontal');
         btnV.classList.toggle('active', layout === 'vertical');
+        btnList.classList.toggle('active', layout === 'list');
+
+        // Toggle views
+        if (layout === 'list') {
+            treeView.classList.add('hidden');
+            listView.classList.remove('hidden');
+        } else {
+            treeView.classList.remove('hidden');
+            listView.classList.add('hidden');
+        }
     }
 
     // Initialize the pipetree visualization
@@ -48,18 +84,14 @@
         updateButtonStates('vertical');
     });
 
-    // Set initial button states
+    btnList.addEventListener('click', () => {
+        viz.setLayout('list');
+        updateButtonStates('list');
+    });
+
+    // Set initial button states and view
     updateButtonStates(viz.layout);
     </script>
-
-    <!-- Step list -->
-    <div class="mt-4 border-t border-gray-200 pt-4"
-         id="step-list"
-         hx-get="/runs/{{ run.id }}/steps/list?db={{ db_path }}"
-         hx-trigger="steps:update"
-         hx-swap="innerHTML">
-        {% include "partials/step_list.html" %}
-    </div>
 </div>
 {% else %}
 <p class="text-gray-500">No step information available.</p>

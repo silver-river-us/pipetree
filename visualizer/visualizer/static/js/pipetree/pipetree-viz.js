@@ -100,6 +100,11 @@ export class PipetreeViz {
    * Render the tree
    */
   render() {
+    // Skip SVG rendering for list layout
+    if (this.layout === "list") {
+      return;
+    }
+
     this.data = this.readData();
     if (!this.data) return;
 
