@@ -12,7 +12,7 @@
 
     <!-- Runs list -->
     <div id="runs-list"
-         hx-get="/api/runs?db={{ db_path }}"
+         hx-get="/api/runs"
          hx-trigger="every 2s"
          hx-swap="innerHTML">
         {% include "partials/runs_list.html" %}

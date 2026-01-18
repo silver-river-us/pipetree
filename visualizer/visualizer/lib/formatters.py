@@ -18,11 +18,11 @@ def format_duration(seconds: float | None) -> str:
 
 
 def format_timestamp(ts: float | None) -> str:
-    """Format timestamp as time string."""
+    """Format timestamp as time string (12-hour format)."""
     if ts is None:
         return "-"
     dt = datetime.datetime.fromtimestamp(ts)
-    return dt.strftime("%H:%M:%S")
+    return dt.strftime("%I:%M:%S %p").lstrip("0")
 
 
 def get_status_color(status: str) -> dict[str, str]:

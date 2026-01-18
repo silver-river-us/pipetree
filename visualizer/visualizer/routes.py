@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import Query, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
+from pydantic import BaseModel
 from sqlmodel import select
 
 from .controllers import RunsController, StepsController
@@ -15,6 +16,11 @@ from .controllers import RunsController, StepsController
 if TYPE_CHECKING:
     from fastapi import FastAPI
     from fastapi.templating import Jinja2Templates
+
+
+class AddDatabaseRequest(BaseModel):
+    name: str
+    path: str
 
 
 class ConnectionManager:
@@ -63,16 +69,54 @@ def register_routes(
     app: "FastAPI", templates: "Jinja2Templates", default_db_path: Path
 ):
     """Register all routes on the FastAPI app."""
+    from .app import add_database, load_databases, remove_database
 
     def get_db_path(db: str | None) -> Path:
-        return Path(db) if db else default_db_path
+        """Get database path, preferring config list over env default."""
+        if db:
+            return Path(db)
+        # Use first database from config if available
+        databases = load_databases()
+        if databases:
+            return Path(databases[0]["path"])
+        return default_db_path
+
+    def get_template_context(db_path: Path) -> dict:
+        """Get common template context including databases list."""
+        databases = load_databases()
+        return {
+            "databases": databases,
+            "current_db": str(db_path),
+        }
+
+    # --- Database Management API ---
+
+    @app.get("/api/databases")
+    async def list_databases():
+        """Get list of configured databases."""
+        return JSONResponse(content={"databases": load_databases()})
+
+    @app.post("/api/databases")
+    async def create_database(data: AddDatabaseRequest):
+        """Add a new database to the configuration."""
+        db = add_database(data.name, data.path)
+        return JSONResponse(content={"database": db})
+
+    @app.delete("/api/databases")
+    async def delete_database(path: str = Query(...)):
+        """Remove a database from the configuration."""
+        success = remove_database(path)
+        return JSONResponse(content={"success": success})
 
     # --- Dashboard ---
 
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request, db: str = Query(default=None)):
-        """Main dashboard page - shows all runs."""
-        response = RunsController.index(get_db_path(db))
+        """Main dashboard page - shows all runs from all databases."""
+        db_path = get_db_path(db)
+        databases = load_databases()
+        response = RunsController.index(db_path, databases)
+        response["locals"].update(get_template_context(db_path))
         return render_controller(request, templates, response)
 
     # --- Run detail ---
@@ -80,7 +124,9 @@ def register_routes(
     @app.get("/runs/{run_id}", response_class=HTMLResponse)
     async def run_detail(request: Request, run_id: str, db: str = Query(default=None)):
         """Detail view for a specific run."""
-        response = RunsController.detail(run_id, get_db_path(db))
+        db_path = get_db_path(db)
+        response = RunsController.detail(run_id, db_path)
+        response["locals"].update(get_template_context(db_path))
         return render_controller(request, templates, response)
 
     # --- HTMX Partials: Steps ---
@@ -138,8 +184,9 @@ def register_routes(
 
     @app.get("/api/runs", response_class=HTMLResponse)
     async def api_runs_list(request: Request, db: str = Query(default=None)):
-        """HTMX partial for runs list."""
-        response = RunsController.list_partial(get_db_path(db))
+        """HTMX partial for runs list from all databases."""
+        databases = load_databases()
+        response = RunsController.list_partial(get_db_path(db), databases)
         return render_controller(request, templates, response)
 
     @app.get("/api/runs/{run_id}/progress")

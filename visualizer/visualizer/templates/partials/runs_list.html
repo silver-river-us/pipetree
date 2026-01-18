@@ -1,8 +1,8 @@
 {% if runs %}
 <div class="grid gap-4">
     {% for run in runs %}
-    <a href="/runs/{{ run.id }}?db={{ db_path }}"
-       class="block bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4">
+    <a href="/runs/{{ run.id }}?db={{ run.db_path | urlencode }}"
+       class="block bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-4">
                 <!-- Status icon -->
@@ -29,7 +29,14 @@
 
                 <!-- Run info -->
                 <div>
-                    <h3 class="font-semibold text-gray-900">{{ run.name or 'Unnamed Run' }}</h3>
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-semibold text-gray-900">{{ run.name or 'Unnamed Run' }}</h3>
+                        {% if run.db_name %}
+                        <span class="badge px-2 py-0.5 text-xs font-medium rounded-full bg-slate-100 text-slate-600">
+                            {{ run.db_name }}
+                        </span>
+                        {% endif %}
+                    </div>
                     <p class="text-sm text-gray-500">
                         {{ run.id[:8] }}...
                         &bull;
@@ -48,7 +55,7 @@
                 </div>
 
                 <!-- Status badge -->
-                <span class="px-3 py-1 text-xs font-medium rounded-full {{ colors.bg }} {{ colors.text }}">
+                <span class="badge px-3 py-1 text-xs font-medium rounded-full {{ colors.bg }} {{ colors.text }}">
                     {{ run.status | capitalize }}
                 </span>
 

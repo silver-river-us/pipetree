@@ -5,6 +5,7 @@ A FastAPI application with WebSocket support for live progress updates.
 Styled with Tailwind CSS and Flowbite, uses HTMX for dynamic updates.
 """
 
+import json
 import os
 from pathlib import Path
 
@@ -24,10 +25,64 @@ from .routes import register_routes
 load_dotenv()
 
 # Configuration
-_default_db = (
-    Path(__file__).parent.parent / "examples" / "pdf_ingestion" / "db" / "progress.db"
-)
+PROJECT_ROOT = Path(__file__).parent.parent
+DATABASES_CONFIG_PATH = PROJECT_ROOT / "databases.json"
+
+_default_db = PROJECT_ROOT / "examples" / "pdf_ingestion" / "db" / "progress.db"
 DEFAULT_DB_PATH = Path(os.getenv("DB_PATH", str(_default_db)))
+
+
+def load_databases() -> list[dict]:
+    """Load the list of configured databases."""
+    if DATABASES_CONFIG_PATH.exists():
+        with open(DATABASES_CONFIG_PATH) as f:
+            config = json.load(f)
+            databases = config.get("databases", [])
+            # Resolve relative paths to absolute
+            for db in databases:
+                db_path = Path(db["path"])
+                if not db_path.is_absolute():
+                    db["path"] = str(PROJECT_ROOT / db_path)
+                db["exists"] = Path(db["path"]).exists()
+            return databases
+    return []
+
+
+def save_databases(databases: list[dict]) -> None:
+    """Save the list of configured databases."""
+    # Convert absolute paths back to relative for storage
+    save_data = []
+    for db in databases:
+        db_path = Path(db["path"])
+        try:
+            relative_path = db_path.relative_to(PROJECT_ROOT)
+            save_data.append({"name": db["name"], "path": str(relative_path)})
+        except ValueError:
+            # Path is not relative to project root, keep absolute
+            save_data.append({"name": db["name"], "path": str(db_path)})
+
+    with open(DATABASES_CONFIG_PATH, "w") as f:
+        json.dump({"databases": save_data}, f, indent=2)
+
+
+def add_database(name: str, path: str) -> dict:
+    """Add a new database to the configuration."""
+    databases = load_databases()
+    new_db = {"name": name, "path": path, "exists": Path(path).exists()}
+    databases.append(new_db)
+    save_databases(databases)
+    return new_db
+
+
+def remove_database(path: str) -> bool:
+    """Remove a database from the configuration."""
+    databases = load_databases()
+    original_len = len(databases)
+    databases = [db for db in databases if db["path"] != path]
+    if len(databases) < original_len:
+        save_databases(databases)
+        return True
+    return False
 
 # Create FastAPI app
 app = FastAPI(title="Pipetree Visualizer", version="1.0.0")

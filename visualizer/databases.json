@@ -1,0 +1,12 @@
+{
+  "databases": [
+    {
+      "name": "PDF Ingestion",
+      "path": "../examples/pdf_ingestion/db/progress.db"
+    },
+    {
+      "name": "Stress Test",
+      "path": "../examples/stress_test/db/progress.db"
+    }
+  ]
+}

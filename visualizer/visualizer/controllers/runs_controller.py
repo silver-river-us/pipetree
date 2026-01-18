@@ -11,23 +11,54 @@ class RunsController:
     """Handles pipetree run requests."""
 
     @classmethod
-    def index(cls, db_path: Path) -> dict[str, Any]:
-        """Main dashboard page - shows all runs."""
-        runs: list[dict] = []
-        if db_path.exists():
-            try:
-                with get_session(db_path) as session:
-                    statement = (
-                        select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
-                    )
-                    results = session.exec(statement).all()
-                    runs = [run.model_dump() for run in results]
-            except Exception:
-                pass
+    def index(cls, db_path: Path, databases: list[dict] | None = None) -> dict[str, Any]:
+        """Main dashboard page - shows all runs from all databases."""
+        all_runs: list[dict] = []
+
+        # If databases list provided, fetch from all of them
+        if databases:
+            for db in databases:
+                db_file = Path(db["path"])
+                if db_file.exists():
+                    try:
+                        with get_session(db_file) as session:
+                            statement = (
+                                select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
+                            )
+                            results = session.exec(statement).all()
+                            for run in results:
+                                run_dict = run.model_dump()
+                                run_dict["db_path"] = str(db_file)
+                                run_dict["db_name"] = db["name"]
+                                all_runs.append(run_dict)
+                    except Exception:
+                        pass
+        else:
+            # Fallback to single database
+            if db_path.exists():
+                try:
+                    with get_session(db_path) as session:
+                        statement = (
+                            select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
+                        )
+                        results = session.exec(statement).all()
+                        for run in results:
+                            run_dict = run.model_dump()
+                            run_dict["db_path"] = str(db_path)
+                            run_dict["db_name"] = db_path.parent.parent.name
+                            all_runs.append(run_dict)
+                except Exception:
+                    pass
+
+        # Sort all runs by started_at descending
+        all_runs.sort(key=lambda r: r.get("started_at") or 0, reverse=True)
+
+        # Limit to 100 most recent
+        all_runs = all_runs[:100]
 
         return {
             "template": "index.html",
-            "locals": {"runs": runs, "db_path": str(db_path)},
+            "locals": {"runs": all_runs, "db_path": str(db_path)},
         }
 
     @classmethod
@@ -66,23 +97,54 @@ class RunsController:
         }
 
     @classmethod
-    def list_partial(cls, db_path: Path) -> dict[str, Any]:
-        """HTMX partial for runs list."""
-        runs: list[dict] = []
-        if db_path.exists():
-            try:
-                with get_session(db_path) as session:
-                    statement = (
-                        select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
-                    )
-                    results = session.exec(statement).all()
-                    runs = [run.model_dump() for run in results]
-            except Exception:
-                pass
+    def list_partial(cls, db_path: Path, databases: list[dict] | None = None) -> dict[str, Any]:
+        """HTMX partial for runs list from all databases."""
+        all_runs: list[dict] = []
+
+        # If databases list provided, fetch from all of them
+        if databases:
+            for db in databases:
+                db_file = Path(db["path"])
+                if db_file.exists():
+                    try:
+                        with get_session(db_file) as session:
+                            statement = (
+                                select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
+                            )
+                            results = session.exec(statement).all()
+                            for run in results:
+                                run_dict = run.model_dump()
+                                run_dict["db_path"] = str(db_file)
+                                run_dict["db_name"] = db["name"]
+                                all_runs.append(run_dict)
+                    except Exception:
+                        pass
+        else:
+            # Fallback to single database
+            if db_path.exists():
+                try:
+                    with get_session(db_path) as session:
+                        statement = (
+                            select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
+                        )
+                        results = session.exec(statement).all()
+                        for run in results:
+                            run_dict = run.model_dump()
+                            run_dict["db_path"] = str(db_path)
+                            run_dict["db_name"] = db_path.parent.parent.name
+                            all_runs.append(run_dict)
+                except Exception:
+                    pass
+
+        # Sort all runs by started_at descending
+        all_runs.sort(key=lambda r: r.get("started_at") or 0, reverse=True)
+
+        # Limit to 100 most recent
+        all_runs = all_runs[:100]
 
         return {
             "template": "partials/runs_list.html",
-            "locals": {"runs": runs, "db_path": str(db_path)},
+            "locals": {"runs": all_runs, "db_path": str(db_path)},
         }
 
     @classmethod

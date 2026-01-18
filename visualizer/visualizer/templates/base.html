@@ -25,7 +25,7 @@
 <body class="h-full bg-slate-900">
     <div class="flex flex-col h-full">
         <!-- Top Navigation Bar -->
-        <header class="h-12 bg-slate-900 flex items-center px-4 flex-shrink-0">
+        <header class="h-12 bg-slate-900 flex items-center justify-between px-4 flex-shrink-0">
             <a href="/" class="flex items-center gap-2" title="Pipetree">
                 <svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Pipetree logo">
                     <defs>
@@ -43,6 +43,56 @@
                 </svg>
                 <span class="text-white font-semibold text-lg">pipetree</span>
             </a>
+
+            <!-- Database Selector -->
+            {% if databases is defined and databases %}
+            <div class="relative">
+                <button id="db-selector-btn" class="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+                    </svg>
+                    <span class="font-medium">{{ databases | length }} database{% if databases | length != 1 %}s{% endif %}</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+
+                <!-- Dropdown Menu -->
+                <div id="db-selector-menu" class="hidden absolute right-0 mt-1 w-64 bg-slate-800 border border-slate-700 shadow-lg z-50">
+                    <div class="py-1">
+                        {% for db in databases %}
+                        <div class="flex items-center justify-between px-4 py-2 text-sm text-slate-300">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-4 h-4 {% if db.exists %}text-green-400{% else %}text-amber-400{% endif %}" fill="currentColor" viewBox="0 0 20 20">
+                                    <circle cx="10" cy="10" r="4"/>
+                                </svg>
+                                {{ db.name }}
+                            </span>
+                            {% if not db.exists %}
+                            <span class="text-xs text-amber-400">missing</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <script>
+            (function() {
+                const btn = document.getElementById('db-selector-btn');
+                const menu = document.getElementById('db-selector-menu');
+
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menu.classList.toggle('hidden');
+                });
+
+                document.addEventListener('click', () => {
+                    menu.classList.add('hidden');
+                });
+            })();
+            </script>
+            {% endif %}
         </header>
 
         <!-- Main Content Wrapper (dark border effect) -->
