@@ -14,77 +14,60 @@
     padding: 0.5rem 1rem;
     font-size: 0.8125rem;
     font-weight: 500;
-    border-radius: 9999px;
-    border: none;
-    background: #f3f4f6;
-    color: #374151;
+    border-radius: 6px;
+    border: 1px solid #d0d7de;
+    background: white;
+    color: #24292f;
     cursor: pointer;
     transition: all 0.15s;
 }
 
 .tree-controls button:hover {
-    background: #e5e7eb;
+    background: #f6f8fa;
 }
 
 .tree-controls button.active {
-    background: #161b22;
+    background: #0969da;
     color: white;
+    border-color: #0969da;
 }
 
 .tree-container {
-    background: #fafbfc;
-    border: 1px solid #e1e4e8;
-    border-radius: 12px;
+    background: white;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
     overflow: auto;
-    padding: 2rem;
+    padding: 24px;
 }
 
 #tree-svg {
     display: block;
 }
 
-/* CircleCI-style nodes */
+/* CircleCI-style nodes - white background, gray border */
 #tree-svg .node-rect {
-    rx: 8;
-    ry: 8;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.05));
+    rx: 6;
+    ry: 6;
+    fill: white;
+    stroke: #d0d7de;
+    stroke-width: 1;
 }
 
-#tree-svg .node-rect.completed { fill: #2da44e; }
-#tree-svg .node-rect.running { fill: #2f81f7; }
-#tree-svg .node-rect.failed { fill: #cf222e; }
-#tree-svg .node-rect.skipped {
-    fill: white;
-    stroke: #d0d7de;
-    stroke-width: 1;
-    stroke-dasharray: 4 2;
-}
-#tree-svg .node-rect.pending {
-    fill: white;
-    stroke: #d0d7de;
-    stroke-width: 1;
-}
-#tree-svg .node-rect.router {
-    stroke: #8250df;
-    stroke-width: 2;
-}
 
 #tree-svg .node-group { cursor: pointer; }
-#tree-svg .node-group:hover .node-rect { filter: brightness(0.95) drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
+#tree-svg .node-group:hover .node-rect { fill: #f6f8fa; }
 
 #tree-svg .node-text {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
+    fill: #24292f;
 }
-#tree-svg .node-text.light { fill: white; }
-#tree-svg .node-text.dark { fill: #24292f; }
-#tree-svg .node-text.muted { fill: #656d76; }
 
 #tree-svg .node-duration {
-    font-family: ui-monospace, SFMono-Regular, 'SF Mono', monospace;
-    font-size: 10px;
-    opacity: 0.75;
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    fill: #57606a;
 }
 
 #tree-svg .link {
@@ -92,24 +75,18 @@
     stroke: #d0d7de;
     stroke-width: 2;
 }
-#tree-svg .link.active { stroke: #2da44e; }
-
-#tree-svg .branch-pill {
-    rx: 10;
-    ry: 10;
-}
-#tree-svg .branch-pill.active { fill: #ddf4ff; }
-#tree-svg .branch-pill.inactive { fill: #f6f8fa; }
+#tree-svg .link.active { stroke: #1a7f37; }
+#tree-svg .link.router { stroke: #8250df; }
 
 #tree-svg .branch-text {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
     font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.5px;
+    fill: #57606a;
 }
 #tree-svg .branch-text.active { fill: #0969da; }
-#tree-svg .branch-text.inactive { fill: #656d76; }
 </style>
 
 <div data-run-status="{{ run.status }}">
@@ -132,23 +109,27 @@
         const dbPath = "{{ db_path }}";
 
         const NODE_H = 36;
-        const NODE_PAD = 16;
-        const H_SPACING = 60;
-        const V_SPACING = 60;
-        const BRANCH_SPACING = 40;
+        const H_GAP = 24;
+        const V_GAP = 48;
+        const BRANCH_GAP = 60;
 
         let layout = localStorage.getItem('pipelineLayout') || 'vertical';
 
-        function textWidth(text) {
-            return text.length * 7.5 + NODE_PAD * 2 + 40;
+        const MAX_NODE_WIDTH = 220;
+        const MIN_NODE_WIDTH = 100;
+
+        function textWidth(name, durationS) {
+            // Calculate width based on content
+            const nameWidth = name.length * 7.5;
+            const durationWidth = durationS != null ? 50 : 0; // space for duration
+            const padding = 50; // icon + margins
+            const calculated = nameWidth + durationWidth + padding;
+            return Math.min(MAX_NODE_WIDTH, Math.max(MIN_NODE_WIDTH, calculated));
         }
 
-        function nodeColors(status) {
-            const light = ['completed', 'running', 'failed'];
-            return {
-                rectClass: status,
-                textClass: light.includes(status) ? 'light' : (status === 'skipped' ? 'muted' : 'dark')
-            };
+        function truncateName(name, maxChars) {
+            if (name.length <= maxChars) return name;
+            return name.substring(0, maxChars - 1) + '…';
         }
 
         function setLayout(l) {
@@ -166,318 +147,472 @@
             const isH = layout === 'horizontal';
             const nodes = [];
             const links = [];
-            const processedSteps = new Set();
 
-            // First pass: collect all data and calculate sizes
-            let cursor = 40;
-            const mainCenter = isH ? 200 : 250;
+            // Find which main step has branches and which is the final step
+            let routerIndex = -1;
+            let finalStepIndex = mainSteps.length - 1;
 
-            for (let i = 0; i < mainSteps.length; i++) {
-                const step = mainSteps[i];
-                if (processedSteps.has(step.name)) continue;
-                processedSteps.add(step.name);
-
-                const w = textWidth(step.name);
-                const isRouter = step.name.startsWith('route_');
-                const hasBranches = branchesByParent[step.name];
-
-                let x, y;
-                if (isH) {
-                    x = cursor;
-                    y = mainCenter - NODE_H / 2;
-                } else {
-                    x = mainCenter - w / 2;
-                    y = cursor;
-                }
-
-                const node = { ...step, x, y, w, h: NODE_H, isRouter };
-                nodes.push(node);
-
-                // Link to previous
-                if (nodes.length > 1) {
-                    const prev = nodes[nodes.length - 2];
-                    if (!prev._hasBranches) {
-                        links.push({ from: prev, to: node, active: prev.status === 'completed' });
-                    }
-                }
-
-                if (hasBranches) {
-                    node._hasBranches = true;
-                    const branches = branchesByParent[step.name];
-                    const branchNames = Object.keys(branches);
-                    const branchNodes = [];
-
-                    // Calculate branch layout
-                    let branchCursor = isH ? y + NODE_H + V_SPACING : x + w + H_SPACING;
-
-                    branchNames.forEach((bname, bi) => {
-                        const bsteps = branches[bname];
-                        const isActive = bsteps[0] && bsteps[0].status !== 'skipped';
-
-                        // Branch label
-                        const labelW = bname.length * 6.5 + 16;
-                        let lx, ly;
-                        if (isH) {
-                            lx = x + w / 2 + (bi - (branchNames.length - 1) / 2) * (NODE_H + BRANCH_SPACING * 3) - labelW / 2;
-                            ly = branchCursor - 28;
-                        } else {
-                            lx = branchCursor - labelW / 2;
-                            ly = y + NODE_H / 2 - 10;
-                        }
-                        nodes.push({ type: 'label', name: bname, x: lx, y: ly, w: labelW, active: isActive });
-
-                        // Branch steps
-                        let stepCursor = isH ? branchCursor : branchCursor;
-                        let lastBranchNode = null;
-
-                        bsteps.forEach((bstep, si) => {
-                            const bw = textWidth(bstep.name);
-                            const isBRouter = bstep.name.startsWith('route_');
-                            const hasNested = branchesByParent[bstep.name];
-
-                            let bx, by;
-                            if (isH) {
-                                bx = x + w / 2 + (bi - (branchNames.length - 1) / 2) * (NODE_H + BRANCH_SPACING * 3) - bw / 2;
-                                by = stepCursor;
-                            } else {
-                                bx = stepCursor - bw / 2;
-                                by = y + NODE_H + V_SPACING / 2 + bi * (NODE_H + BRANCH_SPACING);
-                            }
-
-                            const bnode = { ...bstep, x: bx, y: by, w: bw, h: NODE_H, isRouter: isBRouter, branchName: bname };
-                            nodes.push(bnode);
-
-                            // Link from router or previous branch step
-                            if (si === 0) {
-                                links.push({ from: node, to: bnode, active: node.status === 'completed' && isActive });
-                            } else if (lastBranchNode) {
-                                links.push({ from: lastBranchNode, to: bnode, active: lastBranchNode.status === 'completed' });
-                            }
-
-                            lastBranchNode = bnode;
-
-                            // Nested branches
-                            if (hasNested) {
-                                const nested = branchesByParent[bstep.name];
-                                const nestedNames = Object.keys(nested);
-                                let nestedCursor = isH ? by + NODE_H + V_SPACING : bx + bw + H_SPACING;
-
-                                nestedNames.forEach((nname, ni) => {
-                                    const nsteps = nested[nname];
-                                    const nActive = nsteps[0] && nsteps[0].status !== 'skipped';
-
-                                    // Nested label
-                                    const nlabelW = nname.length * 6.5 + 16;
-                                    let nlx, nly;
-                                    if (isH) {
-                                        nlx = bx + bw / 2 + (ni - (nestedNames.length - 1) / 2) * (NODE_H + BRANCH_SPACING * 2) - nlabelW / 2;
-                                        nly = nestedCursor - 24;
-                                    } else {
-                                        nlx = nestedCursor - nlabelW / 2;
-                                        nly = by + NODE_H / 2 - 10;
-                                    }
-                                    nodes.push({ type: 'label', name: nname, x: nlx, y: nly, w: nlabelW, active: nActive });
-
-                                    // Nested steps
-                                    nsteps.forEach(nstep => {
-                                        const nw = textWidth(nstep.name);
-                                        let nx, ny;
-                                        if (isH) {
-                                            nx = bx + bw / 2 + (ni - (nestedNames.length - 1) / 2) * (NODE_H + BRANCH_SPACING * 2) - nw / 2;
-                                            ny = nestedCursor;
-                                        } else {
-                                            nx = nestedCursor - nw / 2;
-                                            ny = by + NODE_H + BRANCH_SPACING + ni * (NODE_H + BRANCH_SPACING / 2);
-                                        }
-
-                                        const nnode = { ...nstep, x: nx, y: ny, w: nw, h: NODE_H, branchName: nname };
-                                        nodes.push(nnode);
-                                        links.push({ from: bnode, to: nnode, active: bnode.status === 'completed' && nActive });
-                                        branchNodes.push(nnode);
-
-                                        if (isH) {
-                                            nestedCursor = Math.max(nestedCursor, ny + NODE_H + V_SPACING);
-                                        }
-                                    });
-
-                                    if (isH) {
-                                        // Already updated
-                                    } else {
-                                        nestedCursor += textWidth(nsteps[0]?.name || '') + BRANCH_SPACING;
-                                    }
-                                });
-
-                                if (isH) {
-                                    stepCursor = nestedCursor;
-                                }
-                            } else {
-                                branchNodes.push(bnode);
-                                if (isH) {
-                                    stepCursor += NODE_H + V_SPACING / 2;
-                                }
-                            }
-                        });
-
-                        if (isH) {
-                            branchCursor = Math.max(branchCursor, stepCursor);
-                        } else {
-                            branchCursor += textWidth(bsteps[0]?.name || '') + BRANCH_SPACING * 1.5;
-                        }
-                    });
-
-                    // Find next main step (save_text) and connect all branches to it
-                    const nextIdx = i + 1;
-                    if (nextIdx < mainSteps.length) {
-                        const nextStep = mainSteps[nextIdx];
-                        processedSteps.add(nextStep.name);
-                        const nw = textWidth(nextStep.name);
-
-                        let nx, ny;
-                        if (isH) {
-                            cursor += w + H_SPACING;
-                            nx = cursor;
-                            ny = mainCenter - NODE_H / 2;
-                        } else {
-                            // Position below all branches
-                            let maxY = y;
-                            branchNodes.forEach(bn => {
-                                maxY = Math.max(maxY, bn.y + bn.h);
-                            });
-                            cursor = maxY + V_SPACING;
-                            nx = mainCenter - nw / 2;
-                            ny = cursor;
-                        }
-
-                        const nextNode = { ...nextStep, x: nx, y: ny, w: nw, h: NODE_H, isRouter: nextStep.name.startsWith('route_') };
-                        nodes.push(nextNode);
-
-                        // Connect all branch ends to next node
-                        branchNodes.forEach(bn => {
-                            links.push({ from: bn, to: nextNode, active: bn.status === 'completed' });
-                        });
-
-                        if (isH) {
-                            cursor += nw + H_SPACING;
-                        } else {
-                            cursor += NODE_H + V_SPACING;
-                        }
-                    }
-                } else {
-                    if (isH) {
-                        cursor += w + H_SPACING;
-                    } else {
-                        cursor += NODE_H + V_SPACING;
-                    }
-                }
-            }
-
-            // Calculate SVG size
-            let maxX = 0, maxY = 0;
-            nodes.forEach(n => {
-                if (n.type !== 'label') {
-                    maxX = Math.max(maxX, n.x + n.w);
-                    maxY = Math.max(maxY, n.y + n.h);
-                } else {
-                    maxX = Math.max(maxX, n.x + n.w);
-                    maxY = Math.max(maxY, n.y + 20);
+            mainSteps.forEach((step, i) => {
+                if (branchesByParent[step.name]) {
+                    routerIndex = i;
                 }
             });
 
-            svg.setAttribute('width', maxX + 60);
-            svg.setAttribute('height', maxY + 60);
+            // Layout: pre-router steps, then router, then branches, then final step at bottom
+            const margin = 40;
+            let y = margin;
+            let maxWidth = 0;
 
-            // Draw links
+            // Pre-router steps (before branches)
+            const preRouterSteps = mainSteps.slice(0, routerIndex + 1);
+            const postRouterSteps = mainSteps.slice(routerIndex + 1);
+
+            if (isH) {
+                // Horizontal: main flow left-to-right, branches extend right
+                let x = margin;
+                const centerY = margin + 100; // Vertical center for main flow
+
+                // Pre-router steps in a horizontal row
+                preRouterSteps.forEach((step, i) => {
+                    const w = textWidth(step.name, step.duration_s);
+                    nodes.push({ ...step, x, y: centerY - NODE_H/2, w, h: NODE_H, isRouter: step.name.startsWith('route_') });
+                    if (i > 0) {
+                        const prev = nodes[nodes.length - 2];
+                        links.push({ type: 'h', x1: prev.x + prev.w, y1: centerY, x2: x, y2: centerY, active: prev.status === 'completed' });
+                    }
+                    x += w + H_GAP;
+                });
+
+                // Router branches - each branch extends to the right on its own row
+                const router = nodes[nodes.length - 1];
+                const branches = branchesByParent[router.name] || {};
+                const branchNames = Object.keys(branches);
+
+                const branchStartX = router.x + router.w + H_GAP * 2;
+                const branchEndPoints = [];
+                let maxX = branchStartX;
+
+                // Stack branches vertically, each extending horizontally
+                branchNames.forEach((bname, bi) => {
+                    const bsteps = branches[bname];
+                    const isActive = bsteps[0] && bsteps[0].status !== 'skipped';
+                    const branchY = centerY + (bi - (branchNames.length - 1) / 2) * (NODE_H + BRANCH_GAP);
+
+                    // Branch label above the first step
+                    nodes.push({ type: 'label', name: bname, x: branchStartX, y: branchY - NODE_H/2 - 14, active: isActive });
+
+                    let bx = branchStartX;
+
+                    bsteps.forEach((bstep, si) => {
+                        const bw = textWidth(bstep.name, bstep.duration_s);
+                        const bnode = { ...bstep, x: bx, y: branchY - NODE_H/2, w: bw, h: NODE_H, isRouter: bstep.name.startsWith('route_') };
+                        nodes.push(bnode);
+
+                        // Link from router to first step
+                        if (si === 0) {
+                            const targetIsRouter = bstep.name.startsWith('route_');
+                            // Purple only for active path to another router
+                            const isRouterLink = targetIsRouter && isActive;
+                            links.push({ type: 'h', x1: router.x + router.w, y1: centerY, x2: bx, y2: branchY, active: router.status === 'completed' && isActive, isRouter: isRouterLink });
+                        }
+
+                        // Handle nested branches (extend further right)
+                        const nested = branchesByParent[bstep.name];
+                        if (nested) {
+                            const nestedNames = Object.keys(nested);
+                            const nestedStartX = bx + bw + H_GAP * 2;
+
+                            nestedNames.forEach((nname, ni) => {
+                                const nsteps = nested[nname];
+                                const nActive = nsteps[0] && nsteps[0].status !== 'skipped';
+                                const nestedY = branchY + (ni - (nestedNames.length - 1) / 2) * (NODE_H + 24);
+
+                                nodes.push({ type: 'label', name: nname, x: nestedStartX, y: nestedY - NODE_H/2 - 14, active: nActive });
+
+                                let nx = nestedStartX;
+                                nsteps.forEach(nstep => {
+                                    const nw = textWidth(nstep.name, nstep.duration_s);
+                                    const nnode = { ...nstep, x: nx, y: nestedY - NODE_H/2, w: nw, h: NODE_H };
+                                    nodes.push(nnode);
+                                    // Purple only for active path from router
+                                    const isRouterLink = bnode.isRouter && nActive;
+                                    links.push({ type: 'h', x1: bx + bw, y1: branchY, x2: nx, y2: nestedY, active: bnode.status === 'completed' && nActive, isRouter: isRouterLink });
+                                    branchEndPoints.push({ x: nx + nw, y: nestedY, active: nstep.status === 'completed' });
+                                    maxX = Math.max(maxX, nx + nw);
+                                    nx += nw + H_GAP;
+                                });
+                            });
+                        } else {
+                            branchEndPoints.push({ x: bx + bw, y: branchY, active: bstep.status === 'completed' });
+                            maxX = Math.max(maxX, bx + bw);
+                        }
+
+                        bx += bw + H_GAP;
+                    });
+                });
+
+                // Convergence point - all branches meet at right side
+                const convergeX = maxX + H_GAP * 2;
+
+                // Calculate vertical center of all branch endpoints
+                const minY = Math.min(...branchEndPoints.map(p => p.y));
+                const maxY = Math.max(...branchEndPoints.map(p => p.y));
+                const convergeY = (minY + maxY) / 2;
+
+                // Draw convergence lines (horizontal to convergence X, then vertical to center)
+                branchEndPoints.forEach(pt => {
+                    links.push({ type: 'L', x1: pt.x, y1: pt.y, x2: convergeX, y2: pt.y, x3: convergeX, y3: convergeY, active: pt.active });
+                });
+
+                // Final step after convergence - centered vertically
+                if (postRouterSteps.length > 0) {
+                    const finalStep = postRouterSteps[0];
+                    const fw = textWidth(finalStep.name, finalStep.duration_s);
+                    const finalX = convergeX + H_GAP;
+                    nodes.push({ ...finalStep, x: finalX, y: convergeY - NODE_H/2, w: fw, h: NODE_H });
+                    links.push({ type: 'h', x1: convergeX, y1: convergeY, x2: finalX, y2: convergeY, active: true });
+                    maxX = finalX + fw;
+                }
+
+                maxWidth = maxX + margin;
+                y = centerY + (branchNames.length / 2) * (NODE_H + BRANCH_GAP) + NODE_H + margin;
+
+            } else {
+                // Vertical layout - everything flows top to bottom
+
+                // First, calculate the total width needed for all branches
+                const router_step = preRouterSteps[preRouterSteps.length - 1];
+                const branches = branchesByParent[router_step?.name] || {};
+                const branchNames = Object.keys(branches);
+
+                // Calculate max nested width
+                let maxNestedWidth = 0;
+                branchNames.forEach(bname => {
+                    const bsteps = branches[bname];
+                    bsteps.forEach(bstep => {
+                        const nested = branchesByParent[bstep.name];
+                        if (nested) {
+                            const nestedNames = Object.keys(nested);
+                            maxNestedWidth = Math.max(maxNestedWidth, (nestedNames.length - 1) * 240);
+                        }
+                    });
+                });
+
+                const branchSpacing = Math.max(200, maxNestedWidth + 50);
+                const totalBranchWidth = (branchNames.length - 1) * branchSpacing;
+
+                // Center X should accommodate the widest part
+                const centerX = margin + Math.max(150, totalBranchWidth / 2 + 120);
+
+                // Pre-router steps vertically
+                preRouterSteps.forEach((step, i) => {
+                    const w = textWidth(step.name, step.duration_s);
+                    nodes.push({ ...step, x: centerX - w/2, y, w, h: NODE_H, isRouter: step.name.startsWith('route_') });
+                    if (i > 0) {
+                        const prev = nodes[nodes.length - 2];
+                        links.push({ type: 'v', x1: centerX, y1: prev.y + NODE_H, x2: centerX, y2: y, active: prev.status === 'completed' });
+                    }
+                    y += NODE_H + V_GAP;
+                    maxWidth = Math.max(maxWidth, centerX + w/2 + margin);
+                });
+
+                // Router and branches - spread horizontally, then each branch goes down
+                const router = nodes[nodes.length - 1];
+
+                const branchEndPoints = [];
+                let maxBranchY = y;
+
+                // Calculate branch positions
+                const branchStartX = centerX - totalBranchWidth / 2;
+
+                branchNames.forEach((bname, bi) => {
+                    const bsteps = branches[bname];
+                    const isActive = bsteps[0] && bsteps[0].status !== 'skipped';
+                    const branchX = branchStartX + bi * branchSpacing;
+
+                    // Branch label
+                    nodes.push({ type: 'label', name: bname, x: branchX - 30, y: y - 16, active: isActive });
+
+                    let by = y;
+
+                    bsteps.forEach((bstep, si) => {
+                        const bw = textWidth(bstep.name, bstep.duration_s);
+                        const bnode = { ...bstep, x: branchX - bw/2, y: by, w: bw, h: NODE_H, isRouter: bstep.name.startsWith('route_') };
+                        nodes.push(bnode);
+
+                        if (si === 0) {
+                            // Link from router down to branch
+                            const targetIsRouter = bstep.name.startsWith('route_');
+                            const isRouterLink = targetIsRouter && isActive;
+                            links.push({ type: 'v', x1: centerX, y1: router.y + NODE_H, x2: branchX, y2: by, active: router.status === 'completed' && isActive, isRouter: isRouterLink });
+                        }
+
+                        // Handle nested branches
+                        const nested = branchesByParent[bstep.name];
+                        if (nested) {
+                            const nestedNames = Object.keys(nested);
+                            const nestedSpacing = 240; // Enough space for node width + gap
+                            const nestedTotalWidth = (nestedNames.length - 1) * nestedSpacing;
+                            const nestedStartX = branchX - nestedTotalWidth / 2;
+                            let nestedY = by + NODE_H + V_GAP;
+
+                            nestedNames.forEach((nname, ni) => {
+                                const nsteps = nested[nname];
+                                const nActive = nsteps[0] && nsteps[0].status !== 'skipped';
+                                const nestedX = nestedStartX + ni * nestedSpacing;
+
+                                nodes.push({ type: 'label', name: nname, x: nestedX - 30, y: nestedY - 16, active: nActive });
+
+                                let ny = nestedY;
+                                nsteps.forEach(nstep => {
+                                    const nw = textWidth(nstep.name, nstep.duration_s);
+                                    const nnode = { ...nstep, x: nestedX - nw/2, y: ny, w: nw, h: NODE_H };
+                                    nodes.push(nnode);
+                                    // Purple only for active path from router
+                                    const isRouterLink = bnode.isRouter && nActive;
+                                    links.push({ type: 'v', x1: branchX, y1: bnode.y + NODE_H, x2: nestedX, y2: ny, active: bnode.status === 'completed' && nActive, isRouter: isRouterLink });
+                                    branchEndPoints.push({ x: nestedX, y: ny + NODE_H, active: nstep.status === 'completed' });
+                                    maxBranchY = Math.max(maxBranchY, ny + NODE_H);
+                                    maxWidth = Math.max(maxWidth, nestedX + nw/2 + margin);
+                                    ny += NODE_H + V_GAP;
+                                });
+                            });
+                            by = nestedY + NODE_H;
+                        } else {
+                            branchEndPoints.push({ x: branchX, y: by + NODE_H, active: bstep.status === 'completed' });
+                            maxBranchY = Math.max(maxBranchY, by + NODE_H);
+                        }
+
+                        maxWidth = Math.max(maxWidth, branchX + bw/2 + margin);
+                        by += NODE_H + V_GAP;
+                    });
+                });
+
+                // Convergence and final step
+                const convergeY = maxBranchY + V_GAP / 2;
+
+                // Convergence lines (all branches down to converge point, then to center)
+                branchEndPoints.forEach(pt => {
+                    links.push({ type: 'L', x1: pt.x, y1: pt.y, x2: pt.x, y2: convergeY, x3: centerX, y3: convergeY, active: pt.active });
+                });
+
+                // Final step below convergence
+                if (postRouterSteps.length > 0) {
+                    const finalStep = postRouterSteps[0];
+                    const fw = textWidth(finalStep.name, finalStep.duration_s);
+                    const finalY = convergeY + V_GAP / 2;
+                    nodes.push({ ...finalStep, x: centerX - fw/2, y: finalY, w: fw, h: NODE_H });
+                    links.push({ type: 'v', x1: centerX, y1: convergeY, x2: centerX, y2: finalY, active: true });
+                    y = finalY + NODE_H + margin;
+                } else {
+                    y = convergeY + margin;
+                }
+
+                maxWidth = Math.max(maxWidth, centerX + margin);
+            }
+
+            // Set SVG size - find bounds of all nodes
+            let minX = margin;
+            let maxX = maxWidth;
+            let svgH = y + margin;
+            nodes.forEach(n => {
+                if (n.type !== 'label' && n.x != null) {
+                    minX = Math.min(minX, n.x);
+                    maxX = Math.max(maxX, n.x + (n.w || 0));
+                    svgH = Math.max(svgH, (n.y || 0) + (n.h || 0) + margin);
+                }
+            });
+
+            // If any nodes are to the left of margin, shift everything right
+            if (minX < margin) {
+                const shiftX = margin - minX + 20;
+                nodes.forEach(n => {
+                    if (n.x != null) n.x += shiftX;
+                });
+                links.forEach(l => {
+                    if (l.x1 != null) l.x1 += shiftX;
+                    if (l.x2 != null) l.x2 += shiftX;
+                    if (l.x3 != null) l.x3 += shiftX;
+                });
+                maxX += shiftX;
+            }
+
+            const svgW = maxX + margin;
+            svg.setAttribute('width', svgW);
+            svg.setAttribute('height', svgH);
+
+            // Draw links first
             links.forEach(link => {
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                const f = link.from;
-                const t = link.to;
+                let d;
 
-                let x1 = f.x + f.w / 2;
-                let y1 = f.y + f.h;
-                let x2 = t.x + t.w / 2;
-                let y2 = t.y;
-
-                // Bezier curve
-                const midY = (y1 + y2) / 2;
-                const d = `M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`;
+                if (link.type === 'h') {
+                    // Straight horizontal (with possible vertical offset)
+                    if (link.y1 === link.y2) {
+                        d = `M${link.x1},${link.y1} L${link.x2},${link.y2}`;
+                    } else {
+                        // L-shape: horizontal then vertical
+                        const midX = (link.x1 + link.x2) / 2;
+                        d = `M${link.x1},${link.y1} L${midX},${link.y1} L${midX},${link.y2} L${link.x2},${link.y2}`;
+                    }
+                } else if (link.type === 'v') {
+                    // Straight vertical (with possible horizontal offset)
+                    if (link.x1 === link.x2) {
+                        d = `M${link.x1},${link.y1} L${link.x2},${link.y2}`;
+                    } else {
+                        // L-shape: vertical then horizontal
+                        const midY = (link.y1 + link.y2) / 2;
+                        d = `M${link.x1},${link.y1} L${link.x1},${midY} L${link.x2},${midY} L${link.x2},${link.y2}`;
+                    }
+                } else if (link.type === 'L') {
+                    // Explicit L-shape with 3 points
+                    d = `M${link.x1},${link.y1} L${link.x2},${link.y2} L${link.x3},${link.y3}`;
+                }
 
                 path.setAttribute('d', d);
-                path.setAttribute('class', 'link' + (link.active ? ' active' : ''));
+                let linkClass = 'link';
+                if (link.isRouter) {
+                    linkClass += ' router';
+                } else if (link.active) {
+                    linkClass += ' active';
+                }
+                path.setAttribute('class', linkClass);
                 svg.appendChild(path);
             });
 
             // Draw nodes
             nodes.forEach(node => {
                 if (node.type === 'label') {
-                    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-
-                    const pill = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                    pill.setAttribute('x', node.x);
-                    pill.setAttribute('y', node.y);
-                    pill.setAttribute('width', node.w);
-                    pill.setAttribute('height', 18);
-                    pill.setAttribute('class', 'branch-pill ' + (node.active ? 'active' : 'inactive'));
-                    g.appendChild(pill);
-
                     const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                    txt.setAttribute('x', node.x + node.w / 2);
-                    txt.setAttribute('y', node.y + 13);
-                    txt.setAttribute('text-anchor', 'middle');
-                    txt.setAttribute('class', 'branch-text ' + (node.active ? 'active' : 'inactive'));
+                    txt.setAttribute('x', node.x);
+                    txt.setAttribute('y', node.y + 12);
+                    txt.setAttribute('class', 'branch-text' + (node.active ? ' active' : ''));
                     txt.textContent = node.name.toUpperCase();
-                    g.appendChild(txt);
-
-                    svg.appendChild(g);
+                    svg.appendChild(txt);
                 } else {
                     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
                     g.setAttribute('class', 'node-group');
                     g.onclick = () => openStepModal(runId, node.step_index, dbPath);
 
-                    const colors = nodeColors(node.status);
-
+                    // White rect with gray border
                     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
                     rect.setAttribute('x', node.x);
                     rect.setAttribute('y', node.y);
                     rect.setAttribute('width', node.w);
                     rect.setAttribute('height', node.h);
-                    rect.setAttribute('class', 'node-rect ' + colors.rectClass + (node.isRouter ? ' router' : ''));
+                    rect.setAttribute('class', 'node-rect' + (node.isRouter ? ' router' : ''));
                     g.appendChild(rect);
 
-                    // Icon
-                    const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    iconPath.setAttribute('transform', `translate(${node.x + 10}, ${node.y + 10}) scale(0.67)`);
-                    iconPath.setAttribute('fill', 'none');
-                    iconPath.setAttribute('stroke', colors.textClass === 'light' ? 'white' : '#656d76');
-                    iconPath.setAttribute('stroke-width', '2');
-                    iconPath.setAttribute('stroke-linecap', 'round');
-
-                    const icons = {
-                        completed: 'M5 13l4 4L19 7',
-                        running: 'M12 6v6l4 2',
-                        failed: 'M6 18L18 6M6 6l12 12',
-                        skipped: 'M13 5l7 7-7 7M5 5l7 7-7 7',
-                        pending: 'M12 8v4m0 4h.01'
+                    // Status icon colors
+                    const iconColors = {
+                        completed: '#1a7f37',
+                        running: '#0969da',
+                        failed: '#cf222e',
+                        skipped: '#8c959f',
+                        pending: '#8c959f'
                     };
-                    iconPath.setAttribute('d', icons[node.status] || icons.pending);
-                    g.appendChild(iconPath);
+                    const iconColor = iconColors[node.status] || iconColors.pending;
 
-                    // Name
+                    // Status icon (CircleCI style)
+                    const iconG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    const iconSize = 16;
+                    const iconX = node.x + 12;
+                    const iconY = node.y + (node.h - iconSize) / 2;
+
+                    if (node.isRouter) {
+                        // Router: filled diamond shape (purple for routers)
+                        const diamond = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        const cx = iconX + iconSize/2;
+                        const cy = iconY + iconSize/2;
+                        const r = iconSize/2;
+                        diamond.setAttribute('d', `M${cx},${cy-r} L${cx+r},${cy} L${cx},${cy+r} L${cx-r},${cy} Z`);
+                        diamond.setAttribute('fill', '#8250df');
+                        diamond.setAttribute('stroke', '#8250df');
+                        diamond.setAttribute('stroke-width', '2');
+                        iconG.appendChild(diamond);
+                    } else if (node.status === 'completed') {
+                        // Green circle with white checkmark
+                        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', iconX + iconSize/2);
+                        circle.setAttribute('cy', iconY + iconSize/2);
+                        circle.setAttribute('r', iconSize/2);
+                        circle.setAttribute('fill', iconColor);
+                        iconG.appendChild(circle);
+
+                        const check = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        check.setAttribute('d', `M${iconX + 4},${iconY + 8} l3,3 l5,-6`);
+                        check.setAttribute('fill', 'none');
+                        check.setAttribute('stroke', 'white');
+                        check.setAttribute('stroke-width', '2');
+                        check.setAttribute('stroke-linecap', 'round');
+                        check.setAttribute('stroke-linejoin', 'round');
+                        iconG.appendChild(check);
+                    } else if (node.status === 'running') {
+                        // Blue spinning circle
+                        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', iconX + iconSize/2);
+                        circle.setAttribute('cy', iconY + iconSize/2);
+                        circle.setAttribute('r', iconSize/2 - 2);
+                        circle.setAttribute('fill', 'none');
+                        circle.setAttribute('stroke', iconColor);
+                        circle.setAttribute('stroke-width', '2');
+                        circle.setAttribute('stroke-dasharray', '20 10');
+                        iconG.appendChild(circle);
+                    } else if (node.status === 'failed') {
+                        // Red circle with X
+                        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', iconX + iconSize/2);
+                        circle.setAttribute('cy', iconY + iconSize/2);
+                        circle.setAttribute('r', iconSize/2);
+                        circle.setAttribute('fill', iconColor);
+                        iconG.appendChild(circle);
+
+                        const x = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        x.setAttribute('d', `M${iconX + 5},${iconY + 5} l6,6 M${iconX + 11},${iconY + 5} l-6,6`);
+                        x.setAttribute('stroke', 'white');
+                        x.setAttribute('stroke-width', '2');
+                        x.setAttribute('stroke-linecap', 'round');
+                        iconG.appendChild(x);
+                    } else {
+                        // Gray outline circle for pending/skipped
+                        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                        circle.setAttribute('cx', iconX + iconSize/2);
+                        circle.setAttribute('cy', iconY + iconSize/2);
+                        circle.setAttribute('r', iconSize/2 - 1);
+                        circle.setAttribute('fill', 'none');
+                        circle.setAttribute('stroke', iconColor);
+                        circle.setAttribute('stroke-width', '1.5');
+                        iconG.appendChild(circle);
+                    }
+                    g.appendChild(iconG);
+
+                    // Name (truncate if needed)
                     const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                    nameText.setAttribute('x', node.x + 32);
-                    nameText.setAttribute('y', node.y + node.h / 2 + 4);
-                    nameText.setAttribute('class', 'node-text ' + colors.textClass);
-                    nameText.textContent = node.name;
+                    nameText.setAttribute('x', node.x + 36);
+                    nameText.setAttribute('y', node.y + node.h/2 + 4);
+                    nameText.setAttribute('class', 'node-text');
+                    // Calculate max chars based on available space
+                    const availableWidth = node.w - 36 - (node.duration_s != null ? 55 : 10);
+                    const maxChars = Math.floor(availableWidth / 7.5);
+                    const displayName = truncateName(node.name, maxChars);
+                    nameText.textContent = displayName;
+                    // Add tooltip if truncated
+                    if (node.name.length > maxChars) {
+                        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                        title.textContent = node.name;
+                        nameText.appendChild(title);
+                    }
                     g.appendChild(nameText);
 
                     // Duration
                     if (node.duration_s != null) {
                         const dur = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        dur.setAttribute('x', node.x + node.w - 8);
-                        dur.setAttribute('y', node.y + node.h / 2 + 4);
+                        dur.setAttribute('x', node.x + node.w - 10);
+                        dur.setAttribute('y', node.y + node.h/2 + 4);
                         dur.setAttribute('text-anchor', 'end');
-                        dur.setAttribute('class', 'node-duration ' + colors.textClass);
+                        dur.setAttribute('class', 'node-duration');
                         const d = node.duration_s;
-                        dur.textContent = d < 1 ? Math.round(d * 1000) + 'ms' : d.toFixed(2) + 's';
+                        dur.textContent = d < 1 ? Math.round(d * 1000) + 'ms' : d.toFixed(1) + 's';
                         g.appendChild(dur);
                     }
 
@@ -496,21 +631,21 @@
     </script>
 
     <!-- Step list -->
-    <div class="mt-4 border-t pt-4">
+    <div class="mt-4 border-t border-gray-200 pt-4">
         <div class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">All Steps</div>
         <div class="space-y-0.5">
         {% for step in steps %}
         {% set is_branch = step.branch is not none %}
-        <div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer {% if is_branch %}ml-4{% endif %}"
+        <div class="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer {% if is_branch %}ml-4{% endif %}"
              onclick="openStepModal('{{ run.id }}', {{ step.step_index }}, '{{ db_path }}')">
             <span class="w-2 h-2 rounded-full flex-shrink-0
-                {% if step.status == 'completed' %}bg-green-500
-                {% elif step.status == 'running' %}bg-blue-500
-                {% elif step.status == 'failed' %}bg-red-500
+                {% if step.status == 'completed' %}bg-green-600
+                {% elif step.status == 'running' %}bg-blue-600
+                {% elif step.status == 'failed' %}bg-red-600
                 {% elif step.status == 'skipped' %}bg-gray-300
                 {% else %}bg-gray-400{% endif %}"></span>
             {% if step.branch %}
-            <span class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">{{ step.branch }}</span>
+            <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">{{ step.branch }}</span>
             {% endif %}
             <span class="text-sm {% if step.status == 'skipped' %}text-gray-400{% else %}text-gray-700{% endif %} flex-1">{{ step.name }}</span>
             <span class="text-xs text-gray-400 font-mono">{{ step.duration_s | format_duration if step.duration_s else '-' }}</span>
