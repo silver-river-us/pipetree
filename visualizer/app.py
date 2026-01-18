@@ -236,6 +236,33 @@ async def run_steps_partial(request: Request, run_id: str, db: str = Query(defau
     )
 
 
+@app.get("/runs/{run_id}/steps/list", response_class=HTMLResponse)
+async def run_steps_list_partial(request: Request, run_id: str, db: str = Query(default=None)):
+    """HTMX partial for just the step list (lightweight polling)."""
+    db_path = Path(db) if db else DEFAULT_DB_PATH
+
+    steps = []
+
+    if db_path.exists():
+        try:
+            conn = get_db_connection(db_path)
+
+            cursor = conn.execute(
+                "SELECT * FROM steps WHERE run_id = ? ORDER BY step_index",
+                (run_id,),
+            )
+            steps = [dict(row) for row in cursor.fetchall()]
+
+            conn.close()
+        except Exception:
+            pass
+
+    return templates.TemplateResponse(
+        "partials/step_list.html",
+        {"request": request, "steps": steps, "run_id": run_id, "db_path": str(db_path)},
+    )
+
+
 @app.get("/runs/{run_id}/step/{step_index}/events", response_class=HTMLResponse)
 async def step_events(
     request: Request,

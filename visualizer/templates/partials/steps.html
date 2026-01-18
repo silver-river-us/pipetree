@@ -78,6 +78,16 @@
 #tree-svg .link.active { stroke: #1a7f37; }
 #tree-svg .link.router { stroke: #8250df; }
 
+/* Spinner animation for running state */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+#tree-svg .spinner {
+    animation: spin 1s linear infinite;
+    transform-origin: center;
+}
+
 #tree-svg .branch-text {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
     font-size: 10px;
@@ -548,16 +558,24 @@
                         check.setAttribute('stroke-linejoin', 'round');
                         iconG.appendChild(check);
                     } else if (node.status === 'running') {
-                        // Blue spinning circle
+                        // Blue spinning circle with animation
+                        const spinnerG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                        const cx = iconX + iconSize/2;
+                        const cy = iconY + iconSize/2;
+                        spinnerG.setAttribute('class', 'spinner');
+                        spinnerG.setAttribute('style', `transform-origin: ${cx}px ${cy}px`);
+
                         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                        circle.setAttribute('cx', iconX + iconSize/2);
-                        circle.setAttribute('cy', iconY + iconSize/2);
-                        circle.setAttribute('r', iconSize/2 - 2);
+                        circle.setAttribute('cx', cx);
+                        circle.setAttribute('cy', cy);
+                        circle.setAttribute('r', iconSize/2 - 1);
                         circle.setAttribute('fill', 'none');
                         circle.setAttribute('stroke', iconColor);
-                        circle.setAttribute('stroke-width', '2');
-                        circle.setAttribute('stroke-dasharray', '20 10');
-                        iconG.appendChild(circle);
+                        circle.setAttribute('stroke-width', '2.5');
+                        circle.setAttribute('stroke-dasharray', '12 8');
+                        circle.setAttribute('stroke-linecap', 'round');
+                        spinnerG.appendChild(circle);
+                        iconG.appendChild(spinnerG);
                     } else if (node.status === 'failed') {
                         // Red circle with X
                         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -631,27 +649,13 @@
     </script>
 
     <!-- Step list -->
-    <div class="mt-4 border-t border-gray-200 pt-4">
-        <div class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">All Steps</div>
-        <div class="space-y-0.5">
-        {% for step in steps %}
-        {% set is_branch = step.branch is not none %}
-        <div class="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer {% if is_branch %}ml-4{% endif %}"
-             onclick="openStepModal('{{ run.id }}', {{ step.step_index }}, '{{ db_path }}')">
-            <span class="w-2 h-2 rounded-full flex-shrink-0
-                {% if step.status == 'completed' %}bg-green-600
-                {% elif step.status == 'running' %}bg-blue-600
-                {% elif step.status == 'failed' %}bg-red-600
-                {% elif step.status == 'skipped' %}bg-gray-300
-                {% else %}bg-gray-400{% endif %}"></span>
-            {% if step.branch %}
-            <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">{{ step.branch }}</span>
-            {% endif %}
-            <span class="text-sm {% if step.status == 'skipped' %}text-gray-400{% else %}text-gray-700{% endif %} flex-1">{{ step.name }}</span>
-            <span class="text-xs text-gray-400 font-mono">{{ step.duration_s | format_duration if step.duration_s else '-' }}</span>
-        </div>
-        {% endfor %}
-        </div>
+    <div class="mt-4 border-t border-gray-200 pt-4"
+         id="step-list"
+         hx-get="/runs/{{ run.id }}/steps/list?db={{ db_path }}"
+         hx-trigger="every 1s [document.querySelector('[data-run-status]')?.dataset.runStatus == 'running']"
+         hx-swap="innerHTML"
+         hx-preserve="true">
+        {% include "partials/step_list.html" %}
     </div>
 </div>
 {% else %}

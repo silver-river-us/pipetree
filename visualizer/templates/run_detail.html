@@ -77,9 +77,6 @@
     <!-- Steps visualization - GitHub Actions style -->
     <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6"
          id="steps-container"
-         hx-get="/runs/{{ run_id }}/steps?db={{ db_path }}"
-         hx-trigger="every 500ms [document.querySelector('[data-run-status]')?.dataset.runStatus == 'running']"
-         hx-swap="innerHTML"
          data-run-status="{{ run.status }}">
         {% include "partials/steps.html" %}
     </div>

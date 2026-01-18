@@ -1,0 +1,27 @@
+<div class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">All Steps</div>
+<div class="space-y-0.5">
+{% for step in steps %}
+{% set is_branch = step.branch is not none %}
+<div class="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-50 cursor-pointer {% if is_branch %}ml-4{% endif %}"
+     onclick="openStepModal('{{ run_id }}', {{ step.step_index }}, '{{ db_path }}')">
+    <span class="w-2 h-2 rounded-full flex-shrink-0
+        {% if step.status == 'completed' %}bg-green-600
+        {% elif step.status == 'running' %}bg-blue-600 animate-pulse
+        {% elif step.status == 'failed' %}bg-red-600
+        {% elif step.status == 'skipped' %}bg-gray-300
+        {% else %}bg-gray-400{% endif %}"></span>
+    {% if step.branch %}
+    <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">{{ step.branch }}</span>
+    {% endif %}
+    <span class="text-sm {% if step.status == 'skipped' %}text-gray-400{% else %}text-gray-700{% endif %} {% if step.status != 'running' %}flex-1{% endif %}">{{ step.name }}</span>
+    {% if step.status == 'running' %}
+    <span class="flex-1 text-xs text-blue-600 truncate"
+          hx-get="/runs/{{ run_id }}/step/{{ step.step_index }}/summary?db={{ db_path }}"
+          hx-trigger="load"
+          hx-swap="innerHTML">
+    </span>
+    {% endif %}
+    <span class="text-xs text-gray-400 font-mono">{{ step.duration_s | format_duration if step.duration_s else '-' }}</span>
+</div>
+{% endfor %}
+</div>
