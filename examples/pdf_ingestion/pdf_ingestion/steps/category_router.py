@@ -1,5 +1,7 @@
 """Router that directs to ops or parts processing based on category."""
 
+from typing import ClassVar
+
 from pipetree import Router
 from pipetree.types import Context
 
@@ -14,7 +16,7 @@ class CategoryRouter(Router):
     """
 
     # Declare which context attributes each branch provides
-    branch_outputs = {
+    branch_outputs: ClassVar[dict[str, list[str]]] = {
         "ops": ["processed_ops"],
         "parts": ["processed_parts", "processed_mechanical", "processed_electrical"],
     }

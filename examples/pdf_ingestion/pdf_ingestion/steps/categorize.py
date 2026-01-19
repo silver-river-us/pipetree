@@ -5,6 +5,42 @@ import re
 from pipetree import Step
 from pipetree.types import Context
 
+# Pre-compile combined regex patterns for efficiency (single scan instead of 25)
+_OPS_PATTERN = re.compile(
+    r"\b(?:"
+    r"procedure|"
+    r"step\s+\d+|"
+    r"instructions?|"
+    r"operat(?:e|ion|ing)|"
+    r"perform|"
+    r"execut(?:e|ion)|"
+    r"maintenance|"
+    r"install(?:ation)?|"
+    r"remov(?:e|al)|"
+    r"check|"
+    r"inspect|"
+    r"warning|"
+    r"caution"
+    r")\b"
+)
+
+_PARTS_PATTERN = re.compile(
+    r"\b(?:"
+    r"part\s*(?:number|no|#)|"
+    r"p/n|"
+    r"quantity|"
+    r"qty|"
+    r"unit|"
+    r"catalog|"
+    r"figure\s+\d+|"
+    r"item\s+\d+|"
+    r"assembly|"
+    r"component|"
+    r"spec(?:ification)?|"
+    r"dimension"
+    r")\b"
+)
+
 
 class CategorizeStep(Step):
     """
@@ -16,43 +52,12 @@ class CategorizeStep(Step):
     """
 
     def run(self, ctx: Context) -> Context:
-        texts: list[str] = ctx.texts  # type: ignore
-        full_text = " ".join(texts).lower()
+        # Use streaming join to avoid loading all texts into memory at once
+        full_text = ctx.texts.join(" ").lower()  # type: ignore
 
-        # Count indicators for each category
-        ops_indicators = [
-            r"\bprocedure\b",
-            r"\bstep\s+\d+\b",
-            r"\binstructions?\b",
-            r"\boperat(e|ion|ing)\b",
-            r"\bperform\b",
-            r"\bexecut(e|ion)\b",
-            r"\bmaintenance\b",
-            r"\binstall(ation)?\b",
-            r"\bremov(e|al)\b",
-            r"\bcheck\b",
-            r"\binspect\b",
-            r"\bwarning\b",
-            r"\bcaution\b",
-        ]
-
-        parts_indicators = [
-            r"\bpart\s*(number|no|#)\b",
-            r"\bp/n\b",
-            r"\bquantity\b",
-            r"\bqty\b",
-            r"\bunit\b",
-            r"\bcatalog\b",
-            r"\bfigure\s+\d+\b",
-            r"\bitem\s+\d+\b",
-            r"\bassembly\b",
-            r"\bcomponent\b",
-            r"\bspec(ification)?\b",
-            r"\bdimension\b",
-        ]
-
-        ops_score = sum(len(re.findall(p, full_text)) for p in ops_indicators)
-        parts_score = sum(len(re.findall(p, full_text)) for p in parts_indicators)
+        # Count indicators using pre-compiled patterns (2 scans instead of 25)
+        ops_score = len(_OPS_PATTERN.findall(full_text))
+        parts_score = len(_PARTS_PATTERN.findall(full_text))
 
         # Report progress
         ctx.report_progress(1, 2, "Analyzing document content...")

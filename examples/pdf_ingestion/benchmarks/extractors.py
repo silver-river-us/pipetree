@@ -86,14 +86,18 @@ class ChunkedExtractor(Step):
                 results = future.result()
                 all_results.extend(results)
                 completed += len(results)
-                ctx.report_progress(completed, num_pages, f"{self.name}: {completed}/{num_pages}")
+                ctx.report_progress(
+                    completed, num_pages, f"{self.name}: {completed}/{num_pages}"
+                )
                 _print_progress(completed, num_pages, self.name)
 
         all_results.sort(key=lambda x: x[0])
         ctx.texts = [text for _, text in all_results]
 
         elapsed = time.perf_counter() - start_time
-        print(f"  -> {elapsed:.2f}s ({num_pages / elapsed:.1f} pages/sec, {len(chunks)} chunks)")
+        print(
+            f"  -> {elapsed:.2f}s ({num_pages / elapsed:.1f} pages/sec, {len(chunks)} chunks)"
+        )
         return ctx
 
 

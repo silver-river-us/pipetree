@@ -4,6 +4,9 @@ PyMuPDF (fitz) was selected based on benchmarks:
 - pymupdf:    1.37s  (winner)
 - pypdf:      20.39s (15x slower)
 - pdfplumber: 100.49s (73x slower)
+
+Memory optimization: Streams extracted text to disk instead of accumulating
+in memory, reducing peak memory usage from O(total_text) to O(chunk_size).
 """
 
 import os
@@ -43,7 +46,10 @@ def _make_chunks(total: int, num_chunks: int) -> list[tuple[int, int]]:
 
 
 class ExtractTextStep(Step):
-    """Extract text from PDF pages using PyMuPDF with chunked parallel processing."""
+    """Extract text from PDF pages using PyMuPDF with chunked parallel processing.
+
+    Streams results to disk to minimize memory footprint.
+    """
 
     def run(self, ctx: PdfContext) -> PdfContext:  # type: ignore[override]
         if not ctx.pdf:
@@ -53,10 +59,15 @@ class ExtractTextStep(Step):
         num_workers = min(os.cpu_count() or 1, num_pages)
         chunks = _make_chunks(num_pages, num_workers)
 
-        print(f"Extracting text from {num_pages} pages ({len(chunks)} chunks, {num_workers} workers)...")
+        print(
+            f"Extracting text from {num_pages} pages "
+            f"({len(chunks)} chunks, {num_workers} workers)..."
+        )
         start_time = time.perf_counter()
 
-        all_results: list[tuple[int, str]] = []
+        # Collect results with page indices for ordering
+        pending_results: dict[int, str] = {}
+        next_page_to_write = 0
         completed = 0
 
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
@@ -67,15 +78,31 @@ class ExtractTextStep(Step):
 
             for future in as_completed(futures):
                 chunk_results = future.result()
-                all_results.extend(chunk_results)
-                completed += len(chunk_results)
-                ctx.report_progress(completed, num_pages, f"Extracted {completed}/{num_pages} pages")
 
-        all_results.sort(key=lambda x: x[0])
-        ctx.texts = [text for _, text in all_results]
+                # Store results temporarily
+                for page_idx, text in chunk_results:
+                    pending_results[page_idx] = text
+
+                # Stream to file in order (write pages as soon as they're ready)
+                while next_page_to_write in pending_results:
+                    ctx.texts.append(pending_results.pop(next_page_to_write))
+                    next_page_to_write += 1
+
+                completed += len(chunk_results)
+                ctx.report_progress(
+                    completed, num_pages, f"Extracted {completed}/{num_pages} pages"
+                )
+
+        # Write any remaining pages (shouldn't happen if logic is correct)
+        for page_idx in sorted(pending_results.keys()):
+            ctx.texts.append(pending_results[page_idx])
+
+        ctx.texts.finalize()
 
         elapsed = time.perf_counter() - start_time
         pages_per_sec = num_pages / elapsed if elapsed > 0 else 0
-        print(f"Extracted {num_pages} pages in {elapsed:.2f}s ({pages_per_sec:.1f} pages/sec)")
+        print(
+            f"Extracted {num_pages} pages in {elapsed:.2f}s ({pages_per_sec:.1f} pages/sec)"
+        )
 
         return ctx

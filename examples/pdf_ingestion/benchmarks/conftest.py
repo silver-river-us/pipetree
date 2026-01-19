@@ -27,11 +27,13 @@ def pdf_fixtures() -> list[Fixture]:
     medium_pdf = ASSETS_DIR / "medium.pdf"
     if medium_pdf.exists():
         reader = PdfReader(medium_pdf)
-        fixtures.append({
-            "id": "medium.pdf",
-            "path": str(medium_pdf),
-            "expected": {"page_count": len(reader.pages)},
-        })
+        fixtures.append(
+            {
+                "id": "medium.pdf",
+                "path": str(medium_pdf),
+                "expected": {"page_count": len(reader.pages)},
+            }
+        )
 
     return fixtures
 

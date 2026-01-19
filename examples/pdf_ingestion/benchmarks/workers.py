@@ -13,7 +13,9 @@ def extract_pypdf_chunk(pdf_path: str, start: int, end: int) -> list[tuple[int, 
     return [(i, reader.pages[i].extract_text() or "") for i in range(start, end)]
 
 
-def extract_pdfplumber_chunk(pdf_path: str, start: int, end: int) -> list[tuple[int, str]]:
+def extract_pdfplumber_chunk(
+    pdf_path: str, start: int, end: int
+) -> list[tuple[int, str]]:
     """Extract text from a chunk of pages using pdfplumber."""
     import pdfplumber
 

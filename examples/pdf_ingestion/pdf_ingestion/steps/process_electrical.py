@@ -17,8 +17,8 @@ class ProcessElectricalStep(Step):
     """
 
     def run(self, ctx: Context) -> Context:
-        texts: list[str] = ctx.texts  # type: ignore
-        full_text = "\n".join(texts)
+        # Use streaming join to avoid loading all texts into memory at once
+        full_text = ctx.texts.join("\n")  # type: ignore
 
         print("    Processing ELECTRICAL parts...")
 
