@@ -185,16 +185,40 @@ class SQLiteProgressNotifier(ProgressNotifier):
         self._conn.commit()
 
     def set_branch_skipped(self, branch_name: str) -> None:
-        """Mark all steps in a branch as skipped."""
+        """Mark all steps in a branch as skipped, including nested branches."""
         if self._conn is None:
             return
 
+        # First, mark direct branch steps as skipped
         self._conn.execute(
             """
             UPDATE steps SET status = 'skipped'
             WHERE run_id = ? AND branch = ?
             """,
             (self.run_id, branch_name),
+        )
+
+        # Then recursively mark any steps whose parent_step is now skipped
+        # This handles nested routers within the skipped branch
+        self._conn.execute(
+            """
+            WITH RECURSIVE skipped_parents AS (
+                -- Start with steps that were just marked as skipped
+                SELECT name FROM steps
+                WHERE run_id = ? AND branch = ? AND status = 'skipped'
+
+                UNION ALL
+
+                -- Recursively find steps whose parent is skipped
+                SELECT s.name FROM steps s
+                INNER JOIN skipped_parents sp ON s.parent_step = sp.name
+                WHERE s.run_id = ?
+            )
+            UPDATE steps SET status = 'skipped'
+            WHERE run_id = ? AND parent_step IN (SELECT name FROM skipped_parents)
+            AND status = 'pending'
+            """,
+            (self.run_id, branch_name, self.run_id, self.run_id),
         )
         self._conn.commit()
 
@@ -256,7 +280,13 @@ class SQLiteProgressNotifier(ProgressNotifier):
                 UPDATE steps SET status = 'completed', completed_at = ?, duration_s = ?, peak_mem_mb = ?
                 WHERE run_id = ? AND name = ? AND status = 'running'
                 """,
-                (event.timestamp, event.duration_s, event.peak_mem_mb, self.run_id, event.step_name),
+                (
+                    event.timestamp,
+                    event.duration_s,
+                    event.peak_mem_mb,
+                    self.run_id,
+                    event.step_name,
+                ),
             )
         elif event.event_type == "failed":
             self._conn.execute(

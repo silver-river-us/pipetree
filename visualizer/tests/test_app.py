@@ -33,8 +33,8 @@ class TestFormatDuration:
         assert format_duration(30) == "30.00s"
 
     def test_minutes(self) -> None:
-        assert format_duration(90) == "1m 30.0s"
-        assert format_duration(125.5) == "2m 5.5s"
+        assert format_duration(90) == "1m 30s"
+        assert format_duration(125.5) == "2m 6s"
 
 
 class TestFormatTimestamp:

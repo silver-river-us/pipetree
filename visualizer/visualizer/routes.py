@@ -281,6 +281,20 @@ def register_routes(
         )
         return JSONResponse(content=response["json"])
 
+    @app.get("/telemetry/{run_id}", response_class=HTMLResponse)
+    async def telemetry_run_detail(request: Request, run_id: str, db: str = Query(...)):
+        """Telemetry page for a specific run."""
+        db_path = Path(db)
+        response = TelemetryController.run_detail(run_id, db_path)
+        response["locals"].update(get_template_context(db_path))
+        return render_controller(request, templates, response)
+
+    @app.get("/api/telemetry/run/{run_id}")
+    async def api_telemetry_run(run_id: str, db: str = Query(...)):
+        """API: Get telemetry data for a specific run."""
+        response = TelemetryController.get_run_telemetry(run_id, Path(db))
+        return JSONResponse(content=response["json"])
+
     # --- Benchmarks ---
 
     @app.get("/benchmarks", response_class=HTMLResponse)
@@ -391,11 +405,16 @@ def register_routes(
                             current_status = benchmark["status"]
 
                             # Send update if new results arrived or status changed
-                            if current_result_count != last_result_count or current_status != last_status:
+                            if (
+                                current_result_count != last_result_count
+                                or current_status != last_status
+                            ):
                                 last_result_count = current_result_count
                                 last_status = current_status
                                 summary = store.get_summary(benchmark_id)
-                                implementations = store.get_implementations(benchmark_id)
+                                implementations = store.get_implementations(
+                                    benchmark_id
+                                )
 
                                 await websocket.send_json(
                                     {

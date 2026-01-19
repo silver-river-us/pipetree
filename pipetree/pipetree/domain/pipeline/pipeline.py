@@ -208,10 +208,17 @@ class Pipetree:
 
                 # Notify step completed
                 duration = time.perf_counter() - start_time
+
+                # For Router steps, don't report duration/memory since branch steps
+                # already report their own metrics (avoids double-counting)
                 if self._notifier:
-                    self._notifier.step_completed(
-                        step.name, i, total_steps, duration, peak_mem_mb
-                    )
+                    if isinstance(step, Router):
+                        # Router duration is just overhead, branch has actual work
+                        self._notifier.step_completed(step.name, i, total_steps, 0, 0)
+                    else:
+                        self._notifier.step_completed(
+                            step.name, i, total_steps, duration, peak_mem_mb
+                        )
 
             except Exception as e:
                 # Stop memory tracking on failure

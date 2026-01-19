@@ -165,9 +165,7 @@ class BenchmarksController:
         return {"json": {"benchmarks": benchmarks}}
 
     @classmethod
-    def get_benchmark_detail(
-        cls, benchmark_id: str, db_path: Path
-    ) -> dict[str, Any]:
+    def get_benchmark_detail(cls, benchmark_id: str, db_path: Path) -> dict[str, Any]:
         """API: Get benchmark details with all results."""
         store = cls._get_store(db_path)
         if not store:
@@ -209,9 +207,7 @@ class BenchmarksController:
             return {"json": {"success": False, "error": str(e)}}
 
     @classmethod
-    def get_comparison_data(
-        cls, benchmark_id: str, db_path: Path
-    ) -> dict[str, Any]:
+    def get_comparison_data(cls, benchmark_id: str, db_path: Path) -> dict[str, Any]:
         """API: Get data formatted for comparison charts."""
         store = cls._get_store(db_path)
         if not store:

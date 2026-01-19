@@ -125,7 +125,9 @@ class TestRouter:
     @pytest.mark.asyncio
     async def test_router_branch_outputs_initializes_unselected(self) -> None:
         """Test that branch_outputs initializes unselected branches to empty dicts."""
-        cap = Capability(name="router", requires=set(), provides={"result_a", "result_b"})
+        cap = Capability(
+            name="router", requires=set(), provides={"result_a", "result_b"}
+        )
 
         class StepA(Step):
             def run(self, ctx: Context) -> Context:

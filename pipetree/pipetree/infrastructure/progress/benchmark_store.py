@@ -153,9 +153,7 @@ class BenchmarkStore:
         self._conn.commit()
         return cursor.lastrowid or 0
 
-    def complete_benchmark(
-        self, benchmark_id: str, status: str = "completed"
-    ) -> None:
+    def complete_benchmark(self, benchmark_id: str, status: str = "completed") -> None:
         """Mark a benchmark as completed."""
         if self._conn is None:
             return
@@ -217,9 +215,7 @@ class BenchmarkStore:
             results.append(result)
         return results
 
-    def get_all_benchmarks(
-        self, capability: str | None = None
-    ) -> list[dict[str, Any]]:
+    def get_all_benchmarks(self, capability: str | None = None) -> list[dict[str, Any]]:
         """Get all benchmarks, optionally filtered by capability."""
         if self._conn is None:
             return []

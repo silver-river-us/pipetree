@@ -311,3 +311,122 @@ class TelemetryController:
         throughput = throughput[-limit:]
 
         return {"json": {"throughput": throughput, "pipeline": pipeline}}
+
+    @classmethod
+    def run_detail(cls, run_id: str, db_path: Path) -> dict[str, Any]:
+        """Telemetry page for a specific run."""
+        run_data = None
+        steps_data: list[dict] = []
+
+        if db_path.exists():
+            try:
+                with get_session(db_path) as session:
+                    # Get the run
+                    run_stmt = select(Run).where(Run.id == run_id)
+                    run = session.exec(run_stmt).first()
+
+                    if run:
+                        run_data = {
+                            "id": run.id,
+                            "name": run.name,
+                            "status": run.status,
+                            "started_at": run.started_at,
+                            "completed_at": run.completed_at,
+                            "total_steps": run.total_steps,
+                            "duration_s": (
+                                run.completed_at - run.started_at
+                                if run.completed_at and run.started_at
+                                else None
+                            ),
+                        }
+
+                        # Get steps for this run
+                        steps_stmt = (
+                            select(Step)
+                            .where(Step.run_id == run_id)
+                            .order_by(Step.step_index)
+                        )
+                        steps = session.exec(steps_stmt).all()
+
+                        for step in steps:
+                            steps_data.append(
+                                {
+                                    "name": step.name,
+                                    "step_index": step.step_index,
+                                    "status": step.status,
+                                    "started_at": step.started_at,
+                                    "completed_at": step.completed_at,
+                                    "duration_s": step.duration_s,
+                                    "peak_mem_mb": step.peak_mem_mb,
+                                }
+                            )
+            except Exception:
+                pass
+
+        return {
+            "template": "run_telemetry.html",
+            "locals": {
+                "run": run_data,
+                "steps": steps_data,
+                "run_id": run_id,
+                "db_path": str(db_path),
+            },
+        }
+
+    @classmethod
+    def get_run_telemetry(cls, run_id: str, db_path: Path) -> dict[str, Any]:
+        """API: Get telemetry data for a specific run."""
+        run_data = None
+        steps_data: list[dict] = []
+
+        if db_path.exists():
+            try:
+                with get_session(db_path) as session:
+                    # Get the run
+                    run_stmt = select(Run).where(Run.id == run_id)
+                    run = session.exec(run_stmt).first()
+
+                    if run:
+                        run_data = {
+                            "id": run.id,
+                            "name": run.name,
+                            "status": run.status,
+                            "started_at": run.started_at,
+                            "completed_at": run.completed_at,
+                            "total_steps": run.total_steps,
+                            "duration_s": (
+                                run.completed_at - run.started_at
+                                if run.completed_at and run.started_at
+                                else None
+                            ),
+                        }
+
+                        # Get steps for this run
+                        steps_stmt = (
+                            select(Step)
+                            .where(Step.run_id == run_id)
+                            .order_by(Step.step_index)
+                        )
+                        steps = session.exec(steps_stmt).all()
+
+                        for step in steps:
+                            steps_data.append(
+                                {
+                                    "name": step.name,
+                                    "step_index": step.step_index,
+                                    "status": step.status,
+                                    "started_at": step.started_at,
+                                    "completed_at": step.completed_at,
+                                    "duration_s": step.duration_s,
+                                    "peak_mem_mb": step.peak_mem_mb,
+                                }
+                            )
+            except Exception:
+                pass
+
+        return {
+            "json": {
+                "run": run_data,
+                "steps": steps_data,
+            }
+        }

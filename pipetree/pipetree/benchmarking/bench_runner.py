@@ -87,7 +87,9 @@ class BenchRunner:
                 for fixture in fixtures:
                     current_run += 1
                     fixture_id = fixture.get("id", fixture.get("path", "unknown"))
-                    print(f"[benchmark] ({current_run}/{total_runs}) Running {impl_name} on {fixture_id}...")
+                    print(
+                        f"[benchmark] ({current_run}/{total_runs}) Running {impl_name} on {fixture_id}..."
+                    )
 
                     result = self._run_single(step, fixture, judge, setup_ctx)
                     result.impl_name = impl_name
@@ -98,10 +100,12 @@ class BenchRunner:
                         print(f"[benchmark]   ERROR: {result.error}")
                     else:
                         m = result.metrics
-                        print(f"[benchmark]   Wall: {m.get('wall_time_s', 0):.3f}s | "
-                              f"CPU: {m.get('cpu_time_s', 0):.3f}s | "
-                              f"Mem: {m.get('peak_mem_mb', 0):.1f}MB | "
-                              f"Correctness: {m.get('correctness', 0):.1%}")
+                        print(
+                            f"[benchmark]   Wall: {m.get('wall_time_s', 0):.3f}s | "
+                            f"CPU: {m.get('cpu_time_s', 0):.3f}s | "
+                            f"Mem: {m.get('peak_mem_mb', 0):.1f}MB | "
+                            f"Correctness: {m.get('correctness', 0):.1%}"
+                        )
 
                     # Persist result if store is configured
                     if self.store and benchmark_id:
@@ -124,10 +128,19 @@ class BenchRunner:
             return
 
         metrics = result.metrics
-        extra = {k: v for k, v in metrics.items() if k not in {
-            "wall_time_s", "peak_mem_mb", "correctness",
-            "throughput_items_s", "items_processed", "cpu_time_s"
-        }}
+        extra = {
+            k: v
+            for k, v in metrics.items()
+            if k
+            not in {
+                "wall_time_s",
+                "peak_mem_mb",
+                "correctness",
+                "throughput_items_s",
+                "items_processed",
+                "cpu_time_s",
+            }
+        }
 
         self.store.add_result(
             benchmark_id=benchmark_id,

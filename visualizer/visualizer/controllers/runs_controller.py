@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
-from sqlmodel import select, delete
+from sqlmodel import delete, select
 
 
 class RunsController:

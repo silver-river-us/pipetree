@@ -21,10 +21,10 @@
     throughput: [],
   };
 
-  // Navigate to run detail page
+  // Navigate to run telemetry page
   function navigateToRun(fullRunId, dbPath) {
     if (fullRunId && dbPath) {
-      window.location.href = `/runs/${fullRunId}?db=${encodeURIComponent(dbPath)}`;
+      window.location.href = `/telemetry/${fullRunId}?db=${encodeURIComponent(dbPath)}`;
     }
   }
 
