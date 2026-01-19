@@ -11,7 +11,7 @@ from pipetree.infrastructure.progress.models import Event, Run, Step, get_sessio
 from pydantic import BaseModel
 from sqlmodel import select
 
-from .controllers import BenchmarksController, RunsController, StepsController
+from .controllers import RunsController, StepsController, TelemetryController
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -213,25 +213,25 @@ def register_routes(
         response = RunsController.progress(run_id, get_db_path(db))
         return response["json"]
 
-    # --- Benchmarks ---
+    # --- Telemetry ---
 
-    @app.get("/benchmarks", response_class=HTMLResponse)
-    async def benchmarks_index(request: Request, db: str = Query(default=None)):
-        """Benchmarks dashboard page."""
+    @app.get("/telemetry", response_class=HTMLResponse)
+    async def telemetry_index(request: Request, db: str = Query(default=None)):
+        """Telemetry dashboard page."""
         db_path = get_db_path(db)
         databases = load_databases()
-        response = BenchmarksController.index(db_path, databases)
+        response = TelemetryController.index(db_path, databases)
         response["locals"].update(get_template_context(db_path))
         return render_controller(request, templates, response)
 
-    @app.get("/api/benchmarks/pipelines")
-    async def api_benchmarks_pipelines(db: str = Query(default=None)):
+    @app.get("/api/telemetry/pipelines")
+    async def api_telemetry_pipelines(db: str = Query(default=None)):
         """Get list of unique pipeline names with run counts."""
         databases = load_databases()
-        response = BenchmarksController.get_pipelines(get_db_path(db), databases)
+        response = TelemetryController.get_pipelines(get_db_path(db), databases)
         return JSONResponse(content=response["json"])
 
-    @app.get("/api/benchmarks/step-durations")
+    @app.get("/api/telemetry/step-durations")
     async def api_step_durations(
         pipeline: str = Query(...),
         limit: int = Query(default=20),
@@ -239,12 +239,12 @@ def register_routes(
     ):
         """Get step duration data for a specific pipeline (for bar/line charts)."""
         databases = load_databases()
-        response = BenchmarksController.get_step_durations(
+        response = TelemetryController.get_step_durations(
             pipeline, limit, get_db_path(db), databases
         )
         return JSONResponse(content=response["json"])
 
-    @app.get("/api/benchmarks/run-trends")
+    @app.get("/api/telemetry/run-trends")
     async def api_run_trends(
         pipeline: str = Query(...),
         limit: int = Query(default=20),
@@ -252,12 +252,12 @@ def register_routes(
     ):
         """Get run performance trends over time."""
         databases = load_databases()
-        response = BenchmarksController.get_run_trends(
+        response = TelemetryController.get_run_trends(
             pipeline, limit, get_db_path(db), databases
         )
         return JSONResponse(content=response["json"])
 
-    @app.get("/api/benchmarks/throughput")
+    @app.get("/api/telemetry/throughput")
     async def api_throughput(
         pipeline: str = Query(...),
         limit: int = Query(default=20),
@@ -265,10 +265,21 @@ def register_routes(
     ):
         """Get throughput metrics (items processed per run)."""
         databases = load_databases()
-        response = BenchmarksController.get_throughput(
+        response = TelemetryController.get_throughput(
             pipeline, limit, get_db_path(db), databases
         )
         return JSONResponse(content=response["json"])
+
+    # --- Benchmarks (placeholder) ---
+
+    @app.get("/benchmarks", response_class=HTMLResponse)
+    async def benchmarks_index(request: Request, db: str = Query(default=None)):
+        """Benchmarks page (manual benchmarks - coming soon)."""
+        db_path = get_db_path(db)
+        return templates.TemplateResponse(
+            "benchmarks.html",
+            {"request": request, **get_template_context(db_path)},
+        )
 
     # --- WebSocket ---
 

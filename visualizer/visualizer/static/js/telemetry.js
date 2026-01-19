@@ -1,5 +1,5 @@
 /**
- * Benchmarks Dashboard Charts
+ * Telemetry Dashboard Charts
  * Uses ApexCharts for visualization
  */
 
@@ -126,13 +126,13 @@
       // Fetch all data in parallel
       const [stepDurationsRes, trendsRes, throughputRes] = await Promise.all([
         fetch(
-          `/api/benchmarks/step-durations?pipeline=${encodeURIComponent(pipeline)}&limit=${limit}`
+          `/api/telemetry/step-durations?pipeline=${encodeURIComponent(pipeline)}&limit=${limit}`
         ),
         fetch(
-          `/api/benchmarks/run-trends?pipeline=${encodeURIComponent(pipeline)}&limit=${limit}`
+          `/api/telemetry/run-trends?pipeline=${encodeURIComponent(pipeline)}&limit=${limit}`
         ),
         fetch(
-          `/api/benchmarks/throughput?pipeline=${encodeURIComponent(pipeline)}&limit=${limit}`
+          `/api/telemetry/throughput?pipeline=${encodeURIComponent(pipeline)}&limit=${limit}`
         ),
       ]);
 

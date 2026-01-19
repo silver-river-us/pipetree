@@ -1,4 +1,4 @@
-"""Controller for benchmarks and analytics."""
+"""Controller for telemetry and analytics."""
 
 from pathlib import Path
 from typing import Any
@@ -7,18 +7,18 @@ from pipetree.infrastructure.progress.models import Event, Run, Step, get_sessio
 from sqlmodel import func, select
 
 
-class BenchmarksController:
-    """Handles benchmark analytics requests."""
+class TelemetryController:
+    """Handles telemetry analytics requests."""
 
     @classmethod
     def index(
         cls, db_path: Path, databases: list[dict] | None = None
     ) -> dict[str, Any]:
-        """Benchmarks dashboard page."""
+        """Telemetry dashboard page."""
         pipelines = cls._get_all_pipelines(db_path, databases)
 
         return {
-            "template": "benchmarks.html",
+            "template": "telemetry.html",
             "locals": {
                 "pipelines": pipelines,
                 "db_path": str(db_path),
