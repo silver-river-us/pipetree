@@ -18,7 +18,7 @@ class RunsController:
         status: str | None = None,
         pipeline: str | None = None,
         page: int = 1,
-        per_page: int = 20,
+        per_page: int = 10,
     ) -> tuple[list[dict], int, list[str]]:
         """Fetch runs with optional filtering and pagination.
 
@@ -83,7 +83,7 @@ class RunsController:
         status: str | None = None,
         pipeline: str | None = None,
         page: int = 1,
-        per_page: int = 20,
+        per_page: int = 10,
     ) -> dict[str, Any]:
         """Main dashboard page - shows all runs from all databases."""
         runs, total_count, pipeline_names = cls._fetch_runs(
@@ -150,7 +150,7 @@ class RunsController:
         status: str | None = None,
         pipeline: str | None = None,
         page: int = 1,
-        per_page: int = 20,
+        per_page: int = 10,
     ) -> dict[str, Any]:
         """HTMX partial for runs list from all databases."""
         runs, total_count, pipeline_names = cls._fetch_runs(

@@ -15,6 +15,9 @@
     <!-- Filters -->
     <div class="bg-white border border-gray-200 shadow-sm p-3 mb-4 rounded-lg">
         <form id="filter-form" class="flex flex-wrap items-center gap-3">
+            <!-- Hidden page input for HTMX requests -->
+            <input type="hidden" id="page-input" name="page" value="{{ page }}">
+
             <!-- Status filter -->
             <div class="flex items-center gap-2">
                 <label for="status-filter" class="text-sm font-medium text-gray-600">Status:</label>
@@ -38,6 +41,17 @@
                 </select>
             </div>
 
+            <!-- Page size -->
+            <div class="flex items-center gap-2">
+                <label for="per-page" class="text-sm font-medium text-gray-600">Show:</label>
+                <select id="per-page" name="per_page" class="px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+            </div>
+
             <!-- Clear filters -->
             {% if current_status or current_pipeline %}
             <a href="/" class="text-sm text-blue-600 hover:text-blue-800">Clear filters</a>
@@ -56,25 +70,21 @@
 </div>
 
 <script>
-// Auto-submit filters on change
-document.getElementById('status-filter').addEventListener('change', function() {
+// Auto-submit filters on change (reset to page 1)
+function applyFilters() {
     const form = document.getElementById('filter-form');
     const params = new URLSearchParams(new FormData(form));
+    // Reset to page 1 when filters change
+    params.delete('page');
     // Filter out empty values
     for (const [key, value] of [...params.entries()]) {
         if (!value) params.delete(key);
     }
     window.location.href = '/?' + params.toString();
-});
+}
 
-document.getElementById('pipeline-filter').addEventListener('change', function() {
-    const form = document.getElementById('filter-form');
-    const params = new URLSearchParams(new FormData(form));
-    // Filter out empty values
-    for (const [key, value] of [...params.entries()]) {
-        if (!value) params.delete(key);
-    }
-    window.location.href = '/?' + params.toString();
-});
+document.getElementById('status-filter').addEventListener('change', applyFilters);
+document.getElementById('pipeline-filter').addEventListener('change', applyFilters);
+document.getElementById('per-page').addEventListener('change', applyFilters);
 </script>
 {% endblock %}

@@ -117,7 +117,7 @@ def register_routes(
         status: str = Query(default=None),
         pipeline: str = Query(default=None),
         page: int = Query(default=1, ge=1),
-        per_page: int = Query(default=20, ge=1, le=100),
+        per_page: int = Query(default=10, ge=1, le=100),
     ):
         """Main dashboard page - shows all runs from all databases."""
         db_path = get_db_path(db)
@@ -198,7 +198,7 @@ def register_routes(
         status: str = Query(default=None),
         pipeline: str = Query(default=None),
         page: int = Query(default=1, ge=1),
-        per_page: int = Query(default=20, ge=1, le=100),
+        per_page: int = Query(default=10, ge=1, le=100),
     ):
         """HTMX partial for runs list from all databases."""
         databases = load_databases()
