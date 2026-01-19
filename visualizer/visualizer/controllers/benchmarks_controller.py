@@ -1,5 +1,6 @@
 """Controller for benchmark results display."""
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -123,6 +124,7 @@ class BenchmarksController:
                 "implementations": implementations,
                 "benchmark_id": benchmark_id,
                 "db_path": str(db_path),
+                "cpu_count": os.cpu_count() or 1,
             },
         }
 
@@ -262,6 +264,15 @@ class BenchmarksController:
                 for impl in implementations
             }
 
+            # CPU time comparison data
+            cpu_data = {
+                impl: [
+                    by_fixture.get(f, {}).get(impl, {}).get("cpu_time_s", 0)
+                    for f in fixtures
+                ]
+                for impl in implementations
+            }
+
             return {
                 "json": {
                     "benchmark": benchmark,
@@ -270,7 +281,9 @@ class BenchmarksController:
                     "time_data": time_data,
                     "memory_data": memory_data,
                     "correctness_data": correctness_data,
+                    "cpu_data": cpu_data,
                     "summary": summary,
+                    "cpu_count": os.cpu_count() or 1,
                 }
             }
         except Exception as e:

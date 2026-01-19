@@ -15,6 +15,7 @@ class ProgressEvent:
     total_steps: int
     event_type: str  # "started" | "completed" | "failed" | "progress"
     duration_s: float | None = None
+    cpu_time_s: float | None = None
     peak_mem_mb: float | None = None
     error: str | None = None
     current: int | None = None
@@ -32,6 +33,15 @@ class ProgressNotifier(ABC):
 
     def close(self) -> None:  # noqa: B027
         """Cleanup resources. Override if needed."""
+
+    def register_branch(  # noqa: B027
+        self,
+        parent_step: str,
+        branch_name: str,
+        step_names: list[str],
+        start_index: int,
+    ) -> None:
+        """Register a branch's steps. Override if needed."""
 
     def step_started(self, step_name: str, step_index: int, total_steps: int) -> None:
         """Convenience method for step started events."""
@@ -52,6 +62,7 @@ class ProgressNotifier(ABC):
         total_steps: int,
         duration_s: float,
         peak_mem_mb: float | None = None,
+        cpu_time_s: float | None = None,
     ) -> None:
         """Convenience method for step completed events."""
         self.notify(
@@ -62,6 +73,7 @@ class ProgressNotifier(ABC):
                 total_steps=total_steps,
                 event_type="completed",
                 duration_s=duration_s,
+                cpu_time_s=cpu_time_s,
                 peak_mem_mb=peak_mem_mb,
             )
         )

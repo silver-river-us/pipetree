@@ -265,6 +265,7 @@ class BenchmarkStore:
                 impl_name,
                 COUNT(*) as fixture_count,
                 AVG(wall_time_s) as avg_wall_time_s,
+                AVG(cpu_time_s) as avg_cpu_time_s,
                 AVG(peak_mem_mb) as avg_peak_mem_mb,
                 AVG(correctness) as avg_correctness,
                 AVG(throughput_items_s) as avg_throughput,
@@ -281,6 +282,7 @@ class BenchmarkStore:
             row["impl_name"]: {
                 "fixture_count": row["fixture_count"],
                 "avg_wall_time_s": row["avg_wall_time_s"],
+                "avg_cpu_time_s": row["avg_cpu_time_s"],
                 "avg_peak_mem_mb": row["avg_peak_mem_mb"],
                 "avg_correctness": row["avg_correctness"],
                 "avg_throughput": row["avg_throughput"],

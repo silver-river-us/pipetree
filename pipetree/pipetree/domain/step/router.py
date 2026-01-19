@@ -107,15 +107,22 @@ class Router(Step):
         ctx._step_name = target.name
 
         start_time = time.perf_counter()
+        start_cpu = time.process_time()
         try:
             result = target.run(ctx)
             if hasattr(result, "__await__"):
                 result = await cast(Awaitable[Context], result)
 
             duration = time.perf_counter() - start_time
+            cpu_time = time.process_time() - start_cpu
             if notifier:
                 notifier.step_completed(
-                    target.name, ctx._step_index, ctx._total_steps, duration
+                    target.name,
+                    ctx._step_index,
+                    ctx._total_steps,
+                    duration,
+                    None,
+                    cpu_time,
                 )
 
             return result

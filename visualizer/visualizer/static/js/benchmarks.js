@@ -8,6 +8,8 @@
   let charts = {
     time: null,
     memory: null,
+    cpu: null,
+    cpuPercent: null,
     correctness: null,
     summary: null,
   };
@@ -77,7 +79,7 @@
     Object.values(charts).forEach((chart) => {
       if (chart) chart.destroy();
     });
-    charts = { time: null, memory: null, correctness: null, summary: null };
+    charts = { time: null, memory: null, cpu: null, cpuPercent: null, correctness: null, summary: null };
   }
 
   // Load comparison data and render charts
@@ -101,6 +103,8 @@
       destroyCharts();
       renderTimeChart(data);
       renderMemoryChart(data);
+      renderCpuChart(data);
+      renderCpuPercentChart(data);
       renderCorrectnessChart(data);
       renderSummaryChart(data);
     } catch (error) {
@@ -220,6 +224,152 @@
     charts.memory.render();
   }
 
+  // CPU Time Chart (Grouped Bar)
+  function renderCpuChart(data) {
+    const container = document.getElementById("chart-cpu");
+    if (!container) return;
+
+    if (data.fixtures.length === 0 || data.implementations.length === 0) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No CPU time data available</p>';
+      return;
+    }
+
+    // Check if any CPU data exists
+    const hasCpuData = data.implementations.some((impl) =>
+      (data.cpu_data[impl] || []).some((v) => v > 0)
+    );
+
+    if (!hasCpuData) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No CPU time data available</p>';
+      return;
+    }
+
+    const series = data.implementations.map((impl) => ({
+      name: impl,
+      data: data.cpu_data[impl] || [],
+    }));
+
+    const options = {
+      ...commonOptions,
+      chart: {
+        ...commonOptions.chart,
+        type: "bar",
+        height: 320,
+      },
+      series: series,
+      xaxis: {
+        categories: data.fixtures,
+        title: { text: "Fixture" },
+      },
+      yaxis: {
+        title: { text: "CPU Time (seconds)" },
+        labels: {
+          formatter: (val) => formatDuration(val),
+        },
+      },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: "70%",
+          borderRadius: 2,
+        },
+      },
+      dataLabels: { enabled: false },
+      legend: {
+        position: "top",
+        horizontalAlign: "left",
+        fontSize: "11px",
+      },
+      tooltip: {
+        y: { formatter: (val) => formatDuration(val) },
+      },
+    };
+
+    charts.cpu = new ApexCharts(container, options);
+    charts.cpu.render();
+  }
+
+  // CPU Utilization % Chart (Grouped Bar) - normalized by CPU count
+  function renderCpuPercentChart(data) {
+    const container = document.getElementById("chart-cpu-percent");
+    if (!container) return;
+
+    if (data.fixtures.length === 0 || data.implementations.length === 0) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No CPU utilization data available</p>';
+      return;
+    }
+
+    // Calculate CPU % for each fixture/implementation (raw, not normalized)
+    // 100% = 1 full core, <100% = I/O bound, >100% = multi-core parallel
+    const series = data.implementations.map((impl) => {
+      const cpuTimes = data.cpu_data[impl] || [];
+      const wallTimes = data.time_data[impl] || [];
+      const cpuPercents = cpuTimes.map((cpu, i) => {
+        const wall = wallTimes[i] || 0;
+        if (cpu > 0 && wall > 0) {
+          const pct = (cpu / wall) * 100;
+          return parseFloat(pct < 1 ? pct.toFixed(2) : pct.toFixed(1));
+        }
+        return 0;
+      });
+      return {
+        name: impl,
+        data: cpuPercents,
+      };
+    });
+
+    // Check if any CPU % data exists
+    const hasCpuData = series.some((s) => s.data.some((v) => v > 0));
+
+    if (!hasCpuData) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No CPU utilization data available</p>';
+      return;
+    }
+
+    const options = {
+      ...commonOptions,
+      chart: {
+        ...commonOptions.chart,
+        type: "bar",
+        height: 320,
+      },
+      series: series,
+      xaxis: {
+        categories: data.fixtures,
+        title: { text: "Fixture" },
+      },
+      yaxis: {
+        title: { text: "CPU % (100% = 1 core)" },
+        labels: {
+          formatter: (val) => val < 1 ? `${val.toFixed(2)}%` : `${val.toFixed(1)}%`,
+        },
+      },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: "70%",
+          borderRadius: 2,
+        },
+      },
+      dataLabels: { enabled: false },
+      legend: {
+        position: "top",
+        horizontalAlign: "left",
+        fontSize: "11px",
+      },
+      tooltip: {
+        y: { formatter: (val) => val < 1 ? `${val.toFixed(2)}%` : `${val.toFixed(1)}%` },
+      },
+    };
+
+    charts.cpuPercent = new ApexCharts(container, options);
+    charts.cpuPercent.render();
+  }
+
   // Correctness Chart (Grouped Bar)
   function renderCorrectnessChart(data) {
     const container = document.getElementById("chart-correctness");
@@ -291,17 +441,23 @@
 
     // Calculate normalized scores for each implementation
     const summary = data.summary || {};
-    const metrics = ["Speed", "Memory Efficiency", "Correctness"];
+    const metrics = ["Speed", "Memory Efficiency", "CPU Efficiency", "Correctness"];
 
     // Find min values for ratio-based normalization (best performers)
+    // For CPU efficiency, lower CPU% (cpu_time/wall_time) = more efficient
     let minTime = Infinity;
     let minMemory = Infinity;
+    let minCpuPercent = Infinity;
     data.implementations.forEach((impl) => {
       const s = summary[impl] || {};
       const time = s.avg_wall_time_s || 0;
       const memory = s.avg_peak_mem_mb || 0;
+      const cpuTime = s.avg_cpu_time_s || 0;
+      // CPU% = cpu_time / wall_time (lower = more efficient, uses less CPU per second)
+      const cpuPercent = time > 0 && cpuTime > 0 ? (cpuTime / time) * 100 : 0;
       if (time > 0 && time < minTime) minTime = time;
       if (memory > 0 && memory < minMemory) minMemory = memory;
+      if (cpuPercent > 0 && cpuPercent < minCpuPercent) minCpuPercent = cpuPercent;
     });
 
     const series = data.implementations.map((impl) => {
@@ -309,13 +465,18 @@
       // Ratio-based: best performer = 100%, others = (best/theirs) * 100
       const time = s.avg_wall_time_s || 0;
       const memory = s.avg_peak_mem_mb || 0;
+      const cpuTime = s.avg_cpu_time_s || 0;
+      // CPU% = cpu_time / wall_time (lower = more efficient)
+      const cpuPercent = time > 0 && cpuTime > 0 ? (cpuTime / time) * 100 : 0;
       const speedScore = time > 0 ? (minTime / time) * 100 : 0;
       const memoryScore = memory > 0 ? (minMemory / memory) * 100 : 0;
+      // Lower CPU% = higher efficiency score
+      const cpuScore = cpuPercent > 0 ? (minCpuPercent / cpuPercent) * 100 : 0;
       const correctnessScore = ((s.avg_correctness || 0) * 100);
 
       return {
         name: impl,
-        data: [speedScore, memoryScore, correctnessScore],
+        data: [speedScore, memoryScore, cpuScore, correctnessScore],
       };
     });
 

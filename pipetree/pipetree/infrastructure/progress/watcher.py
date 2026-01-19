@@ -171,7 +171,7 @@ class SQLiteProgressWatcher:
                         select(Event)
                         .where(Event.run_id == self.run_id)
                         .where(Event.id > last_event_id)  # type: ignore[operator]
-                        .order_by(Event.id)
+                        .order_by(Event.id)  # type: ignore[arg-type]
                     )
                     events = session.exec(statement).all()
 

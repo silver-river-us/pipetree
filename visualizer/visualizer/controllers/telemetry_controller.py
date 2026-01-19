@@ -1,5 +1,6 @@
 """Controller for telemetry and analytics."""
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -171,6 +172,10 @@ class TelemetryController:
                                 if "memory" not in run:
                                     run["memory"] = {}
                                 run["memory"][step.name] = step.peak_mem_mb
+                            if step.cpu_time_s is not None:
+                                if "cpu_time" not in run:
+                                    run["cpu_time"] = {}
+                                run["cpu_time"][step.name] = step.cpu_time_s
             except Exception:
                 pass
 
@@ -185,6 +190,7 @@ class TelemetryController:
                 "runs": limited_runs,
                 "step_names": sorted_step_names,
                 "pipeline": pipeline,
+                "cpu_count": os.cpu_count() or 1,
             }
         }
 
@@ -357,6 +363,7 @@ class TelemetryController:
                                     "started_at": step.started_at,
                                     "completed_at": step.completed_at,
                                     "duration_s": step.duration_s,
+                                    "cpu_time_s": step.cpu_time_s,
                                     "peak_mem_mb": step.peak_mem_mb,
                                 }
                             )
@@ -370,6 +377,7 @@ class TelemetryController:
                 "steps": steps_data,
                 "run_id": run_id,
                 "db_path": str(db_path),
+                "cpu_count": os.cpu_count() or 1,
             },
         }
 
@@ -418,6 +426,7 @@ class TelemetryController:
                                     "started_at": step.started_at,
                                     "completed_at": step.completed_at,
                                     "duration_s": step.duration_s,
+                                    "cpu_time_s": step.cpu_time_s,
                                     "peak_mem_mb": step.peak_mem_mb,
                                 }
                             )

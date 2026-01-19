@@ -1,7 +1,6 @@
 """Mechanical parts processing step."""
 
 import re
-import time
 
 from pipetree import Step
 from pipetree.types import Context
@@ -33,7 +32,6 @@ class ProcessMechanicalStep(Step):
 
         # Task 1: Extract torque specs
         ctx.report_progress(1, total_tasks, "Extracting torque specifications...")
-        time.sleep(0.3)
         torque_specs = re.findall(
             r"(\d+)\s*(?:ft-lb|nm|n·m|lb-ft)",
             full_text,
@@ -43,7 +41,6 @@ class ProcessMechanicalStep(Step):
 
         # Task 2: Extract dimensions
         ctx.report_progress(2, total_tasks, "Extracting dimensions...")
-        time.sleep(0.3)
         dimensions = re.findall(
             r"(\d+\.?\d*)\s*(?:mm|cm|in|inch|\")",
             full_text,
@@ -53,7 +50,6 @@ class ProcessMechanicalStep(Step):
 
         # Task 3: Extract materials
         ctx.report_progress(3, total_tasks, "Identifying materials...")
-        time.sleep(0.3)
         materials = re.findall(
             r"(steel|aluminum|brass|bronze|plastic|rubber|nylon|titanium)",
             full_text,

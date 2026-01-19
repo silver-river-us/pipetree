@@ -12,6 +12,8 @@
     avgSteps: null,
     stepMemory: null,
     avgMemory: null,
+    stepCpu: null,
+    avgCpu: null,
   };
 
   // Store data for click navigation
@@ -117,6 +119,8 @@
       avgSteps: null,
       stepMemory: null,
       avgMemory: null,
+      stepCpu: null,
+      avgCpu: null,
     };
   }
 
@@ -169,6 +173,8 @@
       destroyCharts();
       showState("charts");
 
+      const cpuCount = stepDurationsData.cpu_count || 1;
+
       renderRunTrendChart(trendsData.trends);
       renderStepDurationsChart(
         stepDurationsData.runs,
@@ -178,7 +184,9 @@
       renderAvgStepsChart(stepDurationsData.runs, stepDurationsData.step_names);
       renderStepMemoryChart(stepDurationsData.runs, stepDurationsData.step_names);
       renderAvgMemoryChart(stepDurationsData.runs, stepDurationsData.step_names);
-      renderSummaryStats(trendsData.trends, throughputData.throughput, stepDurationsData.runs);
+      renderStepCpuChart(stepDurationsData.runs, stepDurationsData.step_names);
+      renderAvgCpuChart(stepDurationsData.runs, stepDurationsData.step_names);
+      renderSummaryStats(trendsData.trends, throughputData.throughput, stepDurationsData.runs, cpuCount);
     } catch (error) {
       console.error("Failed to load benchmarks:", error);
       showState("empty");
@@ -533,7 +541,7 @@
     charts.stepMemory.render();
   }
 
-  // Average Step Memory (Horizontal Bar)
+  // Peak Step Memory (Horizontal Bar)
   function renderAvgMemoryChart(runs, stepNames) {
     const container = document.getElementById("chart-avg-memory");
     if (!container) return;
@@ -547,22 +555,19 @@
       return;
     }
 
-    // Calculate averages
-    const avgMemory = stepNames
+    // Calculate peak memory for each step (max across runs)
+    const peakMemory = stepNames
       .map((stepName) => {
         const memories = runsWithMemory
           .map((r) => r.memory && r.memory[stepName])
           .filter((m) => m != null && m > 0);
-        const avg =
-          memories.length > 0
-            ? memories.reduce((a, b) => a + b, 0) / memories.length
-            : 0;
-        return { name: stepName, avg: avg };
+        const peak = memories.length > 0 ? Math.max(...memories) : 0;
+        return { name: stepName, peak: peak };
       })
-      .filter((d) => d.avg > 0)
-      .sort((a, b) => b.avg - a.avg);
+      .filter((d) => d.peak > 0)
+      .sort((a, b) => b.peak - a.peak);
 
-    if (avgMemory.length === 0) {
+    if (peakMemory.length === 0) {
       container.innerHTML =
         '<p class="text-gray-500 text-sm text-center py-8">No memory data available</p>';
       return;
@@ -577,8 +582,8 @@
       },
       series: [
         {
-          name: "Avg Memory",
-          data: avgMemory.map((d) => parseFloat(d.avg.toFixed(2))),
+          name: "Peak Memory",
+          data: peakMemory.map((d) => parseFloat(d.peak.toFixed(2))),
         },
       ],
       xaxis: {
@@ -597,7 +602,7 @@
           borderRadius: 2,
         },
       },
-      labels: avgMemory.map((d) => d.name),
+      labels: peakMemory.map((d) => d.name),
       colors: ["#ef4444"],
       dataLabels: { enabled: false },
       tooltip: {
@@ -609,8 +614,157 @@
     charts.avgMemory.render();
   }
 
+  // Step CPU Time Breakdown (Stacked Bar Chart)
+  function renderStepCpuChart(runs, stepNames) {
+    const container = document.getElementById("chart-step-cpu");
+    if (!container) return;
+
+    // Filter runs that have CPU time data
+    const runsWithCpu = runs.filter((r) => r.cpu_time && Object.keys(r.cpu_time).length > 0);
+
+    if (runsWithCpu.length === 0 || stepNames.length === 0) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No CPU time data available</p>';
+      return;
+    }
+
+    const series = stepNames.map((stepName) => ({
+      name: stepName,
+      data: runsWithCpu.map((r) =>
+        r.cpu_time && r.cpu_time[stepName] ? parseFloat(r.cpu_time[stepName].toFixed(3)) : 0
+      ),
+    }));
+
+    const options = {
+      ...commonOptions,
+      chart: {
+        ...commonOptions.chart,
+        type: "bar",
+        height: 320,
+        stacked: true,
+        events: {
+          dataPointSelection: function (event, chartContext, config) {
+            const dataIndex = config.dataPointIndex;
+            const run = runsWithCpu[dataIndex];
+            if (run) {
+              navigateToRun(run.full_run_id, run.db_path);
+            }
+          },
+        },
+      },
+      series: series,
+      xaxis: {
+        categories: runsWithCpu.map((r) => r.run_id),
+        title: { text: "Run ID" },
+        labels: {
+          rotate: -45,
+          rotateAlways: runsWithCpu.length > 10,
+        },
+      },
+      yaxis: {
+        title: { text: "CPU Time (seconds)" },
+        labels: { formatter: (val) => formatDuration(val) },
+      },
+      legend: {
+        position: "top",
+        horizontalAlign: "left",
+        fontSize: "11px",
+      },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: "70%",
+        },
+      },
+      dataLabels: { enabled: false },
+      tooltip: {
+        y: { formatter: (val) => formatDuration(val) },
+      },
+    };
+
+    charts.stepCpu = new ApexCharts(container, options);
+    charts.stepCpu.render();
+  }
+
+  // Peak CPU % (Horizontal Bar) - raw, not normalized
+  // 100% = 1 full core, <100% = I/O bound, >100% = multi-core parallel
+  function renderAvgCpuChart(runs, stepNames) {
+    const container = document.getElementById("chart-avg-cpu");
+    if (!container) return;
+
+    // Filter runs that have both CPU time and duration data
+    const runsWithCpu = runs.filter((r) =>
+      r.cpu_time && Object.keys(r.cpu_time).length > 0 &&
+      r.steps && Object.keys(r.steps).length > 0
+    );
+
+    if (runsWithCpu.length === 0 || stepNames.length === 0) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No CPU utilization data available</p>';
+      return;
+    }
+
+    // Calculate peak CPU % for each step (max across runs, not average)
+    const peakCpuPercent = stepNames
+      .map((stepName) => {
+        const cpuPercents = runsWithCpu
+          .filter((r) => r.cpu_time[stepName] && r.steps[stepName] && r.steps[stepName] > 0)
+          .map((r) => (r.cpu_time[stepName] / r.steps[stepName]) * 100);
+        const peak = cpuPercents.length > 0 ? Math.max(...cpuPercents) : 0;
+        return { name: stepName, peak: peak };
+      })
+      .filter((d) => d.peak > 0)
+      .sort((a, b) => b.peak - a.peak);
+
+    if (peakCpuPercent.length === 0) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No CPU utilization data available</p>';
+      return;
+    }
+
+    const options = {
+      ...commonOptions,
+      chart: {
+        ...commonOptions.chart,
+        type: "bar",
+        height: 320,
+      },
+      series: [
+        {
+          name: "Peak CPU %",
+          data: peakCpuPercent.map((d) => parseFloat(d.peak < 1 ? d.peak.toFixed(2) : d.peak.toFixed(1))),
+        },
+      ],
+      xaxis: {
+        title: { text: "CPU % (100% = 1 core)" },
+        labels: { formatter: (val) => val < 1 ? `${val.toFixed(2)}%` : `${val.toFixed(1)}%` },
+      },
+      yaxis: {
+        labels: {
+          maxWidth: 150,
+        },
+      },
+      plotOptions: {
+        bar: {
+          horizontal: true,
+          barHeight: "60%",
+          borderRadius: 2,
+        },
+      },
+      labels: peakCpuPercent.map((d) => d.name),
+      colors: ["#06b6d4"],
+      dataLabels: { enabled: false },
+      tooltip: {
+        y: { formatter: (val) => val < 1 ? `${val.toFixed(2)}%` : `${val.toFixed(1)}%` },
+      },
+    };
+
+    charts.avgCpu = new ApexCharts(container, options);
+    charts.avgCpu.render();
+  }
+
   // Summary Statistics
-  function renderSummaryStats(trends, throughput, runs) {
+  function renderSummaryStats(trends, throughput, runs, cpuCount) {
     const container = document.getElementById("summary-stats");
 
     // Calculate stats
@@ -645,23 +799,46 @@
       });
     }
 
-    // Calculate peak memory stats
+    // Calculate peak memory stats (max of step memories per run, not sum)
     const runsWithMemory = (runs || []).filter((r) => r.memory && Object.keys(r.memory).length > 0);
     if (runsWithMemory.length > 0) {
-      const totalMemoryPerRun = runsWithMemory.map((r) =>
-        Object.values(r.memory).reduce((sum, m) => sum + (m || 0), 0)
+      const peakMemoryPerRun = runsWithMemory.map((r) =>
+        Math.max(...Object.values(r.memory).filter((m) => m != null))
       );
-      const avgMemory = totalMemoryPerRun.reduce((a, b) => a + b, 0) / totalMemoryPerRun.length;
-      const maxMemory = Math.max(...totalMemoryPerRun);
+      const avgPeakMemory = peakMemoryPerRun.reduce((a, b) => a + b, 0) / peakMemoryPerRun.length;
+      const maxPeakMemory = Math.max(...peakMemoryPerRun);
 
       stats.push({
         label: "Avg Peak Memory",
-        value: formatMemory(avgMemory),
+        value: formatMemory(avgPeakMemory),
       });
       stats.push({
         label: "Max Peak Memory",
-        value: formatMemory(maxMemory),
+        value: formatMemory(maxPeakMemory),
       });
+    }
+
+    // Calculate peak CPU % stats (max of step CPU % per run, not average)
+    const runsWithCpu = (runs || []).filter((r) =>
+      r.cpu_time && Object.keys(r.cpu_time).length > 0 &&
+      r.steps && Object.keys(r.steps).length > 0
+    );
+    if (runsWithCpu.length > 0) {
+      // Get peak CPU % per run (max across all steps)
+      const peakCpuPerRun = runsWithCpu.map((r) => {
+        const cpuPercents = Object.keys(r.cpu_time)
+          .filter((stepName) => r.steps[stepName] && r.steps[stepName] > 0)
+          .map((stepName) => (r.cpu_time[stepName] / r.steps[stepName]) * 100);
+        return cpuPercents.length > 0 ? Math.max(...cpuPercents) : 0;
+      });
+      const maxPeakCpu = Math.max(...peakCpuPerRun);
+
+      if (maxPeakCpu > 0) {
+        stats.push({
+          label: "Peak CPU %",
+          value: maxPeakCpu < 1 ? maxPeakCpu.toFixed(2) + "%" : maxPeakCpu.toFixed(1) + "%",
+        });
+      }
     }
 
     container.innerHTML = stats

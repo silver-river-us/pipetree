@@ -8,6 +8,8 @@
   let charts = {
     stepDurations: null,
     stepMemory: null,
+    cpuTime: null,
+    cpuPercent: null,
   };
 
   // Color palette
@@ -211,18 +213,196 @@
     charts.stepMemory.render();
   }
 
-  // Update total memory stat
+  // Update peak memory stat (max across steps, not sum)
   function updateTotalMemory(steps) {
     const totalMemoryEl = document.getElementById("total-memory");
     if (!totalMemoryEl) return;
 
-    const totalMemory = steps
+    const memories = steps
       .filter((s) => s.peak_mem_mb != null)
-      .reduce((sum, s) => sum + s.peak_mem_mb, 0);
+      .map((s) => s.peak_mem_mb);
 
-    if (totalMemory > 0) {
-      totalMemoryEl.textContent = formatMemory(totalMemory);
+    if (memories.length > 0) {
+      const peakMemory = Math.max(...memories);
+      totalMemoryEl.textContent = formatMemory(peakMemory);
     }
+  }
+
+  // Render CPU Time Chart (horizontal bar)
+  function renderCpuTimeChart(steps) {
+    const container = document.getElementById("chart-cpu-time");
+    if (!container) return;
+
+    const stepsWithCpu = steps.filter(
+      (s) => s.cpu_time_s != null && s.cpu_time_s > 0
+    );
+
+    if (stepsWithCpu.length === 0) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No CPU time data available</p>';
+      return;
+    }
+
+    const stepColors = stepsWithCpu.map((s) => getStepColor(s.status));
+
+    const options = {
+      ...commonOptions,
+      chart: {
+        ...commonOptions.chart,
+        type: "bar",
+        height: Math.max(320, stepsWithCpu.length * 35),
+      },
+      series: [
+        {
+          name: "CPU Time",
+          data: stepsWithCpu.map((s) =>
+            parseFloat(s.cpu_time_s.toFixed(3))
+          ),
+        },
+      ],
+      plotOptions: {
+        bar: {
+          horizontal: true,
+          barHeight: "60%",
+          borderRadius: 2,
+          distributed: true,
+        },
+      },
+      colors: stepColors,
+      xaxis: {
+        title: { text: "CPU Time" },
+        labels: { formatter: (val) => formatDuration(val) },
+      },
+      yaxis: {
+        labels: {
+          maxWidth: 200,
+        },
+      },
+      labels: stepsWithCpu.map((s) => s.name),
+      legend: { show: false },
+      dataLabels: {
+        enabled: true,
+        formatter: (val) => formatDuration(val),
+        style: {
+          fontSize: "11px",
+          colors: ["#374151"],
+        },
+        offsetX: 5,
+      },
+      tooltip: {
+        y: { formatter: (val) => formatDuration(val) },
+      },
+    };
+
+    if (charts.cpuTime) {
+      charts.cpuTime.destroy();
+    }
+
+    charts.cpuTime = new ApexCharts(container, options);
+    charts.cpuTime.render();
+  }
+
+  // Render CPU Utilization % Chart (horizontal bar)
+  // Uses normalized CPU % (Solaris mode): divides by CPU count so max is 100%
+  function renderCpuPercentChart(steps) {
+    const container = document.getElementById("chart-cpu-percent");
+    if (!container) return;
+
+    const stepsWithCpu = steps.filter(
+      (s) => s.cpu_time_s != null && s.duration_s != null && s.duration_s > 0
+    );
+
+    if (stepsWithCpu.length === 0) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No CPU utilization data available</p>';
+      return;
+    }
+
+    // Calculate raw CPU % for each step (not normalized)
+    // 100% = 1 full core, <100% = I/O bound, >100% = multi-core parallel
+    const cpuPercentData = stepsWithCpu.map((s) => {
+      const percent = (s.cpu_time_s / s.duration_s) * 100;
+      return {
+        name: s.name,
+        status: s.status,
+        percent: percent,
+      };
+    });
+
+    const stepColors = cpuPercentData.map((s) => getStepColor(s.status));
+
+    const options = {
+      ...commonOptions,
+      chart: {
+        ...commonOptions.chart,
+        type: "bar",
+        height: Math.max(320, cpuPercentData.length * 35),
+      },
+      series: [
+        {
+          name: "CPU %",
+          data: cpuPercentData.map((s) => parseFloat(s.percent < 1 ? s.percent.toFixed(2) : s.percent.toFixed(1))),
+        },
+      ],
+      plotOptions: {
+        bar: {
+          horizontal: true,
+          barHeight: "60%",
+          borderRadius: 2,
+          distributed: true,
+        },
+      },
+      colors: stepColors,
+      xaxis: {
+        title: { text: "CPU % (100% = 1 core)" },
+        labels: { formatter: (val) => val < 1 ? `${val.toFixed(2)}%` : `${val.toFixed(1)}%` },
+      },
+      yaxis: {
+        labels: {
+          maxWidth: 200,
+        },
+      },
+      labels: cpuPercentData.map((s) => s.name),
+      legend: { show: false },
+      dataLabels: {
+        enabled: true,
+        formatter: (val) => val < 1 ? val.toFixed(2) + "%" : val.toFixed(1) + "%",
+        style: {
+          fontSize: "11px",
+          colors: ["#374151"],
+        },
+        offsetX: 5,
+      },
+      tooltip: {
+        y: {
+          formatter: (val) => val < 1 ? `${val.toFixed(2)}%` : `${val.toFixed(1)}%`,
+        },
+      },
+    };
+
+    if (charts.cpuPercent) {
+      charts.cpuPercent.destroy();
+    }
+
+    charts.cpuPercent = new ApexCharts(container, options);
+    charts.cpuPercent.render();
+  }
+
+  // Update peak CPU % stat (max across steps, not average)
+  function updateAvgCpuPercent(steps) {
+    const avgCpuEl = document.getElementById("avg-cpu-percent");
+    if (!avgCpuEl) return;
+
+    const stepsWithCpu = steps.filter(
+      (s) => s.cpu_time_s != null && s.duration_s != null && s.duration_s > 0
+    );
+
+    if (stepsWithCpu.length === 0) return;
+
+    const cpuPercents = stepsWithCpu.map((s) => (s.cpu_time_s / s.duration_s) * 100);
+    const peakPercent = Math.max(...cpuPercents);
+
+    avgCpuEl.textContent = peakPercent < 1 ? peakPercent.toFixed(2) + "%" : peakPercent.toFixed(1) + "%";
   }
 
   // Initialize
@@ -234,7 +414,10 @@
 
     renderStepDurationsChart(stepsData);
     renderStepMemoryChart(stepsData);
+    renderCpuTimeChart(stepsData);
+    renderCpuPercentChart(stepsData);
     updateTotalMemory(stepsData);
+    updateAvgCpuPercent(stepsData);
   }
 
   // Run on DOM ready

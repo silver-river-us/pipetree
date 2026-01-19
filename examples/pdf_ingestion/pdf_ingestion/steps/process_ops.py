@@ -35,7 +35,6 @@ class ProcessOpsStep(Step):
 
         # Task 1: Extract procedures
         ctx.report_progress(1, total_tasks, "Extracting procedures...")
-        time.sleep(0.5)  # Simulate work
         procedures = re.findall(
             r"(?:procedure|step)\s*\d+[:\s]+([^\n]+)",
             full_text,
@@ -45,7 +44,6 @@ class ProcessOpsStep(Step):
 
         # Task 2: Extract warnings
         ctx.report_progress(2, total_tasks, "Extracting warnings...")
-        time.sleep(0.5)
         warnings = re.findall(
             r"warning[:\s]+([^\n]+)",
             full_text,
@@ -55,7 +53,6 @@ class ProcessOpsStep(Step):
 
         # Task 3: Extract cautions
         ctx.report_progress(3, total_tasks, "Extracting cautions...")
-        time.sleep(0.5)
         cautions = re.findall(
             r"caution[:\s]+([^\n]+)",
             full_text,
@@ -65,7 +62,6 @@ class ProcessOpsStep(Step):
 
         # Task 4: Extract tools
         ctx.report_progress(4, total_tasks, "Identifying tools...")
-        time.sleep(0.5)
         tools = re.findall(
             r"(?:tool|equipment|material)[:\s]+([^\n]+)",
             full_text,

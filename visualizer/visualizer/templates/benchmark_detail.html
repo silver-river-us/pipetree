@@ -107,6 +107,17 @@
                     <span class="font-medium">{{ "%.3f" | format(impl_summary.avg_wall_time_s or 0) }}s</span>
                 </div>
                 <div class="flex justify-between">
+                    <span class="text-gray-500">Avg CPU Time</span>
+                    <span class="font-medium">{{ "%.3f" | format(impl_summary.avg_cpu_time_s or 0) }}s</span>
+                </div>
+                {% if impl_summary.avg_cpu_time_s and impl_summary.avg_wall_time_s and impl_summary.avg_wall_time_s > 0 %}
+                {% set cpu_pct = (impl_summary.avg_cpu_time_s / impl_summary.avg_wall_time_s) * 100 %}
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Avg CPU %</span>
+                    <span class="font-medium">{% if cpu_pct < 1 %}{{ "%.2f" | format(cpu_pct) }}{% else %}{{ "%.1f" | format(cpu_pct) }}{% endif %}%</span>
+                </div>
+                {% endif %}
+                <div class="flex justify-between">
                     <span class="text-gray-500">Avg Memory</span>
                     <span class="font-medium">{{ "%.1f" | format(impl_summary.avg_peak_mem_mb or 0) }} MB</span>
                 </div>
@@ -139,6 +150,20 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- CPU Time Chart -->
+        <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-4">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">CPU Time by Fixture</h3>
+            <div id="chart-cpu" class="h-80"></div>
+        </div>
+
+        <!-- CPU Utilization Chart -->
+        <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-4">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">CPU Utilization % by Fixture</h3>
+            <div id="chart-cpu-percent" class="h-80"></div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <!-- Correctness Chart -->
         <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-4">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Correctness by Fixture</h3>
@@ -165,6 +190,7 @@
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Implementation</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wall Time</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CPU Time</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">CPU %</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Peak Memory</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Correctness</th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
@@ -188,6 +214,12 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {% if result.cpu_time_s %}
                             {{ "%.3f" | format(result.cpu_time_s) }}s
+                            {% else %}-{% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {% if result.cpu_time_s and result.wall_time_s and result.wall_time_s > 0 %}
+                            {% set cpu_pct = (result.cpu_time_s / result.wall_time_s) * 100 %}
+                            {% if cpu_pct < 1 %}{{ "%.2f" | format(cpu_pct) }}{% else %}{{ "%.1f" | format(cpu_pct) }}{% endif %}%
                             {% else %}-{% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

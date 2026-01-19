@@ -124,6 +124,9 @@ class Pipetree:
         if self._notifier is None or not hasattr(self._notifier, "register_branch"):
             return
 
+        # Local reference for type narrowing in nested function
+        notifier = self._notifier
+
         def register_router_branches(
             router: Router, step_index: int, depth: int = 0
         ) -> None:
@@ -133,7 +136,7 @@ class Pipetree:
                 # Branch steps start right after the router step
                 branch_start_index = step_index + 1 + depth
 
-                self._notifier.register_branch(
+                notifier.register_branch(
                     parent_step=router.name,
                     branch_name=branch_name,
                     step_names=step_names,
@@ -192,9 +195,10 @@ class Pipetree:
             if self._notifier:
                 self._notifier.step_started(step.name, i, total_steps)
 
-            # Start isolated memory tracking for this step
+            # Start isolated memory and CPU tracking for this step
             tracemalloc.start()
             start_time = time.perf_counter()
+            start_cpu = time.process_time()
 
             try:
                 self._check_preconditions(step, ctx)
@@ -206,18 +210,21 @@ class Pipetree:
                 tracemalloc.stop()
                 peak_mem_mb = peak_bytes / (1024 * 1024)
 
-                # Notify step completed
+                # Calculate timing metrics
                 duration = time.perf_counter() - start_time
+                cpu_time = time.process_time() - start_cpu
 
                 # For Router steps, don't report duration/memory since branch steps
                 # already report their own metrics (avoids double-counting)
                 if self._notifier:
                     if isinstance(step, Router):
                         # Router duration is just overhead, branch has actual work
-                        self._notifier.step_completed(step.name, i, total_steps, 0, 0)
+                        self._notifier.step_completed(
+                            step.name, i, total_steps, 0, 0, 0
+                        )
                     else:
                         self._notifier.step_completed(
-                            step.name, i, total_steps, duration, peak_mem_mb
+                            step.name, i, total_steps, duration, peak_mem_mb, cpu_time
                         )
 
             except Exception as e:

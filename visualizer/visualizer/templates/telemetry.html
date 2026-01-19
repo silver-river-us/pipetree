@@ -82,10 +82,25 @@
                 <div id="chart-step-memory" class="h-80"></div>
             </div>
 
-            <!-- Average Step Memory (Horizontal Bar) -->
+            <!-- Peak Step Memory (Horizontal Bar) -->
             <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Average Step Memory</h3>
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Peak Step Memory</h3>
                 <div id="chart-avg-memory" class="h-80"></div>
+            </div>
+        </div>
+
+        <!-- Row 4: CPU Usage -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Step CPU Time Breakdown (Stacked Bar Chart) -->
+            <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Step CPU Time Breakdown</h3>
+                <div id="chart-step-cpu" class="h-80"></div>
+            </div>
+
+            <!-- Peak CPU % (Horizontal Bar) -->
+            <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Peak CPU %</h3>
+                <div id="chart-avg-cpu" class="h-80"></div>
             </div>
         </div>
 
