@@ -1,19 +1,21 @@
-"""Load PDF step."""
+"""Load PDF step - lightweight metadata extraction."""
 
+import fitz  # PyMuPDF - faster and more memory-efficient than pypdf
 from pipetree import Step
-from pypdf import PdfReader
 
 from ..context import PdfContext
 
 
 class LoadPdfStep(Step):
-    """Load PDF metadata without keeping it in memory."""
+    """Load PDF metadata without keeping the document in memory."""
 
     def run(self, ctx: PdfContext) -> PdfContext:  # type: ignore[override]
         print(f"Loading PDF from: {ctx.path}")
 
-        reader = PdfReader(ctx.path)
-        ctx.total_pages = len(reader.pages)
+        # Use fitz for lightweight page count (doesn't load page content)
+        with fitz.open(ctx.path) as doc:
+            ctx.total_pages = doc.page_count
+
         ctx.pdf = True  # type: ignore[assignment]  # Mark as "loaded" for capability check
 
         print(f"PDF has {ctx.total_pages} pages")

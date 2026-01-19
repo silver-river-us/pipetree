@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Telemetry - Pipetree Visualizer{% endblock %}
+
+{% block head %}
+<!-- ApexCharts -->
+<script src="/static/vendor/js/apexcharts.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-screen-2xl mx-auto">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">Telemetry</h1>
+        <p class="text-gray-600 mt-1">Performance analytics and trends across pipeline runs</p>
+    </div>
+
+    <!-- Pipeline Selector -->
+    <div class="bg-white border border-gray-200 shadow-sm p-4 mb-6 rounded-lg">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center gap-2">
+                <label for="pipeline-select" class="text-sm font-medium text-gray-700">Pipeline:</label>
+                <select id="pipeline-select" class="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[200px]">
+                    <option value="">Select a pipeline...</option>
+                    {% for pipeline in pipelines %}
+                    <option value="{{ pipeline.name }}">
+                        {{ pipeline.name }} ({{ pipeline.run_count }} runs)
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <label for="run-limit" class="text-sm font-medium text-gray-700">Show last:</label>
+                <select id="run-limit" class="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="10">10 runs</option>
+                    <option value="20" selected>20 runs</option>
+                    <option value="50">50 runs</option>
+                    <option value="100">100 runs</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div id="charts-container" class="hidden">
+        <!-- Row 1: Run Duration Trend + Step Durations -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Run Duration Trend (Line Chart) -->
+            <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Run Duration Trend</h3>
+                <div id="chart-run-trend" class="h-80"></div>
+            </div>
+
+            <!-- Step Durations Comparison (Stacked Bar Chart) -->
+            <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Step Duration Breakdown</h3>
+                <div id="chart-step-durations" class="h-80"></div>
+            </div>
+        </div>
+
+        <!-- Row 2: Throughput + Average Step Durations -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Throughput Chart -->
+            <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Throughput (Items/Second)</h3>
+                <div id="chart-throughput" class="h-80"></div>
+            </div>
+
+            <!-- Average Step Durations (Horizontal Bar) -->
+            <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Average Step Durations</h3>
+                <div id="chart-avg-steps" class="h-80"></div>
+            </div>
+        </div>
+
+        <!-- Row 3: Memory Usage -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Step Memory Breakdown (Stacked Bar Chart) -->
+            <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Step Memory Breakdown</h3>
+                <div id="chart-step-memory" class="h-80"></div>
+            </div>
+
+            <!-- Peak Step Memory (Horizontal Bar) -->
+            <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Peak Step Memory</h3>
+                <div id="chart-avg-memory" class="h-80"></div>
+            </div>
+        </div>
+
+        <!-- Row 4: CPU Usage -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Step CPU Time Breakdown (Stacked Bar Chart) -->
+            <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Step CPU Time Breakdown</h3>
+                <div id="chart-step-cpu" class="h-80"></div>
+            </div>
+
+            <!-- Peak CPU % (Horizontal Bar) -->
+            <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Peak CPU %</h3>
+                <div id="chart-avg-cpu" class="h-80"></div>
+            </div>
+        </div>
+
+        <!-- Row 3: Summary Statistics -->
+        <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Summary Statistics</h3>
+            <div id="summary-stats" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Stats populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="hidden text-center py-12">
+        <svg class="animate-spin mx-auto h-8 w-8 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="mt-2 text-sm text-gray-500">Loading telemetry data...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Select a pipeline</h3>
+        <p class="mt-1 text-sm text-gray-500">Choose a pipeline from the dropdown to view performance telemetry.</p>
+    </div>
+
+    <!-- No Data State -->
+    <div id="no-data-state" class="hidden text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">No completed runs</h3>
+        <p class="mt-1 text-sm text-gray-500">This pipeline has no completed runs to analyze.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/telemetry.js"></script>
+{% endblock %}

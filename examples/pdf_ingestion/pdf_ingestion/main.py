@@ -16,9 +16,8 @@ Features:
 import asyncio
 import time
 from pathlib import Path
-from threading import Event, Thread
 
-from pipetree import Pipetree, SQLiteProgressNotifier
+from pipetree import Pipetree, SQLiteProgressNotifier, SQLiteProgressWatcher
 
 from .capabilities import (
     CATEGORIZE,
@@ -43,7 +42,6 @@ from .steps import (
     ProcessOpsStep,
     SaveTextStep,
 )
-from .watch import watch_sqlite_progress
 
 
 def create_pipeline(
@@ -84,34 +82,8 @@ def create_pipeline(
         name="PDF Processing Pipeline",
     )
 
-    # Register branches with the notifier
-    if notifier:
-        # Register the two top-level branches
-        notifier.register_branch(
-            parent_step="route_by_category",
-            branch_name="ops",
-            step_names=["process_ops"],
-            start_index=4,
-        )
-        notifier.register_branch(
-            parent_step="route_by_category",
-            branch_name="parts",
-            step_names=["route_parts_type"],
-            start_index=4,
-        )
-        # Register nested branches under parts
-        notifier.register_branch(
-            parent_step="route_parts_type",
-            branch_name="mechanical",
-            step_names=["process_mechanical"],
-            start_index=5,
-        )
-        notifier.register_branch(
-            parent_step="route_parts_type",
-            branch_name="electrical",
-            step_names=["process_electrical"],
-            start_index=5,
-        )
+    # Note: Branches are now auto-registered by the pipeline when it runs
+    # No need for manual notifier.register_branch() calls
 
     return pipeline, notifier
 
@@ -120,7 +92,7 @@ async def main() -> None:
     """Run the PDF ingestion pipeline."""
     # Configuration - resolve paths relative to project root (1 level up from pdf_ingestion/)
     project_root = Path(__file__).parent.parent
-    pdf_path = project_root / "assets" / "small.pdf"
+    pdf_path = project_root / "assets" / "big.pdf"
     output_path = project_root / "assets" / (pdf_path.stem + ".txt")
     db_path = project_root / "db" / "progress.db"
 
@@ -150,11 +122,8 @@ async def main() -> None:
     run_id = notifier.run_id if notifier else ""
 
     # Start progress watcher in background thread
-    stop_event = Event()
-    watcher_thread = Thread(
-        target=watch_sqlite_progress, args=(db_path, run_id, stop_event)
-    )
-    watcher_thread.start()
+    watcher = SQLiteProgressWatcher(db_path, run_id)
+    watcher.start()
 
     ctx = PdfContext(
         path=str(pdf_path),
@@ -168,8 +137,7 @@ async def main() -> None:
         total_time = time.perf_counter() - start_time
 
         # Stop the watcher
-        stop_event.set()
-        watcher_thread.join(timeout=1.0)
+        watcher.stop()
 
         # Summary
         print()
@@ -193,8 +161,7 @@ async def main() -> None:
         print(f"View run at: http://localhost:8000/runs/{run_id}?db={db_path}")
 
     except Exception:
-        stop_event.set()
-        watcher_thread.join(timeout=1.0)
+        watcher.stop()
         raise
 
     finally:

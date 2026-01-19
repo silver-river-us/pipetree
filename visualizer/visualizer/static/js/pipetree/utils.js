@@ -56,8 +56,17 @@ export function branchHasActivity(steps, branchesMap) {
  * Format duration for display
  */
 export function formatDuration(seconds) {
-  if (seconds < 1) {
-    return Math.round(seconds * 1000) + "ms";
+  if (seconds == null || isNaN(seconds)) return "-";
+  if (seconds < 1) return Math.round(seconds * 1000) + "ms";
+  if (seconds < 60) return seconds.toFixed(1) + "s";
+  if (seconds < 3600) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs.toFixed(0)}s`;
   }
-  return seconds.toFixed(1) + "s";
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  if (secs > 0) return `${hours}h ${mins}m ${secs.toFixed(0)}s`;
+  return `${hours}h ${mins}m`;
 }

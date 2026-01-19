@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
-from sqlmodel import select
+from sqlmodel import delete, select
 
 
 class RunsController:
@@ -220,3 +220,22 @@ class RunsController:
                 pass
 
         return {"json": data}
+
+    @classmethod
+    def delete_run(cls, run_id: str, db_path: Path) -> dict[str, Any]:
+        """Delete a run and all its associated data."""
+        if not db_path.exists():
+            return {"json": {"success": False, "error": "Database not found"}}
+
+        try:
+            with get_session(db_path) as session:
+                # Delete events first (foreign key constraint)
+                session.exec(delete(Event).where(Event.run_id == run_id))  # type: ignore[call-overload]
+                # Delete steps
+                session.exec(delete(Step).where(Step.run_id == run_id))  # type: ignore[call-overload]
+                # Delete run
+                session.exec(delete(Run).where(Run.id == run_id))  # type: ignore[call-overload]
+                session.commit()
+            return {"json": {"success": True}}
+        except Exception as e:
+            return {"json": {"success": False, "error": str(e)}}

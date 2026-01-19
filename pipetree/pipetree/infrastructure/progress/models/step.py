@@ -21,6 +21,8 @@ class Step(SQLModel, table=True):
     started_at: float | None = None
     completed_at: float | None = None
     duration_s: float | None = None
+    cpu_time_s: float | None = None
+    peak_mem_mb: float | None = None
     error: str | None = None
     branch: str | None = Field(default=None, index=True)
     parent_step: str | None = None

@@ -50,6 +50,9 @@
                     <a href="/" class="px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-800 rounded transition-colors {% if request.path == '/' %}bg-slate-800 text-white{% endif %}">
                         Runs
                     </a>
+                    <a href="/telemetry" class="px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-800 rounded transition-colors {% if '/telemetry' in request.path %}bg-slate-800 text-white{% endif %}">
+                        Telemetry
+                    </a>
                     <a href="/benchmarks" class="px-3 py-1.5 text-sm text-slate-300 hover:text-white hover:bg-slate-800 rounded transition-colors {% if '/benchmarks' in request.path %}bg-slate-800 text-white{% endif %}">
                         Benchmarks
                     </a>

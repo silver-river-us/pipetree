@@ -32,9 +32,8 @@ Pipeline Structure:
 import asyncio
 import time
 from pathlib import Path
-from threading import Event, Thread
 
-from pipetree import Pipetree, SQLiteProgressNotifier
+from pipetree import Pipetree, SQLiteProgressNotifier, SQLiteProgressWatcher
 
 from .capabilities import (
     AGGREGATE,
@@ -91,40 +90,6 @@ from .steps import (
     TransformStep,
     ValidateStep,
 )
-
-
-def watch_progress(db_path: Path, run_id: str, stop_event: Event) -> None:
-    """Simple progress watcher that prints updates."""
-    import sqlite3
-
-    last_event_id = 0
-
-    while not stop_event.is_set():
-        try:
-            if db_path.exists():
-                conn = sqlite3.connect(str(db_path))
-                cursor = conn.cursor()
-
-                cursor.execute(
-                    """
-                    SELECT id, step_index, event_type, message, current, total
-                    FROM events
-                    WHERE run_id = ? AND id > ?
-                    ORDER BY id
-                    """,
-                    (run_id, last_event_id),
-                )
-
-                for row in cursor.fetchall():
-                    event_id, _step_index, _event_type, _message, _current, _total = row
-                    last_event_id = event_id
-
-                conn.close()
-
-            stop_event.wait(0.2)
-
-        except Exception:
-            stop_event.wait(0.5)
 
 
 def create_pipeline(
@@ -184,26 +149,8 @@ def create_pipeline(
         name="Stress Test Pipeline",
     )
 
-    # Register branches with the notifier
-    if notifier:
-        notifier.register_branch(
-            parent_step="route_by_quality",
-            branch_name="high",
-            step_names=["process_high_quality"],
-            start_index=14,
-        )
-        notifier.register_branch(
-            parent_step="route_by_quality",
-            branch_name="medium",
-            step_names=["process_medium_quality"],
-            start_index=14,
-        )
-        notifier.register_branch(
-            parent_step="route_by_quality",
-            branch_name="low",
-            step_names=["process_low_quality"],
-            start_index=14,
-        )
+    # Note: Branches are now auto-registered by the pipeline when it runs
+    # No need for manual notifier.register_branch() calls
 
     return pipeline, notifier
 
@@ -245,9 +192,8 @@ async def main(iterations: int = 15) -> None:
     run_id = notifier.run_id if notifier else ""
 
     # Start progress watcher
-    stop_event = Event()
-    watcher_thread = Thread(target=watch_progress, args=(db_path, run_id, stop_event))
-    watcher_thread.start()
+    watcher = SQLiteProgressWatcher(db_path, run_id)
+    watcher.start()
 
     # Create context
     ctx = StressTestContext(
@@ -262,8 +208,7 @@ async def main(iterations: int = 15) -> None:
         total_time = time.perf_counter() - start_time
 
         # Stop watcher
-        stop_event.set()
-        watcher_thread.join(timeout=1.0)
+        watcher.stop()
 
         # Summary
         print()
@@ -288,8 +233,7 @@ async def main(iterations: int = 15) -> None:
         print(f"View run at: http://localhost:8000/runs/{run_id}?db={db_path}")
 
     except Exception as e:
-        stop_event.set()
-        watcher_thread.join(timeout=1.0)
+        watcher.stop()
         print(f"Pipeline failed: {e}")
         raise
 

@@ -1,7 +1,6 @@
 """Parts catalog processing step."""
 
 import re
-import time
 
 from pipetree import Step
 from pipetree.types import Context
@@ -18,8 +17,8 @@ class ProcessPartsStep(Step):
     """
 
     def run(self, ctx: Context) -> Context:
-        texts: list[str] = ctx.texts  # type: ignore
-        full_text = "\n".join(texts)
+        # Use streaming join to avoid loading all texts into memory at once
+        full_text = ctx.texts.join("\n")  # type: ignore
 
         print("Processing as PARTS catalog...")
 
@@ -35,7 +34,6 @@ class ProcessPartsStep(Step):
 
         # Task 1: Extract part numbers
         ctx.report_progress(1, total_tasks, "Extracting part numbers...")
-        time.sleep(0.5)  # Simulate work
         part_numbers = re.findall(
             r"(?:part\s*(?:number|no|#)|p/n)[:\s]*([A-Z0-9][-A-Z0-9]+)",
             full_text,
@@ -45,7 +43,6 @@ class ProcessPartsStep(Step):
 
         # Task 2: Extract assemblies
         ctx.report_progress(2, total_tasks, "Identifying assemblies...")
-        time.sleep(0.5)
         assemblies = re.findall(
             r"assembly[:\s]+([^\n]+)",
             full_text,
@@ -55,7 +52,6 @@ class ProcessPartsStep(Step):
 
         # Task 3: Extract figures
         ctx.report_progress(3, total_tasks, "Mapping figures...")
-        time.sleep(0.5)
         figures = re.findall(
             r"figure\s+(\d+)[:\s]*([^\n]*)",
             full_text,
@@ -67,7 +63,6 @@ class ProcessPartsStep(Step):
 
         # Task 4: Extract components
         ctx.report_progress(4, total_tasks, "Cataloging components...")
-        time.sleep(0.5)
         components = re.findall(
             r"(?:component|item)\s*\d*[:\s]+([^\n]+)",
             full_text,

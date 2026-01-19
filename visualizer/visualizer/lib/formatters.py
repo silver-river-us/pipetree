@@ -12,9 +12,16 @@ def format_duration(seconds: float | None) -> str:
         return f"{seconds * 1000:.0f}ms"
     if seconds < 60:
         return f"{seconds:.2f}s"
-    minutes = int(seconds // 60)
+    if seconds < 3600:
+        minutes = int(seconds // 60)
+        secs = seconds % 60
+        return f"{minutes}m {secs:.0f}s"
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
     secs = seconds % 60
-    return f"{minutes}m {secs:.1f}s"
+    if secs > 0:
+        return f"{hours}h {minutes}m {secs:.0f}s"
+    return f"{hours}h {minutes}m"
 
 
 def format_timestamp(ts: float | None) -> str:

@@ -6,7 +6,7 @@ from ..context import PdfContext
 
 
 class SaveTextStep(Step):
-    """Save extracted text to a .txt file."""
+    """Save extracted text to a .txt file (streams from disk, memory efficient)."""
 
     def run(self, ctx: PdfContext) -> PdfContext:  # type: ignore[override]
         if not ctx.output_path:
@@ -14,14 +14,19 @@ class SaveTextStep(Step):
 
         print(f"Saving text to: {ctx.output_path}")
 
+        total_chars = 0
+        page_count = 0
+
+        # Stream texts from file-backed storage to output file
         with open(ctx.output_path, "w", encoding="utf-8") as f:
             for i, text in enumerate(ctx.texts):
                 f.write(f"--- Page {i + 1} ---\n")
                 f.write(text)
                 f.write("\n\n")
+                total_chars += len(text)
+                page_count += 1
 
-        total_chars = sum(len(t) for t in ctx.texts)
-        print(f"Saved {len(ctx.texts)} pages ({total_chars:,} characters)")
+        print(f"Saved {page_count} pages ({total_chars:,} characters)")
 
         ctx.saved = True
         return ctx

@@ -55,6 +55,8 @@ class SQLiteProgressNotifier(ProgressNotifier):
                 started_at REAL,
                 completed_at REAL,
                 duration_s REAL,
+                cpu_time_s REAL,
+                peak_mem_mb REAL,
                 error TEXT,
                 branch TEXT,
                 parent_step TEXT,
@@ -70,6 +72,7 @@ class SQLiteProgressNotifier(ProgressNotifier):
                 total_steps INTEGER NOT NULL,
                 event_type TEXT NOT NULL,
                 duration_s REAL,
+                peak_mem_mb REAL,
                 error TEXT,
                 current INTEGER,
                 total INTEGER,
@@ -84,6 +87,32 @@ class SQLiteProgressNotifier(ProgressNotifier):
             CREATE INDEX IF NOT EXISTS idx_steps_branch ON steps(branch);
             """
         )
+        self._conn.commit()
+
+        # Migrate existing tables to add new columns if missing
+        self._migrate_schema()
+
+    def _migrate_schema(self) -> None:
+        """Add new columns to existing tables if not present."""
+        if self._conn is None:
+            return
+
+        # Check and add to steps table
+        cursor = self._conn.execute("PRAGMA table_info(steps)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "peak_mem_mb" not in columns:
+            self._conn.execute("ALTER TABLE steps ADD COLUMN peak_mem_mb REAL")
+        if "cpu_time_s" not in columns:
+            self._conn.execute("ALTER TABLE steps ADD COLUMN cpu_time_s REAL")
+
+        # Check and add to events table
+        cursor = self._conn.execute("PRAGMA table_info(events)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "peak_mem_mb" not in columns:
+            self._conn.execute("ALTER TABLE events ADD COLUMN peak_mem_mb REAL")
+        if "cpu_time_s" not in columns:
+            self._conn.execute("ALTER TABLE events ADD COLUMN cpu_time_s REAL")
+
         self._conn.commit()
 
     def register_run(
@@ -161,16 +190,40 @@ class SQLiteProgressNotifier(ProgressNotifier):
         self._conn.commit()
 
     def set_branch_skipped(self, branch_name: str) -> None:
-        """Mark all steps in a branch as skipped."""
+        """Mark all steps in a branch as skipped, including nested branches."""
         if self._conn is None:
             return
 
+        # First, mark direct branch steps as skipped
         self._conn.execute(
             """
             UPDATE steps SET status = 'skipped'
             WHERE run_id = ? AND branch = ?
             """,
             (self.run_id, branch_name),
+        )
+
+        # Then recursively mark any steps whose parent_step is now skipped
+        # This handles nested routers within the skipped branch
+        self._conn.execute(
+            """
+            WITH RECURSIVE skipped_parents AS (
+                -- Start with steps that were just marked as skipped
+                SELECT name FROM steps
+                WHERE run_id = ? AND branch = ? AND status = 'skipped'
+
+                UNION ALL
+
+                -- Recursively find steps whose parent is skipped
+                SELECT s.name FROM steps s
+                INNER JOIN skipped_parents sp ON s.parent_step = sp.name
+                WHERE s.run_id = ?
+            )
+            UPDATE steps SET status = 'skipped'
+            WHERE run_id = ? AND parent_step IN (SELECT name FROM skipped_parents)
+            AND status = 'pending'
+            """,
+            (self.run_id, branch_name, self.run_id, self.run_id),
         )
         self._conn.commit()
 
@@ -198,8 +251,8 @@ class SQLiteProgressNotifier(ProgressNotifier):
             """
             INSERT INTO events (
                 run_id, timestamp, step_name, step_index, total_steps,
-                event_type, duration_s, error, current, total, message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                event_type, duration_s, cpu_time_s, peak_mem_mb, error, current, total, message
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 self.run_id,
@@ -209,6 +262,8 @@ class SQLiteProgressNotifier(ProgressNotifier):
                 event.total_steps,
                 event.event_type,
                 event.duration_s,
+                event.cpu_time_s,
+                event.peak_mem_mb,
                 event.error,
                 event.current,
                 event.total,
@@ -228,10 +283,18 @@ class SQLiteProgressNotifier(ProgressNotifier):
         elif event.event_type == "completed":
             self._conn.execute(
                 """
-                UPDATE steps SET status = 'completed', completed_at = ?, duration_s = ?
+                UPDATE steps SET status = 'completed', completed_at = ?,
+                    duration_s = ?, cpu_time_s = ?, peak_mem_mb = ?
                 WHERE run_id = ? AND name = ? AND status = 'running'
                 """,
-                (event.timestamp, event.duration_s, self.run_id, event.step_name),
+                (
+                    event.timestamp,
+                    event.duration_s,
+                    event.cpu_time_s,
+                    event.peak_mem_mb,
+                    self.run_id,
+                    event.step_name,
+                ),
             )
         elif event.event_type == "failed":
             self._conn.execute(

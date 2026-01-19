@@ -1,7 +1,6 @@
 """Electrical parts processing step."""
 
 import re
-import time
 
 from pipetree import Step
 from pipetree.types import Context
@@ -18,8 +17,8 @@ class ProcessElectricalStep(Step):
     """
 
     def run(self, ctx: Context) -> Context:
-        texts: list[str] = ctx.texts  # type: ignore
-        full_text = "\n".join(texts)
+        # Use streaming join to avoid loading all texts into memory at once
+        full_text = ctx.texts.join("\n")  # type: ignore
 
         print("    Processing ELECTRICAL parts...")
 
@@ -33,7 +32,6 @@ class ProcessElectricalStep(Step):
 
         # Task 1: Extract wire gauges
         ctx.report_progress(1, total_tasks, "Extracting wire gauges...")
-        time.sleep(0.3)
         wire_gauges = re.findall(
             r"(\d+)\s*(?:awg|gauge)",
             full_text,
@@ -43,7 +41,6 @@ class ProcessElectricalStep(Step):
 
         # Task 2: Extract voltages
         ctx.report_progress(2, total_tasks, "Extracting voltage ratings...")
-        time.sleep(0.3)
         voltages = re.findall(
             r"(\d+\.?\d*)\s*(?:v|volt|vdc|vac)",
             full_text,
@@ -53,7 +50,6 @@ class ProcessElectricalStep(Step):
 
         # Task 3: Extract connector types
         ctx.report_progress(3, total_tasks, "Identifying connectors...")
-        time.sleep(0.3)
         connectors = re.findall(
             r"(deutsch|molex|amp|jst|connector|terminal|plug|socket)",
             full_text,
