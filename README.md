@@ -1,4 +1,5 @@
 <div align="center">
+  <img src="assets/logo.svg" alt="Pipetree Logo" width="120"/>
   <h1>Pipetree</h1>
 
   **A modular, benchmarkable pipeline framework for large document processing.**
