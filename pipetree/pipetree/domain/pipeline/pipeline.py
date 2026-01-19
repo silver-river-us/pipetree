@@ -3,6 +3,7 @@
 import asyncio
 import inspect
 import time
+import tracemalloc
 from typing import TYPE_CHECKING, TypeVar
 
 from pipetree.domain.pipeline.contract_violation_error import ContractViolationError
@@ -132,6 +133,9 @@ class Pipetree:
         ctx._notifier = self._notifier
         ctx._total_steps = total_steps
 
+        # Start memory tracking
+        tracemalloc.start()
+
         for i, step in enumerate(self.steps):
             # Update context with current step info
             ctx._step_name = step.name
@@ -141,6 +145,8 @@ class Pipetree:
             if self._notifier:
                 self._notifier.step_started(step.name, i, total_steps)
 
+            # Reset peak memory counter before step
+            tracemalloc.reset_peak()
             start_time = time.perf_counter()
 
             try:
@@ -148,10 +154,16 @@ class Pipetree:
                 ctx = await self._run_step(step, ctx)
                 self._check_postconditions(step, ctx)
 
+                # Get peak memory for this step (in MB)
+                _, peak_bytes = tracemalloc.get_traced_memory()
+                peak_mem_mb = peak_bytes / (1024 * 1024)
+
                 # Notify step completed
                 duration = time.perf_counter() - start_time
                 if self._notifier:
-                    self._notifier.step_completed(step.name, i, total_steps, duration)
+                    self._notifier.step_completed(
+                        step.name, i, total_steps, duration, peak_mem_mb
+                    )
 
             except Exception as e:
                 # Notify step failed
@@ -161,8 +173,10 @@ class Pipetree:
                         step.name, i, total_steps, duration, str(e)
                     )
                 self._complete_run("failed")
+                tracemalloc.stop()
                 raise
 
+        tracemalloc.stop()
         self._complete_run("completed")
         return ctx
 

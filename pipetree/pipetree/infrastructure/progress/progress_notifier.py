@@ -15,6 +15,7 @@ class ProgressEvent:
     total_steps: int
     event_type: str  # "started" | "completed" | "failed" | "progress"
     duration_s: float | None = None
+    peak_mem_mb: float | None = None
     error: str | None = None
     current: int | None = None
     total: int | None = None
@@ -45,7 +46,12 @@ class ProgressNotifier(ABC):
         )
 
     def step_completed(
-        self, step_name: str, step_index: int, total_steps: int, duration_s: float
+        self,
+        step_name: str,
+        step_index: int,
+        total_steps: int,
+        duration_s: float,
+        peak_mem_mb: float | None = None,
     ) -> None:
         """Convenience method for step completed events."""
         self.notify(
@@ -56,6 +62,7 @@ class ProgressNotifier(ABC):
                 total_steps=total_steps,
                 event_type="completed",
                 duration_s=duration_s,
+                peak_mem_mb=peak_mem_mb,
             )
         )
 

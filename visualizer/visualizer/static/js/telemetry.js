@@ -10,6 +10,8 @@
     stepDurations: null,
     throughput: null,
     avgSteps: null,
+    stepMemory: null,
+    avgMemory: null,
   };
 
   // Store data for click navigation
@@ -113,6 +115,8 @@
       stepDurations: null,
       throughput: null,
       avgSteps: null,
+      stepMemory: null,
+      avgMemory: null,
     };
   }
 
@@ -172,7 +176,9 @@
       );
       renderThroughputChart(throughputData.throughput);
       renderAvgStepsChart(stepDurationsData.runs, stepDurationsData.step_names);
-      renderSummaryStats(trendsData.trends, throughputData.throughput);
+      renderStepMemoryChart(stepDurationsData.runs, stepDurationsData.step_names);
+      renderAvgMemoryChart(stepDurationsData.runs, stepDurationsData.step_names);
+      renderSummaryStats(trendsData.trends, throughputData.throughput, stepDurationsData.runs);
     } catch (error) {
       console.error("Failed to load benchmarks:", error);
       showState("empty");
@@ -447,8 +453,164 @@
     charts.avgSteps.render();
   }
 
+  // Format memory for display
+  function formatMemory(mb) {
+    if (mb == null || isNaN(mb)) return "-";
+    if (mb < 1) return `${(mb * 1024).toFixed(0)} KB`;
+    if (mb < 1024) return `${mb.toFixed(1)} MB`;
+    return `${(mb / 1024).toFixed(2)} GB`;
+  }
+
+  // Step Memory Breakdown (Stacked Bar Chart)
+  function renderStepMemoryChart(runs, stepNames) {
+    const container = document.getElementById("chart-step-memory");
+    if (!container) return;
+
+    // Filter runs that have memory data
+    const runsWithMemory = runs.filter((r) => r.memory && Object.keys(r.memory).length > 0);
+
+    if (runsWithMemory.length === 0 || stepNames.length === 0) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No memory data available (run pipeline to collect)</p>';
+      return;
+    }
+
+    const series = stepNames.map((stepName) => ({
+      name: stepName,
+      data: runsWithMemory.map((r) =>
+        r.memory && r.memory[stepName] ? parseFloat(r.memory[stepName].toFixed(2)) : 0
+      ),
+    }));
+
+    const options = {
+      ...commonOptions,
+      chart: {
+        ...commonOptions.chart,
+        type: "bar",
+        height: 320,
+        stacked: true,
+        events: {
+          dataPointSelection: function (event, chartContext, config) {
+            const dataIndex = config.dataPointIndex;
+            const run = runsWithMemory[dataIndex];
+            if (run) {
+              navigateToRun(run.full_run_id, run.db_path);
+            }
+          },
+        },
+      },
+      series: series,
+      xaxis: {
+        categories: runsWithMemory.map((r) => r.run_id),
+        title: { text: "Run ID" },
+        labels: {
+          rotate: -45,
+          rotateAlways: runsWithMemory.length > 10,
+        },
+      },
+      yaxis: {
+        title: { text: "Peak Memory (MB)" },
+        labels: { formatter: (val) => formatMemory(val) },
+      },
+      legend: {
+        position: "top",
+        horizontalAlign: "left",
+        fontSize: "11px",
+      },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          columnWidth: "70%",
+        },
+      },
+      dataLabels: { enabled: false },
+      tooltip: {
+        y: { formatter: (val) => formatMemory(val) },
+      },
+    };
+
+    charts.stepMemory = new ApexCharts(container, options);
+    charts.stepMemory.render();
+  }
+
+  // Average Step Memory (Horizontal Bar)
+  function renderAvgMemoryChart(runs, stepNames) {
+    const container = document.getElementById("chart-avg-memory");
+    if (!container) return;
+
+    // Filter runs that have memory data
+    const runsWithMemory = runs.filter((r) => r.memory && Object.keys(r.memory).length > 0);
+
+    if (runsWithMemory.length === 0 || stepNames.length === 0) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No memory data available</p>';
+      return;
+    }
+
+    // Calculate averages
+    const avgMemory = stepNames
+      .map((stepName) => {
+        const memories = runsWithMemory
+          .map((r) => r.memory && r.memory[stepName])
+          .filter((m) => m != null && m > 0);
+        const avg =
+          memories.length > 0
+            ? memories.reduce((a, b) => a + b, 0) / memories.length
+            : 0;
+        return { name: stepName, avg: avg };
+      })
+      .filter((d) => d.avg > 0)
+      .sort((a, b) => b.avg - a.avg);
+
+    if (avgMemory.length === 0) {
+      container.innerHTML =
+        '<p class="text-gray-500 text-sm text-center py-8">No memory data available</p>';
+      return;
+    }
+
+    const options = {
+      ...commonOptions,
+      chart: {
+        ...commonOptions.chart,
+        type: "bar",
+        height: 320,
+      },
+      series: [
+        {
+          name: "Avg Memory",
+          data: avgMemory.map((d) => parseFloat(d.avg.toFixed(2))),
+        },
+      ],
+      xaxis: {
+        title: { text: "MB" },
+        labels: { formatter: (val) => formatMemory(val) },
+      },
+      yaxis: {
+        labels: {
+          maxWidth: 150,
+        },
+      },
+      plotOptions: {
+        bar: {
+          horizontal: true,
+          barHeight: "60%",
+          borderRadius: 2,
+        },
+      },
+      labels: avgMemory.map((d) => d.name),
+      colors: ["#ef4444"],
+      dataLabels: { enabled: false },
+      tooltip: {
+        y: { formatter: (val) => formatMemory(val) },
+      },
+    };
+
+    charts.avgMemory = new ApexCharts(container, options);
+    charts.avgMemory.render();
+  }
+
   // Summary Statistics
-  function renderSummaryStats(trends, throughput) {
+  function renderSummaryStats(trends, throughput, runs) {
     const container = document.getElementById("summary-stats");
 
     // Calculate stats
@@ -480,6 +642,25 @@
       stats.push({
         label: "Avg Throughput",
         value: avgThroughput.toFixed(2) + " items/s",
+      });
+    }
+
+    // Calculate peak memory stats
+    const runsWithMemory = (runs || []).filter((r) => r.memory && Object.keys(r.memory).length > 0);
+    if (runsWithMemory.length > 0) {
+      const totalMemoryPerRun = runsWithMemory.map((r) =>
+        Object.values(r.memory).reduce((sum, m) => sum + (m || 0), 0)
+      );
+      const avgMemory = totalMemoryPerRun.reduce((a, b) => a + b, 0) / totalMemoryPerRun.length;
+      const maxMemory = Math.max(...totalMemoryPerRun);
+
+      stats.push({
+        label: "Avg Peak Memory",
+        value: formatMemory(avgMemory),
+      });
+      stats.push({
+        label: "Max Peak Memory",
+        value: formatMemory(maxMemory),
       });
     }
 

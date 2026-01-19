@@ -55,6 +55,7 @@ class SQLiteProgressNotifier(ProgressNotifier):
                 started_at REAL,
                 completed_at REAL,
                 duration_s REAL,
+                peak_mem_mb REAL,
                 error TEXT,
                 branch TEXT,
                 parent_step TEXT,
@@ -70,6 +71,7 @@ class SQLiteProgressNotifier(ProgressNotifier):
                 total_steps INTEGER NOT NULL,
                 event_type TEXT NOT NULL,
                 duration_s REAL,
+                peak_mem_mb REAL,
                 error TEXT,
                 current INTEGER,
                 total INTEGER,
@@ -84,6 +86,28 @@ class SQLiteProgressNotifier(ProgressNotifier):
             CREATE INDEX IF NOT EXISTS idx_steps_branch ON steps(branch);
             """
         )
+        self._conn.commit()
+
+        # Migrate existing tables to add peak_mem_mb column if missing
+        self._migrate_add_peak_mem_mb()
+
+    def _migrate_add_peak_mem_mb(self) -> None:
+        """Add peak_mem_mb column to existing tables if not present."""
+        if self._conn is None:
+            return
+
+        # Check and add to steps table
+        cursor = self._conn.execute("PRAGMA table_info(steps)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "peak_mem_mb" not in columns:
+            self._conn.execute("ALTER TABLE steps ADD COLUMN peak_mem_mb REAL")
+
+        # Check and add to events table
+        cursor = self._conn.execute("PRAGMA table_info(events)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "peak_mem_mb" not in columns:
+            self._conn.execute("ALTER TABLE events ADD COLUMN peak_mem_mb REAL")
+
         self._conn.commit()
 
     def register_run(
@@ -198,8 +222,8 @@ class SQLiteProgressNotifier(ProgressNotifier):
             """
             INSERT INTO events (
                 run_id, timestamp, step_name, step_index, total_steps,
-                event_type, duration_s, error, current, total, message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                event_type, duration_s, peak_mem_mb, error, current, total, message
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 self.run_id,
@@ -209,6 +233,7 @@ class SQLiteProgressNotifier(ProgressNotifier):
                 event.total_steps,
                 event.event_type,
                 event.duration_s,
+                event.peak_mem_mb,
                 event.error,
                 event.current,
                 event.total,
@@ -228,10 +253,10 @@ class SQLiteProgressNotifier(ProgressNotifier):
         elif event.event_type == "completed":
             self._conn.execute(
                 """
-                UPDATE steps SET status = 'completed', completed_at = ?, duration_s = ?
+                UPDATE steps SET status = 'completed', completed_at = ?, duration_s = ?, peak_mem_mb = ?
                 WHERE run_id = ? AND name = ? AND status = 'running'
                 """,
-                (event.timestamp, event.duration_s, self.run_id, event.step_name),
+                (event.timestamp, event.duration_s, event.peak_mem_mb, self.run_id, event.step_name),
             )
         elif event.event_type == "failed":
             self._conn.execute(

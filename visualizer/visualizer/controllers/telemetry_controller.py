@@ -167,6 +167,10 @@ class TelemetryController:
                         for step in run_steps:
                             if step.duration_s is not None:
                                 run["steps"][step.name] = step.duration_s
+                            if step.peak_mem_mb is not None:
+                                if "memory" not in run:
+                                    run["memory"] = {}
+                                run["memory"][step.name] = step.peak_mem_mb
             except Exception:
                 pass
 
