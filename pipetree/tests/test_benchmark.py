@@ -35,8 +35,7 @@ class TestBenchRunner:
 
         return registry
 
-    @pytest.mark.asyncio
-    async def test_run_step_ab(self, registry_with_impls: Registry) -> None:
+    def test_run_step_ab(self, registry_with_impls: Registry) -> None:
         runner = BenchRunner(registry=registry_with_impls, track_memory=False)
 
         fixtures: list[Fixture] = [
@@ -51,7 +50,7 @@ class TestBenchRunner:
         def setup_ctx(fixture: Fixture) -> MockContext:
             return MockContext(path=fixture.get("path", ""))
 
-        results = await runner.run_step_ab(
+        results = runner.run_step_ab(
             cap_name="test",
             impls=["fast", "slow"],
             fixtures=fixtures,
@@ -67,8 +66,7 @@ class TestBenchRunner:
         assert fast_result.metrics["correctness"] == 1.0
         assert slow_result.metrics["correctness"] == 0.0
 
-    @pytest.mark.asyncio
-    async def test_run_pipeline_ab(self) -> None:
+    def test_run_pipeline_ab(self) -> None:
         cap = Capability(name="test", requires=set(), provides={"result"})
 
         class StepA(Step):
@@ -98,7 +96,7 @@ class TestBenchRunner:
         def setup_ctx(fixture: Fixture) -> MockContext:
             return MockContext(path=fixture.get("path", ""))
 
-        results = await runner.run_pipeline_ab(
+        results = runner.run_pipeline_ab(
             candidates={"pipeline_a": pipeline_a, "pipeline_b": pipeline_b},
             fixtures=fixtures,
             judge=judge,
@@ -113,8 +111,7 @@ class TestBenchRunner:
         assert result_a.metrics["correctness"] == 1.0
         assert result_b.metrics["correctness"] == 0.0
 
-    @pytest.mark.asyncio
-    async def test_captures_wall_time(self, registry_with_impls: Registry) -> None:
+    def test_captures_wall_time(self, registry_with_impls: Registry) -> None:
         runner = BenchRunner(registry=registry_with_impls, track_memory=False)
 
         fixtures: list[Fixture] = [{"id": "test", "path": "/test"}]
@@ -125,7 +122,7 @@ class TestBenchRunner:
         def setup_ctx(fixture: Fixture) -> MockContext:
             return MockContext(path=fixture.get("path", ""))
 
-        results = await runner.run_step_ab(
+        results = runner.run_step_ab(
             cap_name="test",
             impls=["fast"],
             fixtures=fixtures,
@@ -137,8 +134,7 @@ class TestBenchRunner:
         assert "wall_time_s" in results[0].metrics
         assert results[0].metrics["wall_time_s"] >= 0
 
-    @pytest.mark.asyncio
-    async def test_handles_step_errors(self, registry_with_impls: Registry) -> None:
+    def test_handles_step_errors(self, registry_with_impls: Registry) -> None:
         registry = Registry()
         cap = Capability(name="error", requires=set(), provides={"x"})
 
@@ -154,7 +150,7 @@ class TestBenchRunner:
         def setup_ctx(fixture: Fixture) -> MockContext:
             return MockContext(path=fixture.get("path", ""))
 
-        results = await runner.run_step_ab(
+        results = runner.run_step_ab(
             cap_name="error",
             impls=["failing"],
             fixtures=fixtures,

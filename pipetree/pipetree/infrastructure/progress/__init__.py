@@ -17,13 +17,23 @@ from pipetree.infrastructure.progress.progress_notifier import (
 from pipetree.infrastructure.progress.sqlite_progress_notifier import (
     SQLiteProgressNotifier,
 )
+from pipetree.infrastructure.progress.watcher import (
+    ConsoleProgressHandler,
+    ProgressHandler,
+    SQLiteProgressWatcher,
+    watch_progress,
+)
 
 __all__ = [
     "BenchmarkStore",
+    "ConsoleProgressHandler",
     "ProgressEvent",
+    "ProgressHandler",
     "ProgressNotifier",
     "NullProgressNotifier",
     "InMemoryProgressNotifier",
     "FileProgressNotifier",
     "SQLiteProgressNotifier",
+    "SQLiteProgressWatcher",
+    "watch_progress",
 ]

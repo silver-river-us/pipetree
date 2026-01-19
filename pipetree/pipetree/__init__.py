@@ -40,12 +40,16 @@ from pipetree.infrastructure.checkpoint import (
 # Infrastructure - Progress
 from pipetree.infrastructure.progress import (
     BenchmarkStore,
+    ConsoleProgressHandler,
     FileProgressNotifier,
     InMemoryProgressNotifier,
     NullProgressNotifier,
     ProgressEvent,
+    ProgressHandler,
     ProgressNotifier,
     SQLiteProgressNotifier,
+    SQLiteProgressWatcher,
+    watch_progress,
 )
 
 # Infrastructure - Registry
@@ -73,12 +77,16 @@ __all__ = [
     "FileCheckpointStore",
     # Progress
     "BenchmarkStore",
+    "ConsoleProgressHandler",
     "ProgressEvent",
+    "ProgressHandler",
     "ProgressNotifier",
     "NullProgressNotifier",
     "InMemoryProgressNotifier",
     "FileProgressNotifier",
     "SQLiteProgressNotifier",
+    "SQLiteProgressWatcher",
+    "watch_progress",
     # Registry
     "Registry",
     "global_registry",

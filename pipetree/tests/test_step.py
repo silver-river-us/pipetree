@@ -1,5 +1,7 @@
 """Tests for Step and Router classes."""
 
+from typing import ClassVar
+
 import pytest
 
 from pipetree import Capability, Router, Step
@@ -119,3 +121,72 @@ class TestRouter:
 
         with pytest.raises(ValueError, match="unknown route"):
             await router.run(MockContext())
+
+    @pytest.mark.asyncio
+    async def test_router_branch_outputs_initializes_unselected(self) -> None:
+        """Test that branch_outputs initializes unselected branches to empty dicts."""
+        cap = Capability(name="router", requires=set(), provides={"result_a", "result_b"})
+
+        class StepA(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.result_a = {"value": "A"}  # type: ignore
+                return ctx
+
+        class StepB(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.result_b = {"value": "B"}  # type: ignore
+                return ctx
+
+        class BranchRouter(Router):
+            branch_outputs: ClassVar[dict[str, list[str]]] = {
+                "route_a": ["result_a"],
+                "route_b": ["result_b"],
+            }
+
+            def pick(self, ctx: Context) -> str:
+                return "route_a"
+
+        router = BranchRouter(
+            cap=cap,
+            name="test_router",
+            table={
+                "route_a": StepA(cap=cap, name="step_a"),
+                "route_b": StepB(cap=cap, name="step_b"),
+            },
+        )
+
+        ctx = MockContext()
+        result = await router.run(ctx)
+
+        # route_a was selected, so result_a should have value
+        assert result.result_a == {"value": "A"}
+        # route_b was NOT selected, so result_b should be empty dict
+        assert result.result_b == {}
+
+    def test_router_get_unselected_branches(self) -> None:
+        """Test _get_unselected_branches helper method."""
+        cap = Capability(name="router", requires=set(), provides=set())
+
+        class StepA(Step):
+            def run(self, ctx: Context) -> Context:
+                return ctx
+
+        class DummyRouter(Router):
+            def pick(self, ctx: Context) -> str:
+                return "a"
+
+        router = DummyRouter(
+            cap=cap,
+            name="test_router",
+            table={
+                "a": StepA(cap=cap, name="step_a"),
+                "b": StepA(cap=cap, name="step_b"),
+                "c": StepA(cap=cap, name="step_c"),
+            },
+        )
+
+        unselected = router._get_unselected_branches("a")
+        assert set(unselected) == {"b", "c"}
+
+        unselected = router._get_unselected_branches("b")
+        assert set(unselected) == {"a", "c"}

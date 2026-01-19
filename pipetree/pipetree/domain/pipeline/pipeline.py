@@ -7,6 +7,7 @@ import tracemalloc
 from typing import TYPE_CHECKING, TypeVar
 
 from pipetree.domain.pipeline.contract_violation_error import ContractViolationError
+from pipetree.domain.step.router import Router
 from pipetree.domain.step.step import Step
 from pipetree.domain.types.context import Context
 
@@ -15,6 +16,16 @@ if TYPE_CHECKING:
 
 # TypeVar for preserving context type through the pipeline
 CtxT = TypeVar("CtxT", bound=Context)
+
+
+def _get_branch_step_names(target: "Step | Pipetree") -> list[str]:
+    """Get step names from a branch target (Step, Router, or Pipetree)."""
+    if isinstance(target, Router):
+        return [target.name]
+    elif isinstance(target, Pipetree):
+        return [s.name for s in target.steps]
+    else:
+        return [target.name]
 
 
 def _generate_run_id() -> str:
@@ -103,8 +114,47 @@ class Pipetree:
         if hasattr(self._notifier, "register_run"):
             step_names = [s.name for s in self.steps]
             self._run_id = self._notifier.register_run(self.name, step_names)
+            # Auto-register branches from Routers
+            self._register_branches()
         elif hasattr(self._notifier, "run_id"):
             self._run_id = self._notifier.run_id
+
+    def _register_branches(self) -> None:
+        """Auto-detect and register branches from Router steps."""
+        if self._notifier is None or not hasattr(self._notifier, "register_branch"):
+            return
+
+        def register_router_branches(
+            router: Router, step_index: int, depth: int = 0
+        ) -> None:
+            """Recursively register branches from a router and its nested routers."""
+            for branch_name, target in router.table.items():
+                step_names = _get_branch_step_names(target)
+                # Branch steps start right after the router step
+                branch_start_index = step_index + 1 + depth
+
+                self._notifier.register_branch(
+                    parent_step=router.name,
+                    branch_name=branch_name,
+                    step_names=step_names,
+                    start_index=branch_start_index,
+                )
+
+                # If target is a Router, register its branches too (nested)
+                if isinstance(target, Router):
+                    register_router_branches(target, branch_start_index, depth + 1)
+                # If target is a Pipetree, look for Routers inside it
+                elif isinstance(target, Pipetree):
+                    for i, step in enumerate(target.steps):
+                        if isinstance(step, Router):
+                            register_router_branches(
+                                step, branch_start_index + i, depth + 1
+                            )
+
+        # Walk through pipeline steps to find Routers
+        for i, step in enumerate(self.steps):
+            if isinstance(step, Router):
+                register_router_branches(step, i)
 
     def _complete_run(self, status: str = "completed") -> None:
         """Mark the run as completed if the notifier supports it."""
@@ -133,9 +183,6 @@ class Pipetree:
         ctx._notifier = self._notifier
         ctx._total_steps = total_steps
 
-        # Start memory tracking
-        tracemalloc.start()
-
         for i, step in enumerate(self.steps):
             # Update context with current step info
             ctx._step_name = step.name
@@ -145,8 +192,8 @@ class Pipetree:
             if self._notifier:
                 self._notifier.step_started(step.name, i, total_steps)
 
-            # Reset peak memory counter before step
-            tracemalloc.reset_peak()
+            # Start isolated memory tracking for this step
+            tracemalloc.start()
             start_time = time.perf_counter()
 
             try:
@@ -154,8 +201,9 @@ class Pipetree:
                 ctx = await self._run_step(step, ctx)
                 self._check_postconditions(step, ctx)
 
-                # Get peak memory for this step (in MB)
+                # Get peak memory for this step (isolated measurement)
                 _, peak_bytes = tracemalloc.get_traced_memory()
+                tracemalloc.stop()
                 peak_mem_mb = peak_bytes / (1024 * 1024)
 
                 # Notify step completed
@@ -166,6 +214,8 @@ class Pipetree:
                     )
 
             except Exception as e:
+                # Stop memory tracking on failure
+                tracemalloc.stop()
                 # Notify step failed
                 duration = time.perf_counter() - start_time
                 if self._notifier:
@@ -173,10 +223,8 @@ class Pipetree:
                         step.name, i, total_steps, duration, str(e)
                     )
                 self._complete_run("failed")
-                tracemalloc.stop()
                 raise
 
-        tracemalloc.stop()
         self._complete_run("completed")
         return ctx
 
