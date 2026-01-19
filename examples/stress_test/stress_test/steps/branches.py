@@ -2,6 +2,7 @@
 
 import asyncio
 import random
+from typing import ClassVar
 
 from pipetree import Router, Step
 
@@ -12,7 +13,7 @@ class QualityRouter(Router):
     """Route based on quality score."""
 
     # Declare which context attributes each branch provides
-    branch_outputs = {
+    branch_outputs: ClassVar[dict[str, list[str]]] = {
         "high": ["branch_a_result"],
         "medium": ["branch_b_result"],
         "low": ["branch_c_result"],
