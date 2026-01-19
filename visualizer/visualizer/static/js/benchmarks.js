@@ -12,6 +12,20 @@
     avgSteps: null,
   };
 
+  // Store data for click navigation
+  let chartData = {
+    trends: [],
+    runs: [],
+    throughput: [],
+  };
+
+  // Navigate to run detail page
+  function navigateToRun(fullRunId, dbPath) {
+    if (fullRunId && dbPath) {
+      window.location.href = `/runs/${fullRunId}?db=${encodeURIComponent(dbPath)}`;
+    }
+  }
+
   // DOM elements
   const pipelineSelect = document.getElementById("pipeline-select");
   const runLimitSelect = document.getElementById("run-limit");
@@ -47,6 +61,14 @@
     grid: {
       borderColor: "#e2e8f0",
       strokeDashArray: 4,
+    },
+    states: {
+      hover: {
+        filter: { type: "lighten", value: 0.1 },
+      },
+      active: {
+        filter: { type: "darken", value: 0.1 },
+      },
     },
   };
 
@@ -128,6 +150,11 @@
         return;
       }
 
+      // Store data for click navigation
+      chartData.trends = trendsData.trends;
+      chartData.runs = stepDurationsData.runs;
+      chartData.throughput = throughputData.throughput;
+
       destroyCharts();
       showState("charts");
 
@@ -159,6 +186,15 @@
         ...commonOptions.chart,
         type: "line",
         height: 320,
+        events: {
+          dataPointSelection: function (event, chartContext, config) {
+            const dataIndex = config.dataPointIndex;
+            const trend = trends[dataIndex];
+            if (trend) {
+              navigateToRun(trend.full_run_id, trend.db_path);
+            }
+          },
+        },
       },
       series: [
         {
@@ -218,6 +254,15 @@
         type: "bar",
         height: 320,
         stacked: true,
+        events: {
+          dataPointSelection: function (event, chartContext, config) {
+            const dataIndex = config.dataPointIndex;
+            const run = runs[dataIndex];
+            if (run) {
+              navigateToRun(run.full_run_id, run.db_path);
+            }
+          },
+        },
       },
       series: series,
       xaxis: {
@@ -275,6 +320,15 @@
         ...commonOptions.chart,
         type: "bar",
         height: 320,
+        events: {
+          dataPointSelection: function (event, chartContext, config) {
+            const dataIndex = config.dataPointIndex;
+            const item = validThroughput[dataIndex];
+            if (item) {
+              navigateToRun(item.full_run_id, item.db_path);
+            }
+          },
+        },
       },
       series: [
         {

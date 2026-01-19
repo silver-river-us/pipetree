@@ -247,7 +247,7 @@ def register_routes(
     @app.get("/api/benchmarks/run-trends")
     async def api_run_trends(
         pipeline: str = Query(...),
-        limit: int = Query(default=50),
+        limit: int = Query(default=20),
         db: str = Query(default=None),
     ):
         """Get run performance trends over time."""
