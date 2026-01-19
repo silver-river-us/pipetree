@@ -1,12 +1,11 @@
 <div align="center">
-  <img src="assets/logo.png" alt="Pipetree Logo" width="150"/>
   <h1>Pipetree</h1>
 
   **A modular, benchmarkable pipeline framework for large document processing.**
 
-  [![CI](https://github.com/matiasgutierrez/pipetree/actions/workflows/test.yml/badge.svg)](https://github.com/matiasgutierrez/pipetree/actions/workflows/test.yml)
+  [![CI](https://github.com/silver-river-us/pipetree/actions/workflows/test.yml/badge.svg)](https://github.com/silver-river-us/pipetree/actions/workflows/test.yml)
   [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/downloads/)
-  [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+  [![License: O'Saasy](https://img.shields.io/badge/License-O'Saasy-blue.svg)](LICENSE)
 </div>
 
 ---
@@ -276,4 +275,4 @@ pipetree/
 
 ## License
 
-MIT
+[O'Saasy License](LICENSE) - Free to use, modify, and self-host. SaaS rights reserved.
