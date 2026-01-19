@@ -52,9 +52,16 @@
     if (seconds < 0.001) return `${(seconds * 1000000).toFixed(0)}us`;
     if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`;
     if (seconds < 60) return `${seconds.toFixed(3)}s`;
-    const mins = Math.floor(seconds / 60);
+    if (seconds < 3600) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}m ${secs.toFixed(0)}s`;
+    }
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${mins}m ${secs.toFixed(1)}s`;
+    if (secs > 0) return `${hours}h ${mins}m ${secs.toFixed(0)}s`;
+    return `${hours}h ${mins}m`;
   }
 
   // Format memory for display

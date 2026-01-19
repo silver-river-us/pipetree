@@ -120,7 +120,7 @@ async def main() -> None:
     """Run the PDF ingestion pipeline."""
     # Configuration - resolve paths relative to project root (1 level up from pdf_ingestion/)
     project_root = Path(__file__).parent.parent
-    pdf_path = project_root / "assets" / "small.pdf"
+    pdf_path = project_root / "assets" / "big.pdf"
     output_path = project_root / "assets" / (pdf_path.stem + ".txt")
     db_path = project_root / "db" / "progress.db"
 
