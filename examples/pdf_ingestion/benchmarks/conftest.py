@@ -24,12 +24,12 @@ def pdf_fixtures() -> list[Fixture]:
     """PDF files to benchmark against."""
     fixtures: list[Fixture] = []
 
-    medium_pdf = ASSETS_DIR / "medium.pdf"
-    if medium_pdf.exists():
-        reader = PdfReader(medium_pdf)
+    big_pdf = ASSETS_DIR / "big.pdf"
+    if big_pdf.exists():
+        reader = PdfReader(big_pdf)
         fixtures.append({
-            "id": "medium.pdf",
-            "path": str(medium_pdf),
+            "id": "big.pdf",
+            "path": str(big_pdf),
             "expected": {"page_count": len(reader.pages)},
         })
 
