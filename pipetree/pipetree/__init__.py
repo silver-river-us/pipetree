@@ -39,6 +39,7 @@ from pipetree.infrastructure.checkpoint import (
 
 # Infrastructure - Progress
 from pipetree.infrastructure.progress import (
+    BenchmarkStore,
     FileProgressNotifier,
     InMemoryProgressNotifier,
     NullProgressNotifier,
@@ -71,6 +72,7 @@ __all__ = [
     "InMemoryCheckpointStore",
     "FileCheckpointStore",
     # Progress
+    "BenchmarkStore",
     "ProgressEvent",
     "ProgressNotifier",
     "NullProgressNotifier",

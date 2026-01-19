@@ -1,5 +1,6 @@
 """Progress notification implementations."""
 
+from pipetree.infrastructure.progress.benchmark_store import BenchmarkStore
 from pipetree.infrastructure.progress.file_progress_notifier import (
     FileProgressNotifier,
 )
@@ -18,6 +19,7 @@ from pipetree.infrastructure.progress.sqlite_progress_notifier import (
 )
 
 __all__ = [
+    "BenchmarkStore",
     "ProgressEvent",
     "ProgressNotifier",
     "NullProgressNotifier",

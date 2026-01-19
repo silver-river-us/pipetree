@@ -11,7 +11,12 @@ from pipetree.infrastructure.progress.models import Event, Run, Step, get_sessio
 from pydantic import BaseModel
 from sqlmodel import select
 
-from .controllers import RunsController, StepsController, TelemetryController
+from .controllers import (
+    BenchmarksController,
+    RunsController,
+    StepsController,
+    TelemetryController,
+)
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -270,16 +275,62 @@ def register_routes(
         )
         return JSONResponse(content=response["json"])
 
-    # --- Benchmarks (placeholder) ---
+    # --- Benchmarks ---
 
     @app.get("/benchmarks", response_class=HTMLResponse)
-    async def benchmarks_index(request: Request, db: str = Query(default=None)):
-        """Benchmarks page (manual benchmarks - coming soon)."""
+    async def benchmarks_index(
+        request: Request,
+        db: str = Query(default=None),
+        page: int = Query(default=1, ge=1),
+        per_page: int = Query(default=10, ge=1, le=100),
+    ):
+        """Benchmarks list page."""
         db_path = get_db_path(db)
-        return templates.TemplateResponse(
-            "benchmarks.html",
-            {"request": request, **get_template_context(db_path)},
+        databases = load_databases()
+        response = BenchmarksController.index(db_path, databases, page, per_page)
+        response["locals"].update(get_template_context(db_path))
+        return render_controller(request, templates, response)
+
+    @app.get("/benchmarks/{benchmark_id}", response_class=HTMLResponse)
+    async def benchmark_detail(
+        request: Request, benchmark_id: str, db: str = Query(default=None)
+    ):
+        """Benchmark detail page."""
+        db_path = get_db_path(db)
+        response = BenchmarksController.detail(benchmark_id, db_path)
+        response["locals"].update(get_template_context(db_path))
+        return render_controller(request, templates, response)
+
+    @app.get("/api/benchmarks")
+    async def api_benchmarks_list(db: str = Query(default=None)):
+        """Get list of all benchmarks."""
+        databases = load_databases()
+        response = BenchmarksController.get_benchmarks(get_db_path(db), databases)
+        return JSONResponse(content=response["json"])
+
+    @app.get("/api/benchmarks/{benchmark_id}")
+    async def api_benchmark_detail(benchmark_id: str, db: str = Query(default=None)):
+        """Get benchmark details with all results."""
+        response = BenchmarksController.get_benchmark_detail(
+            benchmark_id, get_db_path(db)
         )
+        return JSONResponse(content=response["json"])
+
+    @app.get("/api/benchmarks/{benchmark_id}/comparison")
+    async def api_benchmark_comparison(
+        benchmark_id: str, db: str = Query(default=None)
+    ):
+        """Get benchmark data formatted for comparison charts."""
+        response = BenchmarksController.get_comparison_data(
+            benchmark_id, get_db_path(db)
+        )
+        return JSONResponse(content=response["json"])
+
+    @app.delete("/api/benchmarks/{benchmark_id}")
+    async def api_benchmark_delete(benchmark_id: str, db: str = Query(...)):
+        """Delete a benchmark."""
+        response = BenchmarksController.delete_benchmark(benchmark_id, Path(db))
+        return JSONResponse(content=response["json"])
 
     # --- WebSocket ---
 
