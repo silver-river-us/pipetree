@@ -10,7 +10,7 @@
                 <th class="px-4 py-2">Started</th>
                 <th class="px-4 py-2">Duration</th>
                 <th class="px-4 py-2">Steps</th>
-                <th class="px-4 py-2"></th>
+                <th class="px-4 py-2 text-right">Actions</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
@@ -73,11 +73,12 @@
                     <span class="text-sm text-gray-600">{{ run.total_steps }}</span>
                 </td>
 
-                <!-- Arrow -->
-                <td class="px-4 py-2 text-right">
-                    <svg class="w-4 h-4 text-gray-400 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
+                <!-- Actions -->
+                <td class="px-4 py-2 text-right" onclick="event.stopPropagation()">
+                    <button onclick="deleteRun('{{ run.id }}', '{{ run.db_path }}')"
+                            class="text-red-600 hover:text-red-800 text-sm font-medium">
+                        Delete
+                    </button>
                 </td>
             </tr>
             {% endfor %}

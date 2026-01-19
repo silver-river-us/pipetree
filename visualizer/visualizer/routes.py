@@ -218,6 +218,12 @@ def register_routes(
         response = RunsController.progress(run_id, get_db_path(db))
         return response["json"]
 
+    @app.delete("/api/runs/{run_id}")
+    async def api_run_delete(run_id: str, db: str = Query(...)):
+        """Delete a run and all its associated data."""
+        response = RunsController.delete_run(run_id, Path(db))
+        return JSONResponse(content=response["json"])
+
     # --- Telemetry ---
 
     @app.get("/telemetry", response_class=HTMLResponse)
@@ -301,9 +307,23 @@ def register_routes(
         response["locals"].update(get_template_context(db_path))
         return render_controller(request, templates, response)
 
-    @app.get("/api/benchmarks")
-    async def api_benchmarks_list(db: str = Query(default=None)):
-        """Get list of all benchmarks."""
+    @app.get("/api/benchmarks", response_class=HTMLResponse)
+    async def api_benchmarks_list(
+        request: Request,
+        db: str = Query(default=None),
+        page: int = Query(default=1, ge=1),
+        per_page: int = Query(default=10, ge=1, le=100),
+    ):
+        """HTMX partial for benchmarks list."""
+        databases = load_databases()
+        response = BenchmarksController.list_partial(
+            get_db_path(db), databases, page, per_page
+        )
+        return render_controller(request, templates, response)
+
+    @app.get("/api/benchmarks/json")
+    async def api_benchmarks_json(db: str = Query(default=None)):
+        """Get list of all benchmarks as JSON."""
         databases = load_databases()
         response = BenchmarksController.get_benchmarks(get_db_path(db), databases)
         return JSONResponse(content=response["json"])
@@ -333,6 +353,82 @@ def register_routes(
         return JSONResponse(content=response["json"])
 
     # --- WebSocket ---
+
+    @app.websocket("/ws/benchmark/{benchmark_id}")
+    async def websocket_benchmark_endpoint(
+        websocket: WebSocket, benchmark_id: str, db: str = Query(default=None)
+    ):
+        """WebSocket endpoint for real-time benchmark updates."""
+        from pipetree.infrastructure.progress.benchmark_store import BenchmarkStore
+
+        # Determine benchmark db path - db param might be benchmarks.db or progress.db
+        if db:
+            db_path = Path(db)
+            if db_path.name == "benchmarks.db":
+                benchmark_db = db_path
+            else:
+                benchmark_db = db_path.parent / "benchmarks.db"
+        else:
+            db_path = get_db_path(None)
+            benchmark_db = db_path.parent / "benchmarks.db"
+
+        await manager.connect(websocket, f"benchmark:{benchmark_id}")
+
+        last_result_count = -1  # Start at -1 to always send initial update
+        last_status = None
+
+        try:
+            while True:
+                if benchmark_db.exists():
+                    store = None
+                    try:
+                        store = BenchmarkStore(benchmark_db)
+                        benchmark = store.get_benchmark(benchmark_id)
+
+                        if benchmark:
+                            results = store.get_results(benchmark_id)
+                            current_result_count = len(results)
+                            current_status = benchmark["status"]
+
+                            # Send update if new results arrived or status changed
+                            if current_result_count != last_result_count or current_status != last_status:
+                                last_result_count = current_result_count
+                                last_status = current_status
+                                summary = store.get_summary(benchmark_id)
+                                implementations = store.get_implementations(benchmark_id)
+
+                                await websocket.send_json(
+                                    {
+                                        "type": "update",
+                                        "status": current_status,
+                                        "result_count": current_result_count,
+                                        "summary": summary,
+                                        "implementations": implementations,
+                                    }
+                                )
+
+                            # Send complete message when benchmark finishes
+                            if current_status in ("completed", "failed"):
+                                await websocket.send_json(
+                                    {
+                                        "type": "complete",
+                                        "status": current_status,
+                                        "completed_at": benchmark.get("completed_at"),
+                                    }
+                                )
+                                store.close()
+                                break
+
+                    except Exception as e:
+                        await websocket.send_json({"type": "error", "message": str(e)})
+                    finally:
+                        if store:
+                            store.close()
+
+                await asyncio.sleep(0.5)
+
+        except WebSocketDisconnect:
+            manager.disconnect(websocket, f"benchmark:{benchmark_id}")
 
     @app.websocket("/ws/{run_id}")
     async def websocket_endpoint(

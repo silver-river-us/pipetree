@@ -127,6 +127,36 @@ class BenchmarksController:
         }
 
     @classmethod
+    def list_partial(
+        cls,
+        db_path: Path,
+        databases: list[dict] | None = None,
+        page: int = 1,
+        per_page: int = 10,
+    ) -> dict[str, Any]:
+        """HTMX partial for benchmarks list."""
+        all_benchmarks = cls._get_all_benchmarks(db_path, databases)
+        total_count = len(all_benchmarks)
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+
+        # Paginate
+        start = (page - 1) * per_page
+        end = start + per_page
+        benchmarks = all_benchmarks[start:end]
+
+        return {
+            "template": "partials/benchmarks_list.html",
+            "locals": {
+                "benchmarks": benchmarks,
+                "db_path": str(db_path),
+                "page": page,
+                "per_page": per_page,
+                "total_count": total_count,
+                "total_pages": total_pages,
+            },
+        }
+
+    @classmethod
     def get_benchmarks(
         cls, db_path: Path, databases: list[dict] | None = None
     ) -> dict[str, Any]:

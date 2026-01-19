@@ -86,5 +86,28 @@ function applyFilters() {
 document.getElementById('status-filter').addEventListener('change', applyFilters);
 document.getElementById('pipeline-filter').addEventListener('change', applyFilters);
 document.getElementById('per-page').addEventListener('change', applyFilters);
+
+// Delete run
+async function deleteRun(id, dbPath) {
+    if (!confirm('Are you sure you want to delete this run? This cannot be undone.')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/runs/${id}?db=${encodeURIComponent(dbPath)}`, {
+            method: 'DELETE'
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // Trigger HTMX refresh
+            htmx.trigger('#runs-list', 'htmx:trigger');
+        } else {
+            alert('Failed to delete run: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Failed to delete run: ' + error.message);
+    }
+}
 </script>
 {% endblock %}

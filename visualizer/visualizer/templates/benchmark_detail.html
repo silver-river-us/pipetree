@@ -48,7 +48,7 @@
     {% if benchmark %}
     <!-- Benchmark Info -->
     <div class="bg-white border border-gray-200 shadow-sm rounded-lg p-4 mb-6">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
                 <p class="text-xs text-gray-500 uppercase">Capability</p>
                 <p class="text-sm font-medium mt-2">
@@ -60,12 +60,23 @@
                 <p class="text-sm font-medium mt-2">{{ implementations | length }}</p>
             </div>
             <div>
+                <p class="text-xs text-gray-500 uppercase">Results</p>
+                <p class="text-sm font-medium mt-2"><span id="result-count">{{ results | length }}</span></p>
+            </div>
+            <div>
                 <p class="text-xs text-gray-500 uppercase">Status</p>
                 <p class="text-sm font-medium mt-2">
                     {% if benchmark.status == 'completed' %}
                     <span class="px-2 py-1 bg-green-100 text-green-800 rounded">Completed</span>
                     {% elif benchmark.status == 'running' %}
-                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">Running</span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                        <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Running
+                    </span>
+                    <span class="ml-2 text-xs text-gray-500">(auto-refreshes on completion)</span>
                     {% else %}
                     <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded">{{ benchmark.status }}</span>
                     {% endif %}
@@ -223,7 +234,86 @@
 <script>
     const benchmarkId = "{{ benchmark_id }}";
     const dbPath = "{{ db_path }}";
+    const initialStatus = "{{ benchmark.status }}";
 </script>
 <script src="/static/js/benchmarks.js"></script>
+{% if benchmark.status == 'running' %}
+<script>
+// WebSocket for real-time benchmark updates
+(function() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws/benchmark/${benchmarkId}?db=${encodeURIComponent(dbPath)}`;
+
+    console.log('Connecting to WebSocket:', wsUrl);
+
+    let ws = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+
+    function connect() {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = function() {
+            console.log('WebSocket connected for benchmark:', benchmarkId);
+            reconnectAttempts = 0;
+        };
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            console.log('WebSocket message:', data);
+
+            if (data.type === 'update') {
+                // Update result count display
+                const resultCountEl = document.getElementById('result-count');
+                if (resultCountEl && data.result_count !== undefined) {
+                    resultCountEl.textContent = data.result_count;
+                }
+
+                // Update status badge if status changed
+                if (data.status && data.status !== 'running') {
+                    console.log('Status changed to:', data.status);
+                }
+            }
+
+            if (data.type === 'complete') {
+                console.log('Benchmark completed:', data.status);
+                ws.close();
+                // Small delay to ensure WebSocket closes cleanly
+                setTimeout(() => {
+                    window.location.reload();
+                }, 100);
+            }
+
+            if (data.type === 'error') {
+                console.error('WebSocket error from server:', data.message);
+            }
+        };
+
+        ws.onclose = function(event) {
+            console.log('WebSocket closed:', event.code, event.reason);
+            // Only reconnect if it wasn't a clean close
+            if (event.code !== 1000 && reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++;
+                console.log('Reconnecting... attempt', reconnectAttempts);
+                setTimeout(connect, 2000);
+            }
+        };
+
+        ws.onerror = function(error) {
+            console.error('WebSocket connection error:', error);
+        };
+    }
+
+    connect();
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.close(1000, 'Page unload');
+        }
+    });
+})();
+</script>
+{% endif %}
 {% endif %}
 {% endblock %}
