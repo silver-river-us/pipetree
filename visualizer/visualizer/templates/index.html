@@ -5,17 +5,76 @@
 {% block content %}
 <div class="p-6 max-w-screen-xl mx-auto">
     <!-- Header -->
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Runs</h1>
-        <p class="text-gray-600 mt-1">Monitor and track your executions</p>
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Runs</h1>
+            <p class="text-gray-600 text-sm">{{ total_count }} total runs</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white border border-gray-200 shadow-sm p-3 mb-4 rounded-lg">
+        <form id="filter-form" class="flex flex-wrap items-center gap-3">
+            <!-- Status filter -->
+            <div class="flex items-center gap-2">
+                <label for="status-filter" class="text-sm font-medium text-gray-600">Status:</label>
+                <select id="status-filter" name="status" class="px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <option value="">All</option>
+                    <option value="running" {% if current_status == 'running' %}selected{% endif %}>Running</option>
+                    <option value="completed" {% if current_status == 'completed' %}selected{% endif %}>Completed</option>
+                    <option value="failed" {% if current_status == 'failed' %}selected{% endif %}>Failed</option>
+                    <option value="pending" {% if current_status == 'pending' %}selected{% endif %}>Pending</option>
+                </select>
+            </div>
+
+            <!-- Pipeline filter -->
+            <div class="flex items-center gap-2">
+                <label for="pipeline-filter" class="text-sm font-medium text-gray-600">Pipeline:</label>
+                <select id="pipeline-filter" name="pipeline" class="px-2 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-[150px]">
+                    <option value="">All pipelines</option>
+                    {% for name in pipeline_names %}
+                    <option value="{{ name }}" {% if current_pipeline == name %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Clear filters -->
+            {% if current_status or current_pipeline %}
+            <a href="/" class="text-sm text-blue-600 hover:text-blue-800">Clear filters</a>
+            {% endif %}
+        </form>
     </div>
 
     <!-- Runs list -->
     <div id="runs-list"
          hx-get="/api/runs"
          hx-trigger="every 2s"
+         hx-include="#filter-form"
          hx-swap="innerHTML">
         {% include "partials/runs_list.html" %}
     </div>
 </div>
+
+<script>
+// Auto-submit filters on change
+document.getElementById('status-filter').addEventListener('change', function() {
+    const form = document.getElementById('filter-form');
+    const params = new URLSearchParams(new FormData(form));
+    // Filter out empty values
+    for (const [key, value] of [...params.entries()]) {
+        if (!value) params.delete(key);
+    }
+    window.location.href = '/?' + params.toString();
+});
+
+document.getElementById('pipeline-filter').addEventListener('change', function() {
+    const form = document.getElementById('filter-form');
+    const params = new URLSearchParams(new FormData(form));
+    // Filter out empty values
+    for (const [key, value] of [...params.entries()]) {
+        if (!value) params.delete(key);
+    }
+    window.location.href = '/?' + params.toString();
+});
+</script>
 {% endblock %}

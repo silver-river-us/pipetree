@@ -111,11 +111,20 @@ def register_routes(
     # --- Dashboard ---
 
     @app.get("/", response_class=HTMLResponse)
-    async def index(request: Request, db: str = Query(default=None)):
+    async def index(
+        request: Request,
+        db: str = Query(default=None),
+        status: str = Query(default=None),
+        pipeline: str = Query(default=None),
+        page: int = Query(default=1, ge=1),
+        per_page: int = Query(default=20, ge=1, le=100),
+    ):
         """Main dashboard page - shows all runs from all databases."""
         db_path = get_db_path(db)
         databases = load_databases()
-        response = RunsController.index(db_path, databases)
+        response = RunsController.index(
+            db_path, databases, status, pipeline, page, per_page
+        )
         response["locals"].update(get_template_context(db_path))
         return render_controller(request, templates, response)
 
@@ -183,10 +192,19 @@ def register_routes(
     # --- API Routes ---
 
     @app.get("/api/runs", response_class=HTMLResponse)
-    async def api_runs_list(request: Request, db: str = Query(default=None)):
+    async def api_runs_list(
+        request: Request,
+        db: str = Query(default=None),
+        status: str = Query(default=None),
+        pipeline: str = Query(default=None),
+        page: int = Query(default=1, ge=1),
+        per_page: int = Query(default=20, ge=1, le=100),
+    ):
         """HTMX partial for runs list from all databases."""
         databases = load_databases()
-        response = RunsController.list_partial(get_db_path(db), databases)
+        response = RunsController.list_partial(
+            get_db_path(db), databases, status, pipeline, page, per_page
+        )
         return render_controller(request, templates, response)
 
     @app.get("/api/runs/{run_id}/progress")

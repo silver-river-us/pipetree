@@ -316,22 +316,11 @@ document.addEventListener('keydown', function(e) {
 
     function updateRunDuration(completedAt) {
         const durationEl = document.getElementById('run-duration');
-        if (!durationEl) {
-            console.error('run-duration element not found');
-            return;
-        }
+        if (!durationEl) return;
 
         const startedAt = parseFloat(durationEl.dataset.startedAt);
-        console.log('updateRunDuration:', { startedAt, completedAt, dataset: durationEl.dataset });
-
-        if (isNaN(startedAt) || startedAt === 0) {
-            console.error('Invalid startedAt:', startedAt);
-            return;
-        }
-        if (completedAt == null || completedAt === 0) {
-            console.error('Invalid completedAt:', completedAt);
-            return;
-        }
+        if (isNaN(startedAt) || startedAt === 0) return;
+        if (completedAt == null || completedAt === 0) return;
 
         const durationSec = completedAt - startedAt;
         const durationStr = formatDuration(durationSec);
@@ -384,8 +373,6 @@ document.addEventListener('keydown', function(e) {
                 }
             }
         } else if (data.type === 'complete') {
-            console.log('WebSocket complete message:', data);
-
             // Update run status
             document.querySelector('[data-run-status]').dataset.runStatus = data.status;
 

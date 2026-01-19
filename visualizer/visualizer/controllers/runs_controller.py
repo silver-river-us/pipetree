@@ -11,56 +11,100 @@ class RunsController:
     """Handles pipetree run requests."""
 
     @classmethod
-    def index(
-        cls, db_path: Path, databases: list[dict] | None = None
-    ) -> dict[str, Any]:
-        """Main dashboard page - shows all runs from all databases."""
-        all_runs: list[dict] = []
+    def _fetch_runs(
+        cls,
+        db_path: Path,
+        databases: list[dict] | None = None,
+        status: str | None = None,
+        pipeline: str | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> tuple[list[dict], int, list[str]]:
+        """Fetch runs with optional filtering and pagination.
 
-        # If databases list provided, fetch from all of them
+        Returns (runs, total_count, pipeline_names).
+        """
+        all_runs: list[dict] = []
+        pipeline_names: set[str] = set()
+
+        db_sources: list[tuple[Path, str]] = []
         if databases:
-            for db in databases:
-                db_file = Path(db["path"])
-                if db_file.exists():
-                    try:
-                        with get_session(db_file) as session:
-                            statement = (
-                                select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
-                            )
-                            results = session.exec(statement).all()
-                            for run in results:
-                                run_dict = run.model_dump()
-                                run_dict["db_path"] = str(db_file)
-                                run_dict["db_name"] = db["name"]
-                                all_runs.append(run_dict)
-                    except Exception:
-                        pass
-        else:
-            # Fallback to single database
-            if db_path.exists():
-                try:
-                    with get_session(db_path) as session:
-                        statement = (
-                            select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
-                        )
-                        results = session.exec(statement).all()
-                        for run in results:
-                            run_dict = run.model_dump()
-                            run_dict["db_path"] = str(db_path)
-                            run_dict["db_name"] = db_path.parent.parent.name
-                            all_runs.append(run_dict)
-                except Exception:
-                    pass
+            db_sources = [
+                (Path(db["path"]), db["name"])
+                for db in databases
+                if Path(db["path"]).exists()
+            ]
+        elif db_path.exists():
+            db_sources = [(db_path, db_path.parent.parent.name)]
+
+        for db_file, db_name in db_sources:
+            try:
+                with get_session(db_file) as session:
+                    # Get all pipeline names for filter dropdown
+                    names_stmt = select(Run.name).distinct().where(Run.name.isnot(None))  # type: ignore[union-attr]
+                    names = session.exec(names_stmt).all()
+                    pipeline_names.update(n for n in names if n)
+
+                    # Build query with filters
+                    query = select(Run)
+                    if status:
+                        query = query.where(Run.status == status)
+                    if pipeline:
+                        query = query.where(Run.name == pipeline)
+
+                    query = query.order_by(Run.started_at.desc())  # type: ignore[union-attr]
+
+                    results = session.exec(query).all()
+                    for run in results:
+                        run_dict = run.model_dump()
+                        run_dict["db_path"] = str(db_file)
+                        run_dict["db_name"] = db_name
+                        all_runs.append(run_dict)
+            except Exception:
+                pass
 
         # Sort all runs by started_at descending
         all_runs.sort(key=lambda r: r.get("started_at") or 0, reverse=True)
 
-        # Limit to 100 most recent
-        all_runs = all_runs[:100]
+        total_count = len(all_runs)
+
+        # Apply pagination
+        start = (page - 1) * per_page
+        end = start + per_page
+        paginated_runs = all_runs[start:end]
+
+        return paginated_runs, total_count, sorted(pipeline_names)
+
+    @classmethod
+    def index(
+        cls,
+        db_path: Path,
+        databases: list[dict] | None = None,
+        status: str | None = None,
+        pipeline: str | None = None,
+        page: int = 1,
+        per_page: int = 20,
+    ) -> dict[str, Any]:
+        """Main dashboard page - shows all runs from all databases."""
+        runs, total_count, pipeline_names = cls._fetch_runs(
+            db_path, databases, status, pipeline, page, per_page
+        )
+
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
 
         return {
             "template": "index.html",
-            "locals": {"runs": all_runs, "db_path": str(db_path)},
+            "locals": {
+                "runs": runs,
+                "db_path": str(db_path),
+                "total_count": total_count,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "pipeline_names": pipeline_names,
+                "current_status": status or "",
+                "current_pipeline": pipeline or "",
+            },
         }
 
     @classmethod
@@ -100,55 +144,34 @@ class RunsController:
 
     @classmethod
     def list_partial(
-        cls, db_path: Path, databases: list[dict] | None = None
+        cls,
+        db_path: Path,
+        databases: list[dict] | None = None,
+        status: str | None = None,
+        pipeline: str | None = None,
+        page: int = 1,
+        per_page: int = 20,
     ) -> dict[str, Any]:
         """HTMX partial for runs list from all databases."""
-        all_runs: list[dict] = []
+        runs, total_count, pipeline_names = cls._fetch_runs(
+            db_path, databases, status, pipeline, page, per_page
+        )
 
-        # If databases list provided, fetch from all of them
-        if databases:
-            for db in databases:
-                db_file = Path(db["path"])
-                if db_file.exists():
-                    try:
-                        with get_session(db_file) as session:
-                            statement = (
-                                select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
-                            )
-                            results = session.exec(statement).all()
-                            for run in results:
-                                run_dict = run.model_dump()
-                                run_dict["db_path"] = str(db_file)
-                                run_dict["db_name"] = db["name"]
-                                all_runs.append(run_dict)
-                    except Exception:
-                        pass
-        else:
-            # Fallback to single database
-            if db_path.exists():
-                try:
-                    with get_session(db_path) as session:
-                        statement = (
-                            select(Run).order_by(Run.started_at.desc()).limit(50)  # type: ignore[union-attr]
-                        )
-                        results = session.exec(statement).all()
-                        for run in results:
-                            run_dict = run.model_dump()
-                            run_dict["db_path"] = str(db_path)
-                            run_dict["db_name"] = db_path.parent.parent.name
-                            all_runs.append(run_dict)
-                except Exception:
-                    pass
-
-        # Sort all runs by started_at descending
-        all_runs.sort(key=lambda r: r.get("started_at") or 0, reverse=True)
-
-        # Limit to 100 most recent
-        all_runs = all_runs[:100]
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
 
         return {
             "template": "partials/runs_list.html",
-            "locals": {"runs": all_runs, "db_path": str(db_path)},
+            "locals": {
+                "runs": runs,
+                "db_path": str(db_path),
+                "total_count": total_count,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": total_pages,
+                "pipeline_names": pipeline_names,
+                "current_status": status or "",
+                "current_pipeline": pipeline or "",
+            },
         }
 
     @classmethod
