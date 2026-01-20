@@ -7,7 +7,7 @@ import pytest
 from pipetree import B, Context, Step, branch, pipeline, route, step
 from pipetree.dsl import BranchTarget, RouteMarker
 from pipetree.dsl.builder import _get_branch_key, _instantiate_step
-from pipetree.dsl.decorators import _to_snake_case
+from pipetree.dsl.step_decorator import _to_snake_case
 
 
 @dataclass
