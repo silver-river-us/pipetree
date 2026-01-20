@@ -4,8 +4,10 @@ from dataclasses import dataclass
 
 import pytest
 
-from pipetree import B, Context, Step, pipeline, route, step
-from pipetree.dsl import BranchTarget, RouteMarker, _to_snake_case
+from pipetree import B, Context, Step, branch, pipeline, route, step
+from pipetree.dsl import BranchTarget, RouteMarker
+from pipetree.dsl.builder import _get_branch_key, _instantiate_step
+from pipetree.dsl.decorators import _to_snake_case
 
 
 @dataclass
@@ -336,3 +338,218 @@ class TestDSLReadability:
         assert p.steps[2].name == "categorize"
         assert p.steps[3].name == "route_category"  # Auto-generated router
         assert p.steps[4].name == "save_text"
+
+
+class TestBranchDecorator:
+    """Test @branch decorator."""
+
+    def test_branch_decorator_sets_branch_key(self) -> None:
+        """Test that @branch sets the _dsl_branch attribute."""
+
+        @step(requires={"a"}, provides={"b"})
+        @branch("ops")
+        class ProcessOps(Step):
+            def run(self, ctx: Context) -> Context:
+                return ctx
+
+        assert hasattr(ProcessOps, "_dsl_branch")
+        assert ProcessOps._dsl_branch == "ops"
+
+
+class TestInstantiateStep:
+    """Test _instantiate_step helper function."""
+
+    def test_instantiate_step_with_instance(self) -> None:
+        """Test that passing an instance returns it as-is."""
+
+        @step(provides={"a"})
+        class MyStep(Step):
+            def run(self, ctx: Context) -> Context:
+                return ctx
+
+        instance = MyStep(cap=MyStep._dsl_capability, name="my_step")
+        result = _instantiate_step(instance)
+        assert result is instance
+
+    def test_instantiate_step_without_decorator_raises(self) -> None:
+        """Test that non-decorated Step class raises ValueError."""
+
+        class PlainStep(Step):
+            def run(self, ctx: Context) -> Context:
+                return ctx
+
+        with pytest.raises(ValueError) as exc_info:
+            _instantiate_step(PlainStep)
+        assert "must use @step decorator" in str(exc_info.value)
+
+    def test_instantiate_step_with_invalid_type_raises(self) -> None:
+        """Test that non-Step type raises TypeError."""
+        with pytest.raises(TypeError) as exc_info:
+            _instantiate_step("not a step")
+        assert "Expected Step class or instance" in str(exc_info.value)
+
+
+class TestGetBranchKey:
+    """Test _get_branch_key helper function."""
+
+    def test_get_branch_key_from_instance(self) -> None:
+        """Test getting branch key from a Step instance."""
+
+        @step(requires={"a"}, provides={"b"})
+        @branch("ops")
+        class ProcessOps(Step):
+            def run(self, ctx: Context) -> Context:
+                return ctx
+
+        instance = ProcessOps(cap=ProcessOps._dsl_capability, name="process_ops")
+        assert _get_branch_key(instance) == "ops"
+
+    def test_get_branch_key_from_class(self) -> None:
+        """Test getting branch key from a Step class."""
+
+        @step(requires={"a"}, provides={"b"})
+        @branch("parts")
+        class ProcessParts(Step):
+            def run(self, ctx: Context) -> Context:
+                return ctx
+
+        assert _get_branch_key(ProcessParts) == "parts"
+
+    def test_get_branch_key_returns_none_if_not_set(self) -> None:
+        """Test that None is returned if no branch key is set."""
+
+        @step(provides={"a"})
+        class NoBranch(Step):
+            def run(self, ctx: Context) -> Context:
+                return ctx
+
+        assert _get_branch_key(NoBranch) is None
+
+
+class TestRouteMarkerRepr:
+    """Test RouteMarker and BranchTarget repr methods."""
+
+    def test_route_marker_repr(self) -> None:
+        """Test RouteMarker string representation."""
+        r = route("category")
+        assert repr(r) == "route('category')"
+
+    def test_branch_target_repr(self) -> None:
+        """Test BranchTarget string representation."""
+        b = B("ops")
+        assert "ops" in repr(b)
+
+
+class TestPipelineBuilderEdgeCases:
+    """Test edge cases in pipeline building."""
+
+    def test_step_without_branch_in_route_raises(self) -> None:
+        """Test that using step without @branch in route raises ValueError."""
+
+        @step(provides={"result"})
+        class NoBranchStep(Step):
+            def run(self, ctx: Context) -> Context:
+                return ctx
+
+        category = route("category")
+
+        with pytest.raises(ValueError) as exc_info:
+            pipeline(
+                "Test",
+                [
+                    category >> [NoBranchStep],
+                ],
+            )
+        assert "@branch decorator" in str(exc_info.value)
+
+    def test_step_with_branch_decorator_in_route(self) -> None:
+        """Test that step with @branch decorator works in route."""
+
+        @step(provides={"category"})
+        class Setup(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.category = "ops"
+                return ctx
+
+        @step(requires={"category"}, provides={"result"})
+        @branch("ops")
+        class ProcessOps(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.result = "ops_done"
+                return ctx
+
+        @step(requires={"category"}, provides={"result"})
+        @branch("parts")
+        class ProcessParts(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.result = "parts_done"
+                return ctx
+
+        category = route("category")
+
+        p = pipeline(
+            "Test",
+            [
+                Setup,
+                category >> [ProcessOps, ProcessParts],
+            ],
+        )
+
+        assert len(p.steps) == 2
+        assert p.steps[1].name == "route_category"
+
+    def test_route_key_not_set_raises(self) -> None:
+        """Test that missing route key raises ValueError at runtime."""
+        from pipetree.dsl.builder import _build_router
+
+        @step(requires={"category"}, provides={"result"})
+        @branch("ops")
+        class ProcessOps(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.result = "ops"
+                return ctx
+
+        category = route("category")
+        marker = category >> [ProcessOps]
+
+        # Build the router directly
+        router = _build_router(marker)
+
+        # Create a context with category=None
+        ctx = DSLTestContext()
+
+        # The router's pick() should raise ValueError
+        with pytest.raises(ValueError) as exc_info:
+            router.pick(ctx)
+        assert "is not set" in str(exc_info.value)
+
+    def test_nested_route_marker_as_branch(self) -> None:
+        """Test nested RouteMarker used as a branch item without explicit key."""
+
+        @step(provides={"category", "sub_type"})
+        class Setup(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.category = "sub_type"
+                ctx.sub_type = "a"
+                return ctx
+
+        @step(requires={"sub_type"}, provides={"result"})
+        @branch("a")
+        class ProcessA(Step):
+            def run(self, ctx: Context) -> Context:
+                ctx.result = "a"
+                return ctx
+
+        category = route("category")
+        sub_type = route("sub_type")
+
+        # Use nested route as branch - route key becomes branch key
+        p = pipeline(
+            "Test",
+            [
+                Setup,
+                category >> [sub_type >> [ProcessA]],
+            ],
+        )
+
+        assert len(p.steps) == 2

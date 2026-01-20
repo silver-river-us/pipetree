@@ -5,9 +5,9 @@ import time
 from pathlib import Path
 from threading import Event
 
-from pipetree import SQLiteProgressNotifier
-from pipetree.infrastructure.progress.watcher import (
+from pipetree import (
     ConsoleProgressHandler,
+    SQLiteProgressNotifier,
     SQLiteProgressWatcher,
     watch_progress,
 )

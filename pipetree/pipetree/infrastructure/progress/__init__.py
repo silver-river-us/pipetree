@@ -4,6 +4,10 @@ from pipetree.infrastructure.progress.benchmark_store import BenchmarkStore
 from pipetree.infrastructure.progress.file_progress_notifier import (
     FileProgressNotifier,
 )
+from pipetree.infrastructure.progress.handler import (
+    ConsoleProgressHandler,
+    ProgressHandler,
+)
 from pipetree.infrastructure.progress.in_memory_progress_notifier import (
     InMemoryProgressNotifier,
 )
@@ -17,9 +21,7 @@ from pipetree.infrastructure.progress.progress_notifier import (
 from pipetree.infrastructure.progress.sqlite_progress_notifier import (
     SQLiteProgressNotifier,
 )
-from pipetree.infrastructure.progress.watcher import (
-    ConsoleProgressHandler,
-    ProgressHandler,
+from pipetree.infrastructure.progress.sqlite_watcher import (
     SQLiteProgressWatcher,
     watch_progress,
 )

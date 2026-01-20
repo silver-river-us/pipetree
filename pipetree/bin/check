@@ -12,8 +12,8 @@ echo "=== Type Check ==="
 pipenv run mypy pipetree/
 
 echo ""
-echo "=== Tests ==="
-pipenv run pytest tests/ -v
+echo "=== Tests with Coverage ==="
+pipenv run pytest tests/ -v --cov=pipetree --cov-report=term-missing --cov-fail-under=100
 
 echo ""
 echo "=== All checks passed ==="

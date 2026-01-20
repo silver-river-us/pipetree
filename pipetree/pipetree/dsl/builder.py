@@ -1,39 +1,8 @@
-"""
-DSL for defining pipelines with minimal syntax.
-
-Example usage:
-
-    from pipetree.dsl import step, branch, route, pipeline
-
-    @step(requires={"path"}, provides={"pdf"})
-    class LoadPdf(Step):
-        def run(self, ctx): ...
-
-    @step(requires={"texts", "category"}, provides={"processed_ops"})
-    @branch("ops")
-    class ProcessOps(Step):
-        def run(self, ctx): ...
-
-    # Clean pipeline definition
-    pdf_pipeline = pipeline("PDF Pipeline", [
-        load_pdf,
-        extract_text,
-        categorize,
-        category >> [
-            process_ops,
-            parts_type >> [
-                process_mechanical,
-                process_electrical,
-            ],
-        ],
-        save_text,
-    ])
-"""
+"""Pipeline builder for the DSL."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 
 from pipetree.domain.capability.capability import Capability
 from pipetree.domain.pipeline.pipeline import Pipetree
@@ -41,167 +10,10 @@ from pipetree.domain.step.router import Router
 from pipetree.domain.step.step import Step
 from pipetree.domain.types.context import Context
 
+from .markers import BranchTarget, RouteMarker
+
 if TYPE_CHECKING:
     from pipetree.infrastructure.progress import ProgressNotifier
-
-T = TypeVar("T", bound=type[Step])
-
-
-# =============================================================================
-# Decorators
-# =============================================================================
-
-
-def step(
-    requires: set[str] | None = None,
-    provides: set[str] | None = None,
-    name: str | None = None,
-) -> Any:
-    """
-    Decorator to define a step with its capability inline.
-
-    Usage:
-        @step(requires={"path"}, provides={"pdf"})
-        class LoadPdf(Step):
-            def run(self, ctx): ...
-
-    The capability name defaults to the snake_case version of the class name.
-    """
-
-    def decorator(cls: T) -> T:
-        # Derive name from class name if not provided
-        cap_name = name or _to_snake_case(cls.__name__)
-
-        # Store capability info on the class (dynamic attributes for decorator pattern)
-        cls._dsl_capability = Capability(  # type: ignore[attr-defined]
-            name=cap_name, requires=requires or set(), provides=provides or set()
-        )
-        cls._dsl_name = cap_name  # type: ignore[attr-defined]
-
-        return cls
-
-    return decorator
-
-
-def branch(branch_key: str) -> Any:
-    """
-    Decorator to mark which branch a step handles.
-
-    Usage:
-        @step(requires={"texts"}, provides={"processed_ops"})
-        @branch("ops")
-        class ProcessOps(Step):
-            def run(self, ctx): ...
-    """
-
-    def decorator(cls: T) -> T:
-        cls._dsl_branch = branch_key  # type: ignore[attr-defined]
-        return cls
-
-    return decorator
-
-
-# =============================================================================
-# Route marker
-# =============================================================================
-
-
-@dataclass
-class BranchTarget:
-    """
-    A branch key pointing to a target step or nested route.
-
-    Created by: ops >> process_ops
-    Or: parts >> parts_type >> [...]
-    """
-
-    key: str
-    target: Any = None
-
-    def __rshift__(self, target: Any) -> BranchTarget:
-        """
-        Allow: ops >> step or ops >> route >> [...]
-
-        Handle chaining like: B("parts") >> parts_type >> [...]
-        where parts_type is a RouteMarker.
-        """
-        if isinstance(self.target, RouteMarker) and isinstance(target, list):
-            # Chained: B("parts") >> parts_type >> [branches]
-            # Apply branches to the existing RouteMarker
-            filled_route = RouteMarker(
-                key=self.target.key,
-                branches=target,
-                default=self.target.default,
-            )
-            return BranchTarget(key=self.key, target=filled_route)
-        return BranchTarget(key=self.key, target=target)
-
-    def __repr__(self) -> str:
-        return f"{self.key} >> {self.target!r}"
-
-
-def B(key: str) -> BranchTarget:
-    """
-    Create a branch marker for explicit branch assignment.
-
-    Usage:
-        category >> [
-            B("ops") >> process_ops,
-            B("parts") >> parts_type >> [...],
-        ]
-
-    Short for "Branch" - keeps the DSL concise.
-    """
-    return BranchTarget(key=key)
-
-
-@dataclass
-class RouteMarker:
-    """
-    Marker for defining routes in the DSL.
-
-    Created by using >> on a route key:
-        category >> [step1, step2]
-    """
-
-    key: str
-    branches: list[Any] = field(default_factory=list)
-    default: str | None = None
-
-    def __rshift__(
-        self, branches: list[Any] | BranchTarget
-    ) -> RouteMarker | BranchTarget:
-        """
-        Allow:
-            category >> [step1, step2]
-            parts >> parts_type >> [...]  (chained routes)
-        """
-        if isinstance(branches, list):
-            return RouteMarker(key=self.key, branches=branches, default=self.default)
-        # Chained route: this route becomes a branch target
-        return BranchTarget(key=self.key, target=branches)
-
-    def __repr__(self) -> str:
-        return f"route({self.key!r})"
-
-
-def route(key: str, default: str | None = None) -> RouteMarker:
-    """
-    Create a route marker for the DSL.
-
-    Usage:
-        route("category") >> [process_ops, process_parts]
-
-    Or use a pre-defined route variable:
-        category = route("category")
-        category >> [process_ops, process_parts]
-    """
-    return RouteMarker(key=key, default=default)
-
-
-# =============================================================================
-# Pipeline builder
-# =============================================================================
 
 
 def pipeline(
@@ -229,21 +41,6 @@ def pipeline(
     """
     built_steps = _build_steps(steps)
     return Pipetree(steps=built_steps, progress_notifier=progress_notifier, name=name)
-
-
-# =============================================================================
-# Internal helpers
-# =============================================================================
-
-
-def _to_snake_case(name: str) -> str:
-    """Convert CamelCase to snake_case."""
-    result = []
-    for i, char in enumerate(name):
-        if char.isupper() and i > 0:
-            result.append("_")
-        result.append(char.lower())
-    return "".join(result)
 
 
 def _get_branch_key(step_or_class: Any) -> str | None:
@@ -375,7 +172,9 @@ def _build_router(marker: RouteMarker) -> Router:
         if isinstance(target, (Step, Router)):
             all_requires.update(target.cap.requires)
             all_provides.update(target.cap.provides)
-        elif isinstance(target, Pipetree):
+        elif isinstance(
+            target, Pipetree
+        ):  # pragma: no cover (defensive - DSL builder doesn't add Pipetree to table)
             # Pipetree has steps, get capability from first/last step
             if target.steps:
                 all_requires.update(target.steps[0].cap.requires)
@@ -408,15 +207,3 @@ def _build_router(marker: RouteMarker) -> Router:
         table=table,
         default=marker.default,
     )
-
-
-# =============================================================================
-# Convenience: pre-defined route markers for common patterns
-# =============================================================================
-
-# Users can create their own:
-#   category = route("category")
-#   parts_type = route("parts_type")
-#
-# Then use in pipeline:
-#   category >> [process_ops, parts_type >> [process_mechanical, process_electrical]]

@@ -309,7 +309,7 @@ class BenchmarkStore:
             )
             self._conn.commit()
             return cursor.rowcount > 0
-        except Exception:
+        except Exception:  # pragma: no cover (defensive - hard to trigger DB exception)
             return False
 
     def close(self) -> None:
