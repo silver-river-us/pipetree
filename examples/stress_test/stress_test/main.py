@@ -39,6 +39,7 @@ from pathlib import Path
 
 from pipetree import (
     B,
+    Pipetree,
     SQLiteProgressNotifier,
     SQLiteProgressWatcher,
     pipeline,
@@ -92,7 +93,7 @@ low = B("low")
 
 def create_pipeline(
     db_path: Path | None = None,
-) -> tuple[any, SQLiteProgressNotifier | None]:
+) -> tuple[Pipetree, SQLiteProgressNotifier | None]:
     """Create the stress test pipeline."""
     notifier = SQLiteProgressNotifier(db_path) if db_path else None
 

@@ -23,6 +23,7 @@ from pathlib import Path
 
 from pipetree import (
     B,
+    Pipetree,
     SQLiteProgressNotifier,
     SQLiteProgressWatcher,
     pipeline,
@@ -61,7 +62,7 @@ electrical = B("electrical")
 
 def create_pipeline(
     db_path: Path | None = None,
-) -> tuple[any, SQLiteProgressNotifier | None]:
+) -> tuple[Pipetree, SQLiteProgressNotifier | None]:
     """Create the PDF ingestion pipeline with nested branching."""
     notifier = SQLiteProgressNotifier(db_path) if db_path else None
 
