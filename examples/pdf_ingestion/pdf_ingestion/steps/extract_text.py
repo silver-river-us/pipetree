@@ -109,9 +109,9 @@ class ExtractText(Step):
                     while pos < len(content):
                         newline_pos = content.index("\n", pos)
                         header = content[pos:newline_pos]
-                        page_idx, text_len = header.split("\t")
-                        page_idx = int(page_idx)
-                        text_len = int(text_len)
+                        page_idx_str, text_len_str = header.split("\t")
+                        page_idx = int(page_idx_str)
+                        text_len = int(text_len_str)
                         text_start = newline_pos + 1
                         text_end = text_start + text_len
                         results[page_idx] = content[text_start:text_end]
