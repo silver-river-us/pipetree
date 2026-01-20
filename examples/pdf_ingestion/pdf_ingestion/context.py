@@ -107,6 +107,7 @@ class PdfContext(Context):
 
     # After CategorizeStep - category of the document
     category: str | None = None  # "ops" or "parts"
+    parts_type: str | None = None  # "mechanical" or "electrical" (for parts docs)
 
     # After branch-specific processing
     processed_ops: dict | None = None

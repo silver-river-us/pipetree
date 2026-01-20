@@ -1,95 +1,94 @@
 """
-Stress Test Pipeline Example
+Stress Test Pipeline Example - DSL Version
 
-A very long pipeline with 21+ steps to test the visualizer's performance
+A long pipeline with 22 steps to test the visualizer's performance
 with many sequential steps, progress reporting, and branching.
 
-Pipeline Structure:
-  1. initialize
-  2. ingest_data (with progress)
-  3. validate (with progress)
-  4. normalize (with progress)
-  5. enrich_stage1 (with progress)
-  6. enrich_stage2 (with progress)
-  7. enrich_stage3 (with progress)
-  8. transform (with progress)
-  9. analyze_basic (with progress)
-  10. analyze_advanced (with progress)
-  11. analyze_deep (with progress)
-  12. aggregate (with progress)
-  13. quality_check (with progress)
-  14. route_by_quality -> [high | medium | low]
-  15. optimize (with progress)
-  16. serialize (with progress)
-  17. compress
-  18. encrypt (with progress)
-  19. generate_output (with progress)
-  20. notify (with progress)
-  21. cleanup (with progress)
-  22. complete
+Pipeline Structure (DSL):
+    Initialize
+    IngestData
+    Validate
+    Normalize
+    EnrichStage1
+    EnrichStage2
+    EnrichStage3
+    Transform
+    AnalyzeBasic
+    AnalyzeAdvanced
+    AnalyzeDeep
+    Aggregate
+    QualityCheck
+    quality >> [
+        high >> ProcessHighQuality,
+        medium >> ProcessMediumQuality,
+        low >> ProcessLowQuality,
+    ]
+    Optimize
+    Serialize
+    Compress
+    Encrypt
+    GenerateOutput
+    Notify
+    Cleanup
+    Complete
 """
 
 import asyncio
 import time
 from pathlib import Path
 
-from pipetree import Pipetree, SQLiteProgressNotifier, SQLiteProgressWatcher
-
-from .capabilities import (
-    AGGREGATE,
-    ANALYZE_ADVANCED,
-    ANALYZE_BASIC,
-    ANALYZE_DEEP,
-    CLEANUP,
-    COMPLETE,
-    COMPRESS,
-    ENCRYPT,
-    ENRICH_STAGE1,
-    ENRICH_STAGE2,
-    ENRICH_STAGE3,
-    GENERATE_OUTPUT,
-    INGEST_DATA,
-    INITIALIZE,
-    NORMALIZE,
-    NOTIFY,
-    OPTIMIZE,
-    PROCESS_HIGH_QUALITY,
-    PROCESS_LOW_QUALITY,
-    PROCESS_MEDIUM_QUALITY,
-    QUALITY_CHECK,
-    ROUTE_BY_QUALITY,
-    SERIALIZE,
-    TRANSFORM,
-    VALIDATE,
+from pipetree import (
+    B,
+    Pipetree,
+    SQLiteProgressNotifier,
+    SQLiteProgressWatcher,
+    pipeline,
+    route,
 )
+
 from .context import StressTestContext
 from .steps import (
-    AggregateStep,
-    AnalyzeAdvancedStep,
-    AnalyzeBasicStep,
-    AnalyzeDeepStep,
-    CleanupStep,
-    CompleteStep,
-    CompressStep,
-    EncryptStep,
-    EnrichStage1Step,
-    EnrichStage2Step,
-    EnrichStage3Step,
-    GenerateOutputStep,
-    IngestDataStep,
-    InitializeStep,
-    NormalizeStep,
-    NotifyStep,
-    OptimizeStep,
-    ProcessHighQualityStep,
-    ProcessLowQualityStep,
-    ProcessMediumQualityStep,
-    QualityCheckStep,
-    QualityRouter,
-    SerializeStep,
-    TransformStep,
-    ValidateStep,
+    Aggregate,
+    AnalyzeAdvanced,
+    AnalyzeBasic,
+    AnalyzeDeep,
+    Cleanup,
+    Complete,
+    Compress,
+    Encrypt,
+    EnrichStage1,
+    EnrichStage2,
+    EnrichStage3,
+    GenerateOutput,
+    IngestData,
+    Initialize,
+    Normalize,
+    Notify,
+    Optimize,
+    ProcessHighQuality,
+    ProcessLowQuality,
+    ProcessMediumQuality,
+    QualityCheck,
+    Serialize,
+    Transform,
+    Validate,
 )
+
+# =============================================================================
+# Route markers
+# =============================================================================
+
+quality = route("quality", default="medium")
+
+# Branch markers
+high = B("high")
+medium = B("medium")
+low = B("low")
+
+
+# =============================================================================
+# Pipeline definition - the structure is immediately visible!
+# =============================================================================
 
 
 def create_pipeline(
@@ -98,61 +97,53 @@ def create_pipeline(
     """Create the stress test pipeline."""
     notifier = SQLiteProgressNotifier(db_path) if db_path else None
 
-    pipeline = Pipetree(
-        steps=[
+    stress_pipeline = pipeline(
+        "Stress Test Pipeline",
+        [
             # Stage 1-4: Initial processing
-            InitializeStep(INITIALIZE, "initialize"),
-            IngestDataStep(INGEST_DATA, "ingest_data"),
-            ValidateStep(VALIDATE, "validate"),
-            NormalizeStep(NORMALIZE, "normalize"),
-            # Stage 5-7: Enrichment (3 stages)
-            EnrichStage1Step(ENRICH_STAGE1, "enrich_stage1"),
-            EnrichStage2Step(ENRICH_STAGE2, "enrich_stage2"),
-            EnrichStage3Step(ENRICH_STAGE3, "enrich_stage3"),
-            # Stage 8: Transformation
-            TransformStep(TRANSFORM, "transform"),
-            # Stage 9-11: Analysis (3 stages)
-            AnalyzeBasicStep(ANALYZE_BASIC, "analyze_basic"),
-            AnalyzeAdvancedStep(ANALYZE_ADVANCED, "analyze_advanced"),
-            AnalyzeDeepStep(ANALYZE_DEEP, "analyze_deep"),
+            Initialize,
+            IngestData,
+            Validate,
+            Normalize,
+            # Stage 5-7: Enrichment
+            EnrichStage1,
+            EnrichStage2,
+            EnrichStage3,
+            # Stage 8: Transform
+            Transform,
+            # Stage 9-11: Analysis
+            AnalyzeBasic,
+            AnalyzeAdvanced,
+            AnalyzeDeep,
             # Stage 12-13: Aggregation and Quality
-            AggregateStep(AGGREGATE, "aggregate"),
-            QualityCheckStep(QUALITY_CHECK, "quality_check"),
+            Aggregate,
+            QualityCheck,
             # Stage 14: Quality-based routing
-            QualityRouter(
-                cap=ROUTE_BY_QUALITY,
-                name="route_by_quality",
-                table={
-                    "high": ProcessHighQualityStep(
-                        PROCESS_HIGH_QUALITY, "process_high_quality"
-                    ),
-                    "medium": ProcessMediumQualityStep(
-                        PROCESS_MEDIUM_QUALITY, "process_medium_quality"
-                    ),
-                    "low": ProcessLowQualityStep(
-                        PROCESS_LOW_QUALITY, "process_low_quality"
-                    ),
-                },
-                default="medium",
-            ),
+            quality
+            >> [
+                high >> ProcessHighQuality,
+                medium >> ProcessMediumQuality,
+                low >> ProcessLowQuality,
+            ],
             # Stage 15-22: Final processing
-            OptimizeStep(OPTIMIZE, "optimize"),
-            SerializeStep(SERIALIZE, "serialize"),
-            CompressStep(COMPRESS, "compress"),
-            EncryptStep(ENCRYPT, "encrypt"),
-            GenerateOutputStep(GENERATE_OUTPUT, "generate_output"),
-            NotifyStep(NOTIFY, "notify"),
-            CleanupStep(CLEANUP, "cleanup"),
-            CompleteStep(COMPLETE, "complete"),
+            Optimize,
+            Serialize,
+            Compress,
+            Encrypt,
+            GenerateOutput,
+            Notify,
+            Cleanup,
+            Complete,
         ],
         progress_notifier=notifier,
-        name="Stress Test Pipeline",
     )
 
-    # Note: Branches are now auto-registered by the pipeline when it runs
-    # No need for manual notifier.register_branch() calls
+    return stress_pipeline, notifier
 
-    return pipeline, notifier
+
+# =============================================================================
+# Main entry point
+# =============================================================================
 
 
 async def main(iterations: int = 15) -> None:
@@ -160,35 +151,30 @@ async def main(iterations: int = 15) -> None:
     project_root = Path(__file__).parent.parent
     db_path = project_root / "db" / "progress.db"
 
-    # Ensure db directory exists
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     print("=" * 60)
-    print("Stress Test Pipeline")
+    print("Stress Test Pipeline (DSL Version)")
     print("=" * 60)
     print(f"Database: {db_path}")
     print(f"Iterations: {iterations}")
     print()
     print("Pipeline structure (22 steps):")
-    print("  1. initialize")
-    print("  2. ingest_data -> 3. validate -> 4. normalize")
-    print("  5. enrich_stage1 -> 6. enrich_stage2 -> 7. enrich_stage3")
-    print("  8. transform")
-    print("  9. analyze_basic -> 10. analyze_advanced -> 11. analyze_deep")
-    print("  12. aggregate -> 13. quality_check")
-    print("  14. route_by_quality")
-    print("       |-- high -> process_high_quality")
-    print("       |-- medium -> process_medium_quality")
-    print("       |-- low -> process_low_quality")
-    print("  15. optimize -> 16. serialize -> 17. compress -> 18. encrypt")
-    print("  19. generate_output -> 20. notify -> 21. cleanup -> 22. complete")
+    print("  1. Initialize -> 2. IngestData -> 3. Validate -> 4. Normalize")
+    print("  5. EnrichStage1 -> 6. EnrichStage2 -> 7. EnrichStage3")
+    print("  8. Transform")
+    print("  9. AnalyzeBasic -> 10. AnalyzeAdvanced -> 11. AnalyzeDeep")
+    print("  12. Aggregate -> 13. QualityCheck")
+    print("  14. quality >> [high, medium, low]")
+    print("  15. Optimize -> 16. Serialize -> 17. Compress -> 18. Encrypt")
+    print("  19. GenerateOutput -> 20. Notify -> 21. Cleanup -> 22. Complete")
     print()
     print("View progress at: http://localhost:8000")
     print("=" * 60)
     print()
 
     # Create pipeline
-    pipeline, notifier = create_pipeline(db_path=db_path)
+    stress_pipeline, notifier = create_pipeline(db_path=db_path)
     run_id = notifier.run_id if notifier else ""
 
     # Start progress watcher
@@ -204,10 +190,9 @@ async def main(iterations: int = 15) -> None:
     # Run pipeline
     start_time = time.perf_counter()
     try:
-        result = await pipeline.run(ctx)
+        result = await stress_pipeline.run(ctx)
         total_time = time.perf_counter() - start_time
 
-        # Stop watcher
         watcher.stop()
 
         # Summary

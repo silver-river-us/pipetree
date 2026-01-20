@@ -1,47 +1,63 @@
 """
-PDF Ingestion Pipeline Example
+PDF Ingestion Pipeline Example - DSL Version
 
-This example demonstrates how to build a PDF ingestion pipeline
-using the pipetree framework with parallel text extraction and nested branching.
+This example demonstrates the clean DSL syntax for defining pipelines.
+The pipeline structure is immediately visible:
 
-Features:
-- Automatic CPU core detection
-- Parallel text extraction using all available cores
-- Document categorization (ops vs parts)
-- Nested branching: parts -> mechanical/electrical
-- Progress reporting to SQLite for real-time monitoring
-- Web visualizer at http://localhost:8000
+    LoadPdf
+    ExtractText
+    Categorize
+    category >> [
+        ops >> ProcessOps,
+        parts >> parts_type >> [
+            mechanical >> ProcessMechanical,
+            electrical >> ProcessElectrical,
+        ],
+    ]
+    SaveText
 """
 
 import asyncio
 import time
 from pathlib import Path
 
-from pipetree import Pipetree, SQLiteProgressNotifier, SQLiteProgressWatcher
-
-from .capabilities import (
-    CATEGORIZE,
-    LOAD_PDF,
-    PROCESS_ELECTRICAL,
-    PROCESS_MECHANICAL,
-    PROCESS_OPS,
-    ROUTE_BY_CATEGORY,
-    ROUTE_PARTS_TYPE,
-    SAVE_TEXT,
-    TEXT_EXTRACTION,
+from pipetree import (
+    B,
+    Pipetree,
+    SQLiteProgressNotifier,
+    SQLiteProgressWatcher,
+    pipeline,
+    route,
 )
+
 from .context import PdfContext
 from .steps import (
-    CategorizeStep,
-    CategoryRouter,
-    ExtractTextStep,
-    LoadPdfStep,
-    PartsTypeRouter,
-    ProcessElectricalStep,
-    ProcessMechanicalStep,
-    ProcessOpsStep,
-    SaveTextStep,
+    Categorize,
+    ExtractText,
+    LoadPdf,
+    ProcessElectrical,
+    ProcessMechanical,
+    ProcessOps,
+    SaveText,
 )
+
+# =============================================================================
+# Route markers - define once, use in pipeline
+# =============================================================================
+
+category = route("category", default="ops")
+parts_type = route("parts_type", default="mechanical")
+
+# Branch markers - for explicit branch assignment
+ops = B("ops")
+parts = B("parts")
+mechanical = B("mechanical")
+electrical = B("electrical")
+
+
+# =============================================================================
+# Pipeline definition - the tree structure is immediately visible!
+# =============================================================================
 
 
 def create_pipeline(
@@ -50,60 +66,50 @@ def create_pipeline(
     """Create the PDF ingestion pipeline with nested branching."""
     notifier = SQLiteProgressNotifier(db_path) if db_path else None
 
-    pipeline = Pipetree(
-        steps=[
-            LoadPdfStep(LOAD_PDF, "load_pdf"),
-            ExtractTextStep(TEXT_EXTRACTION, "extract_text"),
-            CategorizeStep(CATEGORIZE, "categorize"),
-            CategoryRouter(
-                cap=ROUTE_BY_CATEGORY,
-                name="route_by_category",
-                table={
-                    "ops": ProcessOpsStep(PROCESS_OPS, "process_ops"),
-                    "parts": PartsTypeRouter(
-                        cap=ROUTE_PARTS_TYPE,
-                        name="route_parts_type",
-                        table={
-                            "mechanical": ProcessMechanicalStep(
-                                PROCESS_MECHANICAL, "process_mechanical"
-                            ),
-                            "electrical": ProcessElectricalStep(
-                                PROCESS_ELECTRICAL, "process_electrical"
-                            ),
-                        },
-                        default="mechanical",
-                    ),
-                },
-                default="ops",
-            ),
-            SaveTextStep(SAVE_TEXT, "save_text"),
+    pdf_pipeline = pipeline(
+        "PDF Processing Pipeline",
+        [
+            LoadPdf,
+            ExtractText,
+            Categorize,
+            category
+            >> [
+                ops >> ProcessOps,
+                parts
+                >> parts_type
+                >> [
+                    mechanical >> ProcessMechanical,
+                    electrical >> ProcessElectrical,
+                ],
+            ],
+            SaveText,
         ],
         progress_notifier=notifier,
-        name="PDF Processing Pipeline",
     )
 
-    # Note: Branches are now auto-registered by the pipeline when it runs
-    # No need for manual notifier.register_branch() calls
+    return pdf_pipeline, notifier
 
-    return pipeline, notifier
+
+# =============================================================================
+# Main entry point
+# =============================================================================
 
 
 async def main() -> None:
     """Run the PDF ingestion pipeline."""
-    # Configuration - resolve paths relative to project root (1 level up from pdf_ingestion/)
     project_root = Path(__file__).parent.parent
     pdf_path = project_root / "assets" / "big.pdf"
     output_path = project_root / "assets" / (pdf_path.stem + ".txt")
     db_path = project_root / "db" / "progress.db"
 
-    print("PDF Processing Pipeline (with Nested Branching)")
-    print("================================================")
+    print("PDF Processing Pipeline (DSL Version)")
+    print("=" * 50)
     print(f"Input:    {pdf_path}")
     print(f"Output:   {output_path}")
     print(f"Database: {db_path}")
     print()
     print("Pipeline structure:")
-    print("  load_pdf -> extract_text -> categorize -> route_by_category")
+    print("  load_pdf -> extract_text -> categorize -> route_category")
     print("                                              |")
     print("                                   +----------+----------+")
     print("                                   |                     |")
@@ -117,11 +123,11 @@ async def main() -> None:
     print("View progress at: http://localhost:8000")
     print()
 
-    # Create pipeline and get the run_id
-    pipeline, notifier = create_pipeline(db_path=db_path)
+    # Create pipeline
+    pdf_pipeline, notifier = create_pipeline(db_path=db_path)
     run_id = notifier.run_id if notifier else ""
 
-    # Start progress watcher in background thread
+    # Start progress watcher
     watcher = SQLiteProgressWatcher(db_path, run_id)
     watcher.start()
 
@@ -133,10 +139,9 @@ async def main() -> None:
     # Run the pipeline
     start_time = time.perf_counter()
     try:
-        result = await pipeline.run(ctx)
+        result = await pdf_pipeline.run(ctx)
         total_time = time.perf_counter() - start_time
 
-        # Stop the watcher
         watcher.stop()
 
         # Summary
@@ -165,7 +170,6 @@ async def main() -> None:
         raise
 
     finally:
-        # Close the notifier
         if notifier:
             notifier.close()
 

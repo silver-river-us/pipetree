@@ -1,11 +1,12 @@
 """Save extracted text to file."""
 
-from pipetree import Step
+from pipetree import Step, step
 
 from ..context import PdfContext
 
 
-class SaveTextStep(Step):
+@step(requires={"texts", "output_path"}, provides={"saved"})
+class SaveText(Step):
     """Save extracted text to a .txt file (streams from disk, memory efficient)."""
 
     def run(self, ctx: PdfContext) -> PdfContext:  # type: ignore[override]

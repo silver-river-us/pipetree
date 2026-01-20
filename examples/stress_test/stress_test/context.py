@@ -57,6 +57,7 @@ class StressTestContext(Context):
     # Quality check
     quality_checked: bool = False
     quality_score: float = 0.0
+    quality: str = ""  # Routing attribute: "high", "medium", or "low"
 
     # Optimization
     optimized: bool = False

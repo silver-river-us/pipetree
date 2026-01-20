@@ -5,12 +5,13 @@ import json
 import random
 import time
 
-from pipetree import Step
+from pipetree import Step, step
 
 from ..context import StressTestContext
 
 
-class InitializeStep(Step):
+@step(requires={"name"}, provides={"initialized"})
+class Initialize(Step):
     """Stage 1: Initialize the pipeline."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -25,7 +26,8 @@ class InitializeStep(Step):
         return ctx
 
 
-class IngestDataStep(Step):
+@step(requires={"initialized"}, provides={"raw_data", "ingested"})
+class IngestData(Step):
     """Stage 2: Ingest raw data with progress reporting."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -51,7 +53,8 @@ class IngestDataStep(Step):
         return ctx
 
 
-class ValidateStep(Step):
+@step(requires={"raw_data"}, provides={"validated", "validation_errors"})
+class Validate(Step):
     """Stage 3: Validate ingested data."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -73,7 +76,8 @@ class ValidateStep(Step):
         return ctx
 
 
-class NormalizeStep(Step):
+@step(requires={"validated", "raw_data"}, provides={"normalized", "normalized_data"})
+class Normalize(Step):
     """Stage 4: Normalize validated data."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -99,7 +103,8 @@ class NormalizeStep(Step):
         return ctx
 
 
-class EnrichStage1Step(Step):
+@step(requires={"normalized_data"}, provides={"enriched_stage1"})
+class EnrichStage1(Step):
     """Stage 5: First enrichment pass."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -120,7 +125,8 @@ class EnrichStage1Step(Step):
         return ctx
 
 
-class EnrichStage2Step(Step):
+@step(requires={"enriched_stage1"}, provides={"enriched_stage2"})
+class EnrichStage2(Step):
     """Stage 6: Second enrichment pass."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -141,7 +147,8 @@ class EnrichStage2Step(Step):
         return ctx
 
 
-class EnrichStage3Step(Step):
+@step(requires={"enriched_stage2"}, provides={"enriched_stage3"})
+class EnrichStage3(Step):
     """Stage 7: Third enrichment pass."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -165,7 +172,11 @@ class EnrichStage3Step(Step):
         return ctx
 
 
-class TransformStep(Step):
+@step(
+    requires={"enriched_stage3", "normalized_data"},
+    provides={"transformed", "transformed_data"},
+)
+class Transform(Step):
     """Stage 8: Transform enriched data."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -193,7 +204,8 @@ class TransformStep(Step):
         return ctx
 
 
-class AnalyzeBasicStep(Step):
+@step(requires={"transformed_data"}, provides={"analyzed_basic"})
+class AnalyzeBasic(Step):
     """Stage 9: Basic analysis."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -223,7 +235,8 @@ class AnalyzeBasicStep(Step):
         return ctx
 
 
-class AnalyzeAdvancedStep(Step):
+@step(requires={"analyzed_basic"}, provides={"analyzed_advanced"})
+class AnalyzeAdvanced(Step):
     """Stage 10: Advanced analysis."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -253,7 +266,8 @@ class AnalyzeAdvancedStep(Step):
         return ctx
 
 
-class AnalyzeDeepStep(Step):
+@step(requires={"analyzed_advanced"}, provides={"analyzed_deep", "analysis_results"})
+class AnalyzeDeep(Step):
     """Stage 11: Deep analysis."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -286,7 +300,8 @@ class AnalyzeDeepStep(Step):
         return ctx
 
 
-class AggregateStep(Step):
+@step(requires={"analysis_results"}, provides={"aggregated", "aggregation_results"})
+class Aggregate(Step):
     """Stage 12: Aggregate all analysis results."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -317,7 +332,11 @@ class AggregateStep(Step):
         return ctx
 
 
-class QualityCheckStep(Step):
+@step(
+    requires={"aggregation_results"},
+    provides={"quality_checked", "quality_score", "quality"},
+)
+class QualityCheck(Step):
     """Stage 13: Check quality of results."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -334,16 +353,25 @@ class QualityCheckStep(Step):
 
         ctx.quality_score = sum(scores) / len(scores)
 
+        # Set routing attribute based on quality score
+        if ctx.quality_score >= 0.9:
+            ctx.quality = "high"
+        elif ctx.quality_score >= 0.8:
+            ctx.quality = "medium"
+        else:
+            ctx.quality = "low"
+
         ctx.quality_checked = True
         ctx.current_stage = 13
         ctx.stages_completed.append("quality_check")
 
-        print(f"    Quality score: {ctx.quality_score:.2f}")
+        print(f"    Quality score: {ctx.quality_score:.2f} -> {ctx.quality}")
 
         return ctx
 
 
-class OptimizeStep(Step):
+@step(requires={"quality_checked"}, provides={"optimized"})
+class Optimize(Step):
     """Stage 14: Optimize results."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -360,7 +388,11 @@ class OptimizeStep(Step):
         return ctx
 
 
-class SerializeStep(Step):
+@step(
+    requires={"optimized", "aggregation_results"},
+    provides={"serialized", "serialized_data"},
+)
+class Serialize(Step):
     """Stage 15: Serialize results."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -381,7 +413,8 @@ class SerializeStep(Step):
         return ctx
 
 
-class CompressStep(Step):
+@step(requires={"serialized_data"}, provides={"compressed"})
+class Compress(Step):
     """Stage 16: Compress serialized data."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -397,7 +430,8 @@ class CompressStep(Step):
         return ctx
 
 
-class EncryptStep(Step):
+@step(requires={"compressed"}, provides={"encrypted"})
+class Encrypt(Step):
     """Stage 17: Encrypt compressed data."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -416,7 +450,8 @@ class EncryptStep(Step):
         return ctx
 
 
-class GenerateOutputStep(Step):
+@step(requires={"encrypted"}, provides={"output_generated"})
+class GenerateOutput(Step):
     """Stage 18: Generate final output."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -433,7 +468,8 @@ class GenerateOutputStep(Step):
         return ctx
 
 
-class NotifyStep(Step):
+@step(requires={"output_generated"}, provides={"notified"})
+class Notify(Step):
     """Stage 19: Send notifications."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -451,7 +487,8 @@ class NotifyStep(Step):
         return ctx
 
 
-class CleanupStep(Step):
+@step(requires={"notified"}, provides={"cleaned_up"})
+class Cleanup(Step):
     """Stage 20: Cleanup temporary resources."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -470,7 +507,8 @@ class CleanupStep(Step):
         return ctx
 
 
-class CompleteStep(Step):
+@step(requires={"cleaned_up"}, provides={"completed"})
+class Complete(Step):
     """Stage 21: Mark pipeline as complete."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:

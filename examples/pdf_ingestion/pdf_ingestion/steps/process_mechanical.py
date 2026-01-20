@@ -2,11 +2,12 @@
 
 import re
 
-from pipetree import Step
+from pipetree import Step, step
 from pipetree.types import Context
 
 
-class ProcessMechanicalStep(Step):
+@step(requires={"texts", "category"}, provides={"processed_mechanical"})
+class ProcessMechanical(Step):
     """
     Processes mechanical parts catalogs.
 
