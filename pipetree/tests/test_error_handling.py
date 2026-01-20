@@ -1,4 +1,4 @@
-"""Tests for remaining coverage gaps."""
+"""Tests for error handling and recovery scenarios."""
 
 import tempfile
 import time

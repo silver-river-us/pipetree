@@ -1,4 +1,4 @@
-"""Additional tests for coverage gaps in various modules."""
+"""Tests for edge cases in Context, Router, and file stores."""
 
 import tempfile
 from dataclasses import dataclass, field

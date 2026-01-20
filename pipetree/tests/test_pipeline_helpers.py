@@ -1,4 +1,4 @@
-"""Additional tests for pipeline.py coverage."""
+"""Tests for pipeline helper functions and run tracking."""
 
 from dataclasses import dataclass
 

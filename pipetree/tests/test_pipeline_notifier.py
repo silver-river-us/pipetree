@@ -1,4 +1,4 @@
-"""Tests for Pipeline notifier integration coverage."""
+"""Tests for Pipeline notifier integration and branch registration."""
 
 import tempfile
 from dataclasses import dataclass

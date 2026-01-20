@@ -1,4 +1,4 @@
-"""Tests for DSL builder coverage."""
+"""Tests for DSL routing and branch target handling."""
 
 from dataclasses import dataclass
 

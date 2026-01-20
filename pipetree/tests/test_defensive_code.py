@@ -1,4 +1,4 @@
-"""Tests for achieving 100% coverage on remaining files."""
+"""Tests for defensive code paths and edge cases."""
 
 import tempfile
 import time

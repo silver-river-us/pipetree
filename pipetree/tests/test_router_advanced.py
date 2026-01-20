@@ -1,4 +1,4 @@
-"""Tests for Router class coverage."""
+"""Tests for Router advanced features and notifier integration."""
 
 import tempfile
 from dataclasses import dataclass

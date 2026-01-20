@@ -1,4 +1,4 @@
-"""Tests for full benchmark coverage."""
+"""Tests for BenchRunner integration with BenchmarkStore."""
 
 import tempfile
 from pathlib import Path
