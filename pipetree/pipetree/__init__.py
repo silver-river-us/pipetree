@@ -55,6 +55,9 @@ from pipetree.infrastructure.progress import (
 # Infrastructure - Registry
 from pipetree.infrastructure.registry import Registry, global_registry, register
 
+# DSL - Clean pipeline definition syntax
+from pipetree.dsl import B, branch, pipeline, route, step
+
 __all__ = [
     # Types
     "Chunk",
@@ -95,4 +98,10 @@ __all__ = [
     "Fixture",
     "Metrics",
     "BenchRunner",
+    # DSL
+    "step",
+    "branch",
+    "route",
+    "pipeline",
+    "B",
 ]
