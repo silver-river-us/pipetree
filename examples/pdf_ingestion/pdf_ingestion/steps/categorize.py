@@ -2,7 +2,7 @@
 
 import re
 
-from pipetree import Step
+from pipetree import Step, step
 from pipetree.types import Context
 
 # Pre-compile combined regex patterns for efficiency (single scan instead of 25)
@@ -41,14 +41,55 @@ _PARTS_PATTERN = re.compile(
     r")\b"
 )
 
+# Pattern for mechanical vs electrical parts detection
+_MECHANICAL_KEYWORDS = frozenset(
+    [
+        "gear",
+        "bearing",
+        "shaft",
+        "housing",
+        "bolt",
+        "nut",
+        "washer",
+        "spring",
+        "seal",
+        "gasket",
+        "bushing",
+        "coupling",
+        "bracket",
+    ]
+)
 
-class CategorizeStep(Step):
+_ELECTRICAL_KEYWORDS = frozenset(
+    [
+        "wire",
+        "cable",
+        "connector",
+        "circuit",
+        "relay",
+        "fuse",
+        "switch",
+        "terminal",
+        "harness",
+        "sensor",
+        "motor",
+        "solenoid",
+    ]
+)
+
+
+@step(requires={"texts"}, provides={"category", "parts_type"})
+class Categorize(Step):
     """
     Analyzes extracted text to categorize the document.
 
     Categories:
     - "ops": Operations/procedures manual (how to do things)
     - "parts": Parts catalog/list (what parts exist)
+
+    For parts documents, also determines parts_type:
+    - "mechanical": Mechanical parts (gears, bearings, housings)
+    - "electrical": Electrical parts (wiring, connectors, circuits)
     """
 
     def run(self, ctx: Context) -> Context:
@@ -64,8 +105,16 @@ class CategorizeStep(Step):
 
         # Determine category based on scores
         category = "parts" if parts_score > ops_score else "ops"
-
         ctx.category = category  # type: ignore
+
+        # For parts documents, also determine parts type (mechanical vs electrical)
+        mechanical_count = sum(1 for word in _MECHANICAL_KEYWORDS if word in full_text)
+        electrical_count = sum(1 for word in _ELECTRICAL_KEYWORDS if word in full_text)
+        parts_type = (
+            "mechanical" if mechanical_count >= electrical_count else "electrical"
+        )
+        ctx.parts_type = parts_type  # type: ignore
+
         ctx.report_progress(2, 2, f"Categorized as: {category}")
 
         print(f"Document categorized as: {category.upper()}")

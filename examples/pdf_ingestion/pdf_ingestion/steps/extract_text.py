@@ -21,7 +21,7 @@ import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
-from pipetree import Step
+from pipetree import Step, step
 
 from ..context import PdfContext
 
@@ -66,7 +66,8 @@ def _make_chunks(total: int, num_chunks: int) -> list[tuple[int, int]]:
     return chunks
 
 
-class ExtractTextStep(Step):
+@step(requires={"pdf"}, provides={"texts"})
+class ExtractText(Step):
     """Extract text from PDF pages using PyMuPDF with chunked parallel processing.
 
     Workers write directly to temp files to avoid IPC serialization overhead.

@@ -1,25 +1,19 @@
 """Pipeline steps for PDF ingestion."""
 
-from .categorize import CategorizeStep
-from .category_router import CategoryRouter
-from .extract_text import ExtractTextStep
-from .load_pdf import LoadPdfStep
-from .parts_type_router import PartsTypeRouter
-from .process_electrical import ProcessElectricalStep
-from .process_mechanical import ProcessMechanicalStep
-from .process_ops import ProcessOpsStep
-from .process_parts import ProcessPartsStep
-from .save_text import SaveTextStep
+from .categorize import Categorize
+from .extract_text import ExtractText
+from .load_pdf import LoadPdf
+from .process_electrical import ProcessElectrical
+from .process_mechanical import ProcessMechanical
+from .process_ops import ProcessOps
+from .save_text import SaveText
 
 __all__ = [
-    "CategorizeStep",
-    "CategoryRouter",
-    "ExtractTextStep",
-    "LoadPdfStep",
-    "PartsTypeRouter",
-    "ProcessElectricalStep",
-    "ProcessMechanicalStep",
-    "ProcessOpsStep",
-    "ProcessPartsStep",
-    "SaveTextStep",
+    "Categorize",
+    "ExtractText",
+    "LoadPdf",
+    "ProcessElectrical",
+    "ProcessMechanical",
+    "ProcessOps",
+    "SaveText",
 ]

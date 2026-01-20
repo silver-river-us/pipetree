@@ -2,34 +2,14 @@
 
 import asyncio
 import random
-from typing import ClassVar
 
-from pipetree import Router, Step
+from pipetree import Step, step
 
 from ..context import StressTestContext
 
 
-class QualityRouter(Router):
-    """Route based on quality score."""
-
-    # Declare which context attributes each branch provides
-    branch_outputs: ClassVar[dict[str, list[str]]] = {
-        "high": ["branch_a_result"],
-        "medium": ["branch_b_result"],
-        "low": ["branch_c_result"],
-    }
-
-    def pick(self, ctx: StressTestContext) -> str:
-        """Select branch based on quality score."""
-        if ctx.quality_score >= 0.9:
-            return "high"
-        elif ctx.quality_score >= 0.8:
-            return "medium"
-        else:
-            return "low"
-
-
-class ProcessHighQualityStep(Step):
+@step(requires={"quality_score"}, provides={"branch_a_result"})
+class ProcessHighQuality(Step):
     """Process high quality results."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -49,7 +29,8 @@ class ProcessHighQualityStep(Step):
         return ctx
 
 
-class ProcessMediumQualityStep(Step):
+@step(requires={"quality_score"}, provides={"branch_b_result"})
+class ProcessMediumQuality(Step):
     """Process medium quality results."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:
@@ -69,7 +50,8 @@ class ProcessMediumQualityStep(Step):
         return ctx
 
 
-class ProcessLowQualityStep(Step):
+@step(requires={"quality_score"}, provides={"branch_c_result"})
+class ProcessLowQuality(Step):
     """Process low quality results with extra validation."""
 
     async def run(self, ctx: StressTestContext) -> StressTestContext:

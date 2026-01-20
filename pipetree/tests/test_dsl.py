@@ -189,13 +189,17 @@ class TestPipelineBuilder:
         a = B("a")
         b = B("b")
 
-        p = pipeline("Test", [
-            Categorize,
-            category >> [
-                a >> ProcessA,
-                b >> ProcessB,
+        p = pipeline(
+            "Test",
+            [
+                Categorize,
+                category
+                >> [
+                    a >> ProcessA,
+                    b >> ProcessB,
+                ],
             ],
-        ])
+        )
 
         ctx = DSLTestContext()
         result = await p.run(ctx)
@@ -237,16 +241,22 @@ class TestPipelineBuilder:
         mechanical = B("mechanical")
         electrical = B("electrical")
 
-        p = pipeline("Test", [
-            Setup,
-            category >> [
-                ops >> ProcessOps,
-                parts >> parts_type >> [
-                    mechanical >> ProcessMechanical,
-                    electrical >> ProcessElectrical,
+        p = pipeline(
+            "Test",
+            [
+                Setup,
+                category
+                >> [
+                    ops >> ProcessOps,
+                    parts
+                    >> parts_type
+                    >> [
+                        mechanical >> ProcessMechanical,
+                        electrical >> ProcessElectrical,
+                    ],
                 ],
             ],
-        ])
+        )
 
         ctx = DSLTestContext()
         result = await p.run(ctx)
@@ -303,16 +313,20 @@ class TestDSLReadability:
         ops = B("ops")
         parts = B("parts")
 
-        p = pipeline("PDF Pipeline", [
-            LoadPdf,
-            ExtractText,
-            Categorize,
-            category >> [
-                ops >> ProcessOps,
-                parts >> ProcessParts,
+        p = pipeline(
+            "PDF Pipeline",
+            [
+                LoadPdf,
+                ExtractText,
+                Categorize,
+                category
+                >> [
+                    ops >> ProcessOps,
+                    parts >> ProcessParts,
+                ],
+                SaveText,
             ],
-            SaveText,
-        ])
+        )
 
         # Verify structure
         assert p.name == "PDF Pipeline"

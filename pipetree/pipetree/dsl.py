@@ -72,13 +72,11 @@ def step(
         # Derive name from class name if not provided
         cap_name = name or _to_snake_case(cls.__name__)
 
-        # Store capability info on the class
-        cls._dsl_capability = Capability(
-            name=cap_name,
-            requires=requires or set(),
-            provides=provides or set(),
+        # Store capability info on the class (dynamic attributes for decorator pattern)
+        cls._dsl_capability = Capability(  # type: ignore[attr-defined]
+            name=cap_name, requires=requires or set(), provides=provides or set()
         )
-        cls._dsl_name = cap_name
+        cls._dsl_name = cap_name  # type: ignore[attr-defined]
 
         return cls
 
@@ -97,7 +95,7 @@ def branch(branch_key: str) -> Any:
     """
 
     def decorator(cls: T) -> T:
-        cls._dsl_branch = branch_key
+        cls._dsl_branch = branch_key  # type: ignore[attr-defined]
         return cls
 
     return decorator
@@ -170,7 +168,9 @@ class RouteMarker:
     branches: list[Any] = field(default_factory=list)
     default: str | None = None
 
-    def __rshift__(self, branches: list[Any] | BranchTarget) -> RouteMarker | BranchTarget:
+    def __rshift__(
+        self, branches: list[Any] | BranchTarget
+    ) -> RouteMarker | BranchTarget:
         """
         Allow:
             category >> [step1, step2]
@@ -277,7 +277,7 @@ def _instantiate_step(step_or_class: Any) -> Step:
                 "or be instantiated with a Capability"
             )
 
-        return step_or_class(cap=cap, name=name)
+        return step_or_class(cap=cap, name=name or cap.name)
 
     raise TypeError(
         f"Expected Step class or instance, got {type(step_or_class).__name__}"
@@ -354,16 +354,16 @@ def _build_router(marker: RouteMarker) -> Router:
         else:
             # Regular step - get branch key from @branch decorator
             step = _instantiate_step(branch_item)
-            branch_key = _get_branch_key(branch_item)
+            inferred_branch_key = _get_branch_key(branch_item)
 
-            if branch_key is None:
+            if inferred_branch_key is None:
                 raise ValueError(
                     f"Step {step.name} used in route({marker.key!r}) must have "
                     f"@branch decorator to specify which branch it handles"
                 )
 
-            table[branch_key] = step
-            branch_outputs[branch_key] = list(step.cap.provides)
+            table[inferred_branch_key] = step
+            branch_outputs[inferred_branch_key] = list(step.cap.provides)
 
     # Build capability for the router
     # Requires: the routing key + union of all branch requires
@@ -371,13 +371,15 @@ def _build_router(marker: RouteMarker) -> Router:
     all_requires: set[str] = {marker.key}
     all_provides: set[str] = set()
 
-    for branch_key, target in table.items():
-        if isinstance(target, Router):
+    for target in table.values():
+        if isinstance(target, (Step, Router)):
             all_requires.update(target.cap.requires)
             all_provides.update(target.cap.provides)
-        else:
-            all_requires.update(target.cap.requires)
-            all_provides.update(target.cap.provides)
+        elif isinstance(target, Pipetree):
+            # Pipetree has steps, get capability from first/last step
+            if target.steps:
+                all_requires.update(target.steps[0].cap.requires)
+                all_provides.update(target.steps[-1].cap.provides)
 
     router_cap = Capability(
         name=f"route_{marker.key}",
@@ -393,8 +395,7 @@ def _build_router(marker: RouteMarker) -> Router:
             value = getattr(ctx, self._route_key, None)
             if value is None:
                 raise ValueError(
-                    f"Context attribute {self._route_key!r} is not set. "
-                    f"Cannot route."
+                    f"Context attribute {self._route_key!r} is not set. Cannot route."
                 )
             return str(value)
 

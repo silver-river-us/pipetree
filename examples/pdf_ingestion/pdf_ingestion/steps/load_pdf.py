@@ -1,12 +1,13 @@
 """Load PDF step - lightweight metadata extraction."""
 
 import fitz  # PyMuPDF - faster and more memory-efficient than pypdf
-from pipetree import Step
+from pipetree import Step, step
 
 from ..context import PdfContext
 
 
-class LoadPdfStep(Step):
+@step(requires={"path", "output_path"}, provides={"pdf", "total_pages"})
+class LoadPdf(Step):
     """Load PDF metadata without keeping the document in memory."""
 
     def run(self, ctx: PdfContext) -> PdfContext:  # type: ignore[override]

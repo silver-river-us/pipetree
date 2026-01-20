@@ -2,11 +2,12 @@
 
 import re
 
-from pipetree import Step
+from pipetree import Step, step
 from pipetree.types import Context
 
 
-class ProcessOpsStep(Step):
+@step(requires={"texts", "category"}, provides={"processed_ops"})
+class ProcessOps(Step):
     """
     Processes operations/procedures manuals.
 

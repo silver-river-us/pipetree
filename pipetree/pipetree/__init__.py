@@ -30,6 +30,9 @@ from pipetree.domain.types import (
     VecRecord,
 )
 
+# DSL - Clean pipeline definition syntax
+from pipetree.dsl import B, branch, pipeline, route, step
+
 # Infrastructure - Checkpoint
 from pipetree.infrastructure.checkpoint import (
     CheckpointStore,
@@ -54,9 +57,6 @@ from pipetree.infrastructure.progress import (
 
 # Infrastructure - Registry
 from pipetree.infrastructure.registry import Registry, global_registry, register
-
-# DSL - Clean pipeline definition syntax
-from pipetree.dsl import B, branch, pipeline, route, step
 
 __all__ = [
     # Types
