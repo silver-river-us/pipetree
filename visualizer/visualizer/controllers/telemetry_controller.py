@@ -439,3 +439,82 @@ class TelemetryController:
                 "steps": steps_data,
             }
         }
+
+    @classmethod
+    def compare_runs(
+        cls, run1_id: str, db1_path: Path, run2_id: str, db2_path: Path
+    ) -> dict[str, Any]:
+        """Compare telemetry between two runs."""
+
+        def get_run_data(run_id: str, db_path: Path) -> dict | None:
+            if not db_path.exists():
+                return None
+            try:
+                with get_session(db_path) as session:
+                    run_stmt = select(Run).where(Run.id == run_id)
+                    run = session.exec(run_stmt).first()
+
+                    if not run:
+                        return None
+
+                    steps_stmt = (
+                        select(Step).where(Step.run_id == run_id).order_by(Step.step_index)
+                    )
+                    steps = session.exec(steps_stmt).all()
+
+                    steps_data = []
+                    for step in steps:
+                        steps_data.append(
+                            {
+                                "name": step.name,
+                                "step_index": step.step_index,
+                                "status": step.status,
+                                "duration_s": step.duration_s,
+                                "cpu_time_s": step.cpu_time_s,
+                                "peak_mem_mb": step.peak_mem_mb,
+                            }
+                        )
+
+                    return {
+                        "id": run.id,
+                        "name": run.name,
+                        "status": run.status,
+                        "started_at": run.started_at,
+                        "completed_at": run.completed_at,
+                        "total_steps": run.total_steps,
+                        "duration_s": (
+                            run.completed_at - run.started_at
+                            if run.completed_at and run.started_at
+                            else None
+                        ),
+                        "steps": steps_data,
+                        "db_path": str(db_path),
+                    }
+            except Exception:
+                return None
+
+        run1_data = get_run_data(run1_id, db1_path)
+        run2_data = get_run_data(run2_id, db2_path)
+
+        # Sort runs chronologically: run1 = earlier (older), run2 = later (newer/latest)
+        if run1_data and run2_data:
+            t1 = run1_data.get("started_at")
+            t2 = run2_data.get("started_at")
+            # Convert to float for comparison (handles None, int, float, datetime)
+            t1_val = float(t1) if t1 is not None else 0
+            t2_val = float(t2) if t2 is not None else 0
+            # If run1 is newer than run2, swap so run1 is always the older/earlier one
+            if t1_val > t2_val:
+                run1_data, run2_data = run2_data, run1_data
+                db1_path, db2_path = db2_path, db1_path
+
+        return {
+            "template": "compare.html",
+            "locals": {
+                "run1": run1_data,
+                "run2": run2_data,
+                "db1_path": str(db1_path),
+                "db2_path": str(db2_path),
+                "cpu_count": os.cpu_count() or 1,
+            },
+        }

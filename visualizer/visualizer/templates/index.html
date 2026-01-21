@@ -10,6 +10,18 @@
             <h1 class="text-2xl font-bold text-gray-900">Runs</h1>
             <p class="text-gray-600 text-sm">{{ total_count }} total runs</p>
         </div>
+        <div id="compare-section" class="flex items-center gap-3">
+            <span id="selection-info" class="text-sm text-gray-500 hidden"></span>
+            <button id="compare-btn"
+                    onclick="compareRuns()"
+                    disabled
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                Compare
+            </button>
+        </div>
     </div>
 
     <!-- Filters -->
@@ -70,6 +82,76 @@
 </div>
 
 <script>
+// Run comparison logic
+let selectedRuns = [];
+
+function updateCompareButton() {
+    const checkboxes = document.querySelectorAll('.run-checkbox:checked');
+    selectedRuns = Array.from(checkboxes).map(cb => ({
+        id: cb.dataset.runId,
+        pipeline: cb.dataset.pipeline,
+        dbPath: cb.dataset.dbPath
+    }));
+
+    const btn = document.getElementById('compare-btn');
+    const info = document.getElementById('selection-info');
+
+    if (selectedRuns.length === 0) {
+        btn.disabled = true;
+        info.classList.add('hidden');
+        info.textContent = '';
+    } else if (selectedRuns.length === 1) {
+        btn.disabled = true;
+        info.classList.remove('hidden');
+        info.textContent = '1 run selected (select 2 to compare)';
+    } else if (selectedRuns.length === 2) {
+        const samePipeline = selectedRuns[0].pipeline === selectedRuns[1].pipeline;
+        if (samePipeline) {
+            btn.disabled = false;
+            info.classList.remove('hidden');
+            info.textContent = '2 runs selected';
+        } else {
+            btn.disabled = true;
+            info.classList.remove('hidden');
+            info.textContent = 'Runs must be from the same pipeline';
+            info.classList.add('text-red-500');
+            info.classList.remove('text-gray-500');
+        }
+    } else {
+        btn.disabled = true;
+        info.classList.remove('hidden');
+        info.textContent = `${selectedRuns.length} selected (select exactly 2)`;
+    }
+
+    // Reset text color
+    if (selectedRuns.length !== 2 || selectedRuns[0].pipeline === selectedRuns[1].pipeline) {
+        info.classList.remove('text-red-500');
+        info.classList.add('text-gray-500');
+    }
+}
+
+function compareRuns() {
+    if (selectedRuns.length !== 2) return;
+    if (selectedRuns[0].pipeline !== selectedRuns[1].pipeline) return;
+
+    const run1 = selectedRuns[0];
+    const run2 = selectedRuns[1];
+    const url = `/compare?run1=${run1.id}&db1=${encodeURIComponent(run1.dbPath)}&run2=${run2.id}&db2=${encodeURIComponent(run2.dbPath)}`;
+    window.location.href = url;
+}
+
+// Preserve checkbox state after HTMX refresh
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'runs-list') {
+        // Re-check previously selected runs
+        selectedRuns.forEach(run => {
+            const checkbox = document.querySelector(`.run-checkbox[data-run-id="${run.id}"]`);
+            if (checkbox) checkbox.checked = true;
+        });
+        updateCompareButton();
+    }
+});
+
 // Auto-submit filters on change (reset to page 1)
 function applyFilters() {
     const form = document.getElementById('filter-form');
