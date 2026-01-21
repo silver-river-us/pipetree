@@ -122,7 +122,7 @@ class Pipetree:
     def _register_branches(self) -> None:
         """Auto-detect and register branches from Router steps."""
         if self._notifier is None or not hasattr(self._notifier, "register_branch"):
-            return
+            return  # pragma: no cover (defensive - all current notifiers with register_run also have register_branch)
 
         # Local reference for type narrowing in nested function
         notifier = self._notifier

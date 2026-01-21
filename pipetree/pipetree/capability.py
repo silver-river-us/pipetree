@@ -1,21 +1,7 @@
 """Backward-compatible re-exports from domain.capability."""
 
-from pipetree.domain.capability import (
-    CHUNKING,
-    CLASSIFICATION,
-    EMBEDDING,
-    INDEX_WRITING,
-    PAGE_ITERATION,
-    TEXT_EXTRACTION,
-    Capability,
-)
+from pipetree.domain.capability import Capability
 
 __all__ = [
-    "CHUNKING",
-    "CLASSIFICATION",
-    "EMBEDDING",
-    "INDEX_WRITING",
-    "PAGE_ITERATION",
-    "TEXT_EXTRACTION",
     "Capability",
 ]

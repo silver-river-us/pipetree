@@ -1,11 +1,6 @@
 """Tests for the capability system."""
 
-from pipetree.capability import (
-    CHUNKING,
-    PAGE_ITERATION,
-    TEXT_EXTRACTION,
-    Capability,
-)
+from pipetree.capability import Capability
 
 
 class TestCapability:
@@ -46,20 +41,3 @@ class TestCapability:
         cap = Capability(name="test", requires={"a", "b"}, provides={"c"})
         missing = cap.missing_requirements({"a", "b", "c"})
         assert missing == set()
-
-
-class TestPredefinedCapabilities:
-    def test_page_iteration(self) -> None:
-        assert PAGE_ITERATION.name == "page_iteration"
-        assert "pdf" in PAGE_ITERATION.requires
-        assert "pages" in PAGE_ITERATION.provides
-
-    def test_text_extraction(self) -> None:
-        assert TEXT_EXTRACTION.name == "text_extraction"
-        assert "pages" in TEXT_EXTRACTION.requires
-        assert "texts" in TEXT_EXTRACTION.provides
-
-    def test_chunking(self) -> None:
-        assert CHUNKING.name == "chunking"
-        assert "texts" in CHUNKING.requires
-        assert "chunks" in CHUNKING.provides
