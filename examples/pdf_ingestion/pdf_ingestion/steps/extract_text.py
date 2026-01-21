@@ -1,38 +1,24 @@
-"""Extract text step using PyMuPDF with parallel processing.
+"""Extract text step using pdfplumber with parallel processing.
 
-PyMuPDF (fitz) was selected based on benchmarks:
-- pymupdf:    1.37s  (winner)
-- pypdf:      20.39s (15x slower)
-- pdfplumber: 100.49s (73x slower)
+pdfplumber is built on pdfminer and provides excellent text extraction,
+especially for documents with tables and complex layouts.
 
 Performance: Uses ProcessPoolExecutor for true parallelism.
-Workers write to temp files to minimize IPC overhead.
-
-Memory optimization: Streams extracted text to disk instead of accumulating
-in memory, reducing peak memory usage from O(total_text) to O(chunk_size).
 """
 
 import contextlib
 import os
 import tempfile
 import time
-import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
-# Suppress GIL warnings from PyMuPDF
-warnings.filterwarnings("ignore", message=".*global interpreter lock.*")
-import fitz  # noqa: E402, I001
+import pdfplumber
+from pipetree import Step, step
 
-from pipetree import Step, step  # noqa: E402
+from ..context import PdfContext
 
-from ..context import PdfContext  # noqa: E402
-
-# Use default text flags (fastest for plain text extraction)
-_TEXT_FLAGS = fitz.TEXTFLAGS_TEXT
-
-# Optimal worker count - 8 workers balances parallelism vs PDF open overhead
-# Benchmarked: 8 workers (1.54s) beats 9 (1.73s), 10 (1.62s), 11 (1.87s)
+# Optimal worker count
 _MAX_WORKERS = 8
 
 
@@ -43,21 +29,20 @@ def _extract_pages_to_file(
     output_path: str,
 ) -> int:
     """Extract text from a range of pages and write to temp file."""
-    doc = fitz.open(pdf_path)
-    try:
-        with open(output_path, "w", encoding="utf-8") as f:
-            for i in range(start, end):
-                text = doc[i].get_text(flags=_TEXT_FLAGS) or ""
-                f.write(f"{i}\t{len(text)}\n")
-                f.write(text)
-        return end - start
-    finally:
-        doc.close()
+    with (
+        pdfplumber.open(pdf_path) as pdf,
+        open(output_path, "w", encoding="utf-8") as f,
+    ):
+        for i in range(start, end):
+            text = pdf.pages[i].extract_text() or ""
+            f.write(f"{i}\t{len(text)}\n")
+            f.write(text)
+    return end - start
 
 
 @step(requires={"pdf"}, provides={"texts"})
 class ExtractText(Step):
-    """Extract text from PDF pages using PyMuPDF with parallel processing."""
+    """Extract text from PDF pages using pdfplumber with parallel processing."""
 
     def run(self, ctx: PdfContext) -> PdfContext:  # type: ignore[override]
         if not ctx.pdf:
