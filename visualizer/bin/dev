@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "=== Pipetree Visualizer ==="
-echo "URL: http://localhost:8000"
+echo "URL: http://localhost:8001"
 echo ""
 
 pipenv run python -m visualizer.app

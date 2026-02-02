@@ -1,6 +1,6 @@
 """Load PDF step - lightweight metadata extraction."""
 
-import pdfplumber
+import fitz  # PyMuPDF
 from pipetree import Step, step
 
 from ..context import PdfContext
@@ -13,8 +13,8 @@ class LoadPdf(Step):
     def run(self, ctx: PdfContext) -> PdfContext:  # type: ignore[override]
         print(f"Loading PDF from: {ctx.path}")
 
-        with pdfplumber.open(ctx.path) as pdf:
-            ctx.total_pages = len(pdf.pages)
+        with fitz.open(ctx.path) as doc:
+            ctx.total_pages = doc.page_count
 
         ctx.pdf = True  # type: ignore[assignment]  # Mark as "loaded" for capability check
 

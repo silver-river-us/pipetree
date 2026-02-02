@@ -13,7 +13,7 @@ authors = [
 ]
 dependencies = [
     "pipetree",
-    "pdfplumber>=0.10.0",
+    "pymupdf>=1.24.0",
     "sqlmodel>=0.0.16",
 ]
 

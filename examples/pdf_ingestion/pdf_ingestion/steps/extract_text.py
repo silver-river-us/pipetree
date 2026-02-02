@@ -1,22 +1,28 @@
-"""Extract text step using pdfplumber with parallel processing.
+"""Extract text step using PyMuPDF with parallel processing.
 
-pdfplumber is built on pdfminer and provides excellent text extraction,
-especially for documents with tables and complex layouts.
+PyMuPDF (fitz) is a fast C-based PDF library with excellent text extraction.
 
 Performance: Uses ProcessPoolExecutor for true parallelism.
+Workers write to temp files to minimize IPC overhead.
 """
 
 import contextlib
 import os
 import tempfile
 import time
+import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
-import pdfplumber
-from pipetree import Step, step
+# Suppress GIL warnings from PyMuPDF
+warnings.filterwarnings("ignore", message=".*global interpreter lock.*")
+import fitz  # noqa: E402
+from pipetree import Step, step  # noqa: E402
 
-from ..context import PdfContext
+from ..context import PdfContext  # noqa: E402
+
+# Use default text flags (fastest for plain text extraction)
+_TEXT_FLAGS = fitz.TEXTFLAGS_TEXT
 
 # Optimal worker count
 _MAX_WORKERS = 8
@@ -29,20 +35,21 @@ def _extract_pages_to_file(
     output_path: str,
 ) -> int:
     """Extract text from a range of pages and write to temp file."""
-    with (
-        pdfplumber.open(pdf_path) as pdf,
-        open(output_path, "w", encoding="utf-8") as f,
-    ):
-        for i in range(start, end):
-            text = pdf.pages[i].extract_text() or ""
-            f.write(f"{i}\t{len(text)}\n")
-            f.write(text)
-    return end - start
+    doc = fitz.open(pdf_path)
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            for i in range(start, end):
+                text = doc[i].get_text(flags=_TEXT_FLAGS) or ""
+                f.write(f"{i}\t{len(text)}\n")
+                f.write(text)
+        return end - start
+    finally:
+        doc.close()
 
 
 @step(requires={"pdf"}, provides={"texts"})
 class ExtractText(Step):
-    """Extract text from PDF pages using pdfplumber with parallel processing."""
+    """Extract text from PDF pages using PyMuPDF with parallel processing."""
 
     def run(self, ctx: PdfContext) -> PdfContext:  # type: ignore[override]
         if not ctx.pdf:
