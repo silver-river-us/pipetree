@@ -306,9 +306,7 @@ def register_routes(
         db2: str = Query(...),
     ):
         """Compare telemetry between two runs."""
-        response = TelemetryController.compare_runs(
-            run1, Path(db1), run2, Path(db2)
-        )
+        response = TelemetryController.compare_runs(run1, Path(db1), run2, Path(db2))
         response["locals"].update(get_template_context(Path(db1)))
         return render_controller(request, templates, response)
 

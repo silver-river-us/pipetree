@@ -458,7 +458,9 @@ class TelemetryController:
                         return None
 
                     steps_stmt = (
-                        select(Step).where(Step.run_id == run_id).order_by(Step.step_index)
+                        select(Step)
+                        .where(Step.run_id == run_id)
+                        .order_by(Step.step_index)
                     )
                     steps = session.exec(steps_stmt).all()
 

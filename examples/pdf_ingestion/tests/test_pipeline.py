@@ -1,49 +1,54 @@
 """Tests for the PDF ingestion pipeline."""
 
-from pdf_ingestion.capabilities import (
-    CATEGORIZE,
-    LOAD_PDF,
-    PROCESS_ELECTRICAL,
-    PROCESS_MECHANICAL,
-    PROCESS_OPS,
-    ROUTE_BY_CATEGORY,
-    ROUTE_PARTS_TYPE,
-    SAVE_TEXT,
-    TEXT_EXTRACTION,
-)
 from pdf_ingestion.main import create_pipeline
+from pdf_ingestion.steps import (
+    Categorize,
+    ExtractText,
+    LoadPdf,
+    ProcessElectrical,
+    ProcessMechanical,
+    ProcessOps,
+    SaveText,
+)
 
 
 class TestCapabilities:
     """Tests for capability definitions."""
 
     def test_load_pdf_capability(self) -> None:
-        assert LOAD_PDF.name == "load_pdf"
-        assert "path" in LOAD_PDF.requires
-        assert "pdf" in LOAD_PDF.provides
+        cap = LoadPdf._dsl_capability
+        assert cap.name == "load_pdf"
+        assert "path" in cap.requires
+        assert "pdf" in cap.provides
 
     def test_text_extraction_capability(self) -> None:
-        assert TEXT_EXTRACTION.name == "text_extraction"
-        assert "pdf" in TEXT_EXTRACTION.requires
-        assert "texts" in TEXT_EXTRACTION.provides
+        cap = ExtractText._dsl_capability
+        assert cap.name == "extract_text"
+        assert "pdf" in cap.requires
+        assert "texts" in cap.provides
 
     def test_categorize_capability(self) -> None:
-        assert CATEGORIZE.name == "categorize"
-        assert "texts" in CATEGORIZE.requires
-        assert "category" in CATEGORIZE.provides
+        cap = Categorize._dsl_capability
+        assert cap.name == "categorize"
+        assert "texts" in cap.requires
+        assert "category" in cap.provides
 
-    def test_router_capabilities(self) -> None:
-        assert ROUTE_BY_CATEGORY.name == "process_document"
-        assert ROUTE_PARTS_TYPE.name == "route_parts_type"
+    def test_process_ops_capability(self) -> None:
+        cap = ProcessOps._dsl_capability
+        assert cap.name == "process_ops"
 
-    def test_process_capabilities(self) -> None:
-        assert PROCESS_OPS.name == "process_ops"
-        assert PROCESS_MECHANICAL.name == "process_mechanical"
-        assert PROCESS_ELECTRICAL.name == "process_electrical"
+    def test_process_mechanical_capability(self) -> None:
+        cap = ProcessMechanical._dsl_capability
+        assert cap.name == "process_mechanical"
+
+    def test_process_electrical_capability(self) -> None:
+        cap = ProcessElectrical._dsl_capability
+        assert cap.name == "process_electrical"
 
     def test_save_text_capability(self) -> None:
-        assert SAVE_TEXT.name == "save_text"
-        assert "texts" in SAVE_TEXT.requires
+        cap = SaveText._dsl_capability
+        assert cap.name == "save_text"
+        assert "texts" in cap.requires
 
 
 class TestPipelineCreation:
