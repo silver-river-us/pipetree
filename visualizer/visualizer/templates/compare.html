@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Runs - Pipetree Visualizer{% endblock %}
+
+{% block head %}
+<!-- ApexCharts -->
+<script src="/static/vendor/js/apexcharts.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-screen-2xl mx-auto">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-4" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-2">
+            <li class="inline-flex items-center">
+                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    Runs
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="ml-1 text-sm font-medium text-gray-500 md:ml-1.5">Compare</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    {% if run1 and run2 %}
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center gap-3">
+            <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <h1 class="text-2xl font-bold text-gray-900">Compare Runs</h1>
+        </div>
+        <p class="text-gray-600 mt-1">Pipeline: <span class="font-medium">{{ run1.name }}</span></p>
+    </div>
+
+    <!-- Run Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Earlier Run Card -->
+        <div class="bg-white border border-blue-200 shadow-sm p-4 rounded-lg">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-blue-600 rounded">Earlier</span>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ run1.name }}</h3>
+                </div>
+                {% set colors1 = get_status_color(run1.status) %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full {{ colors1.bg }} {{ colors1.text }}">
+                    {{ run1.status | capitalize }}
+                </span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                    <span class="text-gray-500">Run ID:</span>
+                    <span class="font-mono text-xs block">{{ run1.id[:8] }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Started:</span>
+                    <span class="font-medium block">{{ run1.started_at | format_timestamp if run1.started_at else '-' }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Duration:</span>
+                    <span class="font-medium block">{{ run1.duration_s | format_duration if run1.duration_s else '-' }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Steps:</span>
+                    <span class="font-medium block">{{ run1.steps | length }}</span>
+                </div>
+            </div>
+            <div class="mt-3 text-right">
+                <a href="/runs/{{ run1.id }}?db={{ db1_path }}" class="text-sm text-blue-600 hover:underline">View Run</a>
+            </div>
+        </div>
+
+        <!-- Later Run Card -->
+        <div class="bg-white border border-yellow-300 shadow-sm p-4 rounded-lg">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-gray-900 bg-yellow-400 rounded">Later</span>
+                    <h3 class="text-lg font-semibold text-gray-900">{{ run2.name }}</h3>
+                </div>
+                {% set colors2 = get_status_color(run2.status) %}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full {{ colors2.bg }} {{ colors2.text }}">
+                    {{ run2.status | capitalize }}
+                </span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                    <span class="text-gray-500">Run ID:</span>
+                    <span class="font-mono text-xs block">{{ run2.id[:8] }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Started:</span>
+                    <span class="font-medium block">{{ run2.started_at | format_timestamp if run2.started_at else '-' }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Duration:</span>
+                    <span class="font-medium block">{{ run2.duration_s | format_duration if run2.duration_s else '-' }}</span>
+                </div>
+                <div>
+                    <span class="text-gray-500">Steps:</span>
+                    <span class="font-medium block">{{ run2.steps | length }}</span>
+                </div>
+            </div>
+            <div class="mt-3 text-right">
+                <a href="/runs/{{ run2.id }}?db={{ db2_path }}" class="text-sm text-yellow-600 hover:underline">View Run</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Comparison -->
+    <div class="bg-white border border-gray-200 shadow-sm p-4 mb-6 rounded-lg">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Summary Comparison</h3>
+        <div class="flex items-center gap-4 mb-3 text-xs">
+            <span class="flex items-center gap-1"><span class="w-3 h-3 bg-blue-500 rounded"></span> Earlier</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 bg-yellow-400 rounded"></span> Later</span>
+            <span class="flex items-center gap-1 ml-4"><span class="w-3 h-3 bg-green-500 rounded"></span> Improved</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 bg-orange-500 rounded"></span> Regressed</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-gray-50 p-4 border border-gray-200 rounded-lg">
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Total Duration</div>
+                <div class="flex items-center justify-between">
+                    <span class="text-lg font-bold text-blue-500">{{ run1.duration_s | format_duration if run1.duration_s else '-' }}</span>
+                    <span class="text-lg font-bold text-yellow-600">{{ run2.duration_s | format_duration if run2.duration_s else '-' }}</span>
+                </div>
+                {% if run1.duration_s and run2.duration_s %}
+                {% set diff = ((run2.duration_s - run1.duration_s) / run1.duration_s * 100) if run1.duration_s > 0 else 0 %}
+                <div class="text-xs mt-1 text-center {% if diff < 0 %}text-green-600{% elif diff > 0 %}text-orange-500{% else %}text-gray-500{% endif %}">
+                    {% if diff > 0 %}+{% endif %}{{ diff | round(1) }}%
+                </div>
+                {% endif %}
+            </div>
+            <div class="bg-gray-50 p-4 border border-gray-200 rounded-lg">
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Peak Memory</div>
+                <div class="flex items-center justify-between">
+                    <span class="text-lg font-bold text-blue-500" id="run1-memory">-</span>
+                    <span class="text-lg font-bold text-yellow-600" id="run2-memory">-</span>
+                </div>
+                <div class="text-xs mt-1 text-center text-gray-500" id="memory-diff"></div>
+            </div>
+            <div class="bg-gray-50 p-4 border border-gray-200 rounded-lg">
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">CPU Time</div>
+                <div class="flex items-center justify-between">
+                    <span class="text-lg font-bold text-blue-500" id="run1-cpu">-</span>
+                    <span class="text-lg font-bold text-yellow-600" id="run2-cpu">-</span>
+                </div>
+                <div class="text-xs mt-1 text-center text-gray-500" id="cpu-diff"></div>
+            </div>
+            <div class="bg-gray-50 p-4 border border-gray-200 rounded-lg">
+                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">CPU Utilization</div>
+                <div class="flex items-center justify-between">
+                    <span class="text-lg font-bold text-blue-500" id="run1-cpu-pct">-</span>
+                    <span class="text-lg font-bold text-yellow-600" id="run2-cpu-pct">-</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Duration Comparison -->
+        <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Step Duration Comparison</h3>
+            <div id="chart-duration-comparison" class="h-80"></div>
+        </div>
+
+        <!-- Memory Comparison -->
+        <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Step Memory Comparison</h3>
+            <div id="chart-memory-comparison" class="h-80"></div>
+        </div>
+
+        <!-- CPU Time Comparison -->
+        <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Step CPU Time Comparison</h3>
+            <div id="chart-cpu-comparison" class="h-80"></div>
+        </div>
+
+        <!-- Duration Difference -->
+        <div class="bg-white border border-gray-200 shadow-sm p-4 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Duration Change (Later - Earlier)</h3>
+            <p class="text-xs text-gray-500 -mt-2 mb-4">Green = improved (faster), Orange = regressed (slower)</p>
+            <div id="chart-duration-diff" class="h-80"></div>
+        </div>
+    </div>
+
+    <!-- Detailed Comparison Table -->
+    <div class="bg-white border border-gray-200 shadow-sm rounded-lg overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">Step-by-Step Comparison</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Step</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-blue-500 uppercase tracking-wider" colspan="3">Earlier ({{ run1.started_at | format_timestamp if run1.started_at else '-' }})</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-yellow-600 uppercase tracking-wider" colspan="3">Later ({{ run2.started_at | format_timestamp if run2.started_at else '-' }})</th>
+                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Diff</th>
+                    </tr>
+                    <tr class="bg-gray-100">
+                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500"></th>
+                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500">Duration</th>
+                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500">Memory</th>
+                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500">CPU</th>
+                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500">Duration</th>
+                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500">Memory</th>
+                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500">CPU</th>
+                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500"></th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="comparison-table-body">
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Runs not found -->
+    <div class="text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">Runs not found</h3>
+        <p class="mt-1 text-sm text-gray-500">One or both of the requested runs could not be found.</p>
+        <a href="/" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+            Back to Dashboard
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if run1 and run2 %}
+<script>
+const run1Data = {{ run1 | tojson | safe }};
+const run2Data = {{ run2 | tojson | safe }};
+const cpuCount = {{ cpu_count }};
+
+// Helper functions
+function formatDuration(seconds) {
+    if (seconds === null || seconds === undefined) return '-';
+    if (seconds < 0.001) return '<1ms';
+    if (seconds < 1) return (seconds * 1000).toFixed(0) + 'ms';
+    if (seconds < 60) return seconds.toFixed(2) + 's';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs.toFixed(0)}s`;
+}
+
+function formatMemory(mb) {
+    if (mb === null || mb === undefined) return '-';
+    if (mb < 1) return (mb * 1024).toFixed(0) + ' KB';
+    if (mb < 1024) return mb.toFixed(1) + ' MB';
+    return (mb / 1024).toFixed(2) + ' GB';
+}
+
+// Get unique step names (union of both runs)
+const stepNames = [...new Set([
+    ...run1Data.steps.map(s => s.name),
+    ...run2Data.steps.map(s => s.name)
+])];
+
+// Create step maps for easy lookup
+const run1Steps = {};
+run1Data.steps.forEach(s => run1Steps[s.name] = s);
+const run2Steps = {};
+run2Data.steps.forEach(s => run2Steps[s.name] = s);
+
+// Calculate totals
+let run1TotalMem = 0, run2TotalMem = 0;
+let run1TotalCpu = 0, run2TotalCpu = 0;
+
+run1Data.steps.forEach(s => {
+    if (s.peak_mem_mb) run1TotalMem = Math.max(run1TotalMem, s.peak_mem_mb);
+    if (s.cpu_time_s) run1TotalCpu += s.cpu_time_s;
+});
+run2Data.steps.forEach(s => {
+    if (s.peak_mem_mb) run2TotalMem = Math.max(run2TotalMem, s.peak_mem_mb);
+    if (s.cpu_time_s) run2TotalCpu += s.cpu_time_s;
+});
+
+// Update summary cards
+document.getElementById('run1-memory').textContent = formatMemory(run1TotalMem);
+document.getElementById('run2-memory').textContent = formatMemory(run2TotalMem);
+document.getElementById('run1-cpu').textContent = formatDuration(run1TotalCpu);
+document.getElementById('run2-cpu').textContent = formatDuration(run2TotalCpu);
+
+if (run1TotalMem > 0 && run2TotalMem > 0) {
+    const memDiff = ((run2TotalMem - run1TotalMem) / run1TotalMem * 100);
+    const memDiffEl = document.getElementById('memory-diff');
+    memDiffEl.textContent = (memDiff > 0 ? '+' : '') + memDiff.toFixed(1) + '%';
+    memDiffEl.classList.add(memDiff < 0 ? 'text-green-600' : memDiff > 0 ? 'text-orange-500' : 'text-gray-500');
+}
+
+if (run1TotalCpu > 0 && run2TotalCpu > 0) {
+    const cpuDiff = ((run2TotalCpu - run1TotalCpu) / run1TotalCpu * 100);
+    const cpuDiffEl = document.getElementById('cpu-diff');
+    cpuDiffEl.textContent = (cpuDiff > 0 ? '+' : '') + cpuDiff.toFixed(1) + '%';
+    cpuDiffEl.classList.add(cpuDiff < 0 ? 'text-green-600' : cpuDiff > 0 ? 'text-orange-500' : 'text-gray-500');
+}
+
+// CPU utilization
+if (run1Data.duration_s && run1TotalCpu) {
+    const pct1 = (run1TotalCpu / run1Data.duration_s * 100 / cpuCount);
+    document.getElementById('run1-cpu-pct').textContent = pct1.toFixed(1) + '%';
+}
+if (run2Data.duration_s && run2TotalCpu) {
+    const pct2 = (run2TotalCpu / run2Data.duration_s * 100 / cpuCount);
+    document.getElementById('run2-cpu-pct').textContent = pct2.toFixed(1) + '%';
+}
+
+// Build comparison table
+const tableBody = document.getElementById('comparison-table-body');
+stepNames.forEach(name => {
+    const s1 = run1Steps[name] || {};
+    const s2 = run2Steps[name] || {};
+
+    let diffClass = 'text-gray-500';
+    let diffText = '-';
+    if (s1.duration_s && s2.duration_s) {
+        const diff = ((s2.duration_s - s1.duration_s) / s1.duration_s * 100);
+        diffText = (diff > 0 ? '+' : '') + diff.toFixed(1) + '%';
+        diffClass = diff < 0 ? 'text-green-600' : diff > 0 ? 'text-orange-500' : 'text-gray-500';
+    }
+
+    const row = document.createElement('tr');
+    row.className = 'hover:bg-gray-50';
+    row.innerHTML = `
+        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${name}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-sm text-blue-500">${formatDuration(s1.duration_s)}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-sm text-blue-500">${formatMemory(s1.peak_mem_mb)}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-sm text-blue-500">${formatDuration(s1.cpu_time_s)}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-sm text-yellow-600">${formatDuration(s2.duration_s)}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-sm text-yellow-600">${formatMemory(s2.peak_mem_mb)}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-sm text-yellow-600">${formatDuration(s2.cpu_time_s)}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-sm font-medium ${diffClass}">${diffText}</td>
+    `;
+    tableBody.appendChild(row);
+});
+
+// Charts
+const chartOptions = {
+    chart: { toolbar: { show: false }, animations: { enabled: true } },
+    colors: ['#3b82f6', '#eab308'],  // Blue for Earlier, Yellow/Gold for Later
+    dataLabels: { enabled: false },
+    xaxis: { categories: stepNames },
+    legend: { position: 'top' },
+    tooltip: { shared: true, intersect: false }
+};
+
+// Duration comparison chart
+new ApexCharts(document.querySelector('#chart-duration-comparison'), {
+    ...chartOptions,
+    chart: { ...chartOptions.chart, type: 'bar', height: 320 },
+    series: [
+        { name: 'Earlier', data: stepNames.map(n => (run1Steps[n]?.duration_s || 0).toFixed(3)) },
+        { name: 'Later', data: stepNames.map(n => (run2Steps[n]?.duration_s || 0).toFixed(3)) }
+    ],
+    yaxis: { title: { text: 'Duration (s)' }, labels: { formatter: v => v.toFixed(2) + 's' } }
+}).render();
+
+// Memory comparison chart
+new ApexCharts(document.querySelector('#chart-memory-comparison'), {
+    ...chartOptions,
+    chart: { ...chartOptions.chart, type: 'bar', height: 320 },
+    series: [
+        { name: 'Earlier', data: stepNames.map(n => (run1Steps[n]?.peak_mem_mb || 0).toFixed(2)) },
+        { name: 'Later', data: stepNames.map(n => (run2Steps[n]?.peak_mem_mb || 0).toFixed(2)) }
+    ],
+    yaxis: { title: { text: 'Memory (MB)' }, labels: { formatter: v => v.toFixed(1) + ' MB' } }
+}).render();
+
+// CPU time comparison chart
+new ApexCharts(document.querySelector('#chart-cpu-comparison'), {
+    ...chartOptions,
+    chart: { ...chartOptions.chart, type: 'bar', height: 320 },
+    series: [
+        { name: 'Earlier', data: stepNames.map(n => (run1Steps[n]?.cpu_time_s || 0).toFixed(3)) },
+        { name: 'Later', data: stepNames.map(n => (run2Steps[n]?.cpu_time_s || 0).toFixed(3)) }
+    ],
+    yaxis: { title: { text: 'CPU Time (s)' }, labels: { formatter: v => v.toFixed(2) + 's' } }
+}).render();
+
+// Duration difference chart (Later - Earlier)
+const durationDiffs = stepNames.map(n => {
+    const d1 = run1Steps[n]?.duration_s || 0;
+    const d2 = run2Steps[n]?.duration_s || 0;
+    return (d2 - d1).toFixed(3);
+});
+
+new ApexCharts(document.querySelector('#chart-duration-diff'), {
+    ...chartOptions,
+    chart: { ...chartOptions.chart, type: 'bar', height: 320 },
+    colors: durationDiffs.map(d => parseFloat(d) >= 0 ? '#f97316' : '#22c55e'),
+    plotOptions: { bar: { distributed: true } },
+    series: [{ name: 'Difference', data: durationDiffs }],
+    yaxis: { title: { text: 'Difference (s)' }, labels: { formatter: v => (v >= 0 ? '+' : '') + parseFloat(v).toFixed(2) + 's' } },
+    legend: { show: false }
+}).render();
+</script>
+{% endif %}
+{% endblock %}

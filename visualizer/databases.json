@@ -1,12 +1,8 @@
 {
   "databases": [
     {
-      "name": "PDF Ingestion",
-      "path": "../examples/pdf_ingestion/db/progress.db"
-    },
-    {
-      "name": "Stress Test",
-      "path": "../examples/stress_test/db/progress.db"
+      "name": "CurrentPulse Energy",
+      "path": "../../current_works/current_pulse/api/infra/db/pipelines/energy.db"
     }
   ]
 }

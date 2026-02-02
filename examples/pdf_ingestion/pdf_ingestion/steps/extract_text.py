@@ -1,15 +1,9 @@
 """Extract text step using PyMuPDF with parallel processing.
 
-PyMuPDF (fitz) was selected based on benchmarks:
-- pymupdf:    1.37s  (winner)
-- pypdf:      20.39s (15x slower)
-- pdfplumber: 100.49s (73x slower)
+PyMuPDF (fitz) is a fast C-based PDF library with excellent text extraction.
 
 Performance: Uses ProcessPoolExecutor for true parallelism.
 Workers write to temp files to minimize IPC overhead.
-
-Memory optimization: Streams extracted text to disk instead of accumulating
-in memory, reducing peak memory usage from O(total_text) to O(chunk_size).
 """
 
 import contextlib
@@ -22,8 +16,7 @@ from pathlib import Path
 
 # Suppress GIL warnings from PyMuPDF
 warnings.filterwarnings("ignore", message=".*global interpreter lock.*")
-import fitz  # noqa: E402, I001
-
+import fitz  # noqa: E402
 from pipetree import Step, step  # noqa: E402
 
 from ..context import PdfContext  # noqa: E402
@@ -31,8 +24,7 @@ from ..context import PdfContext  # noqa: E402
 # Use default text flags (fastest for plain text extraction)
 _TEXT_FLAGS = fitz.TEXTFLAGS_TEXT
 
-# Optimal worker count - 8 workers balances parallelism vs PDF open overhead
-# Benchmarked: 8 workers (1.54s) beats 9 (1.73s), 10 (1.62s), 11 (1.87s)
+# Optimal worker count
 _MAX_WORKERS = 8
 
 

@@ -20,6 +20,30 @@ export function layoutHorizontal(mainSteps, branchesByParent, nodes, links, marg
     }
   });
 
+  // Handle linear pipelines (no branches)
+  if (routerIndex === -1) {
+    mainSteps.forEach((step, i) => {
+      const w = textWidth(step.name, step.duration_s, false);
+      nodes.push({ ...step, x, y: centerY - NODE_H / 2, w, h: NODE_H, isRouter: false });
+      if (i > 0) {
+        const prev = nodes[nodes.length - 2];
+        links.push({
+          type: "h",
+          x1: prev.x + prev.w,
+          y1: centerY,
+          x2: x,
+          y2: centerY,
+          active: prev.status === "completed",
+        });
+      }
+      x += w + H_GAP;
+    });
+    return {
+      maxWidth: x + margin,
+      maxHeight: centerY + NODE_H + margin,
+    };
+  }
+
   const preRouterSteps = mainSteps.slice(0, routerIndex + 1);
   const postRouterSteps = mainSteps.slice(routerIndex + 1);
 
@@ -219,6 +243,29 @@ export function layoutVertical(mainSteps, branchesByParent, nodes, links, margin
       routerIndex = i;
     }
   });
+
+  // Handle linear pipelines (no branches)
+  if (routerIndex === -1) {
+    const centerX = margin + 150;
+    mainSteps.forEach((step, i) => {
+      const w = textWidth(step.name, step.duration_s, false);
+      nodes.push({ ...step, x: centerX - w / 2, y, w, h: NODE_H, isRouter: false });
+      if (i > 0) {
+        const prev = nodes[nodes.length - 2];
+        links.push({
+          type: "v",
+          x1: centerX,
+          y1: prev.y + NODE_H,
+          x2: centerX,
+          y2: y,
+          active: prev.status === "completed",
+        });
+      }
+      maxWidth = Math.max(maxWidth, centerX + w / 2 + margin);
+      y += NODE_H + V_GAP;
+    });
+    return { maxWidth, maxHeight: y + margin, centerX };
+  }
 
   const preRouterSteps = mainSteps.slice(0, routerIndex + 1);
   const postRouterSteps = mainSteps.slice(routerIndex + 1);

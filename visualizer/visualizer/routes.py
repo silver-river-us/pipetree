@@ -295,6 +295,21 @@ def register_routes(
         response = TelemetryController.get_run_telemetry(run_id, Path(db))
         return JSONResponse(content=response["json"])
 
+    # --- Comparison ---
+
+    @app.get("/compare", response_class=HTMLResponse)
+    async def compare_runs(
+        request: Request,
+        run1: str = Query(...),
+        db1: str = Query(...),
+        run2: str = Query(...),
+        db2: str = Query(...),
+    ):
+        """Compare telemetry between two runs."""
+        response = TelemetryController.compare_runs(run1, Path(db1), run2, Path(db2))
+        response["locals"].update(get_template_context(Path(db1)))
+        return render_controller(request, templates, response)
+
     # --- Benchmarks ---
 
     @app.get("/benchmarks", response_class=HTMLResponse)
