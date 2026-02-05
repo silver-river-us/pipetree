@@ -4,6 +4,12 @@ from pipetree.infrastructure.progress.benchmark_store import BenchmarkStore
 from pipetree.infrastructure.progress.file_progress_notifier import (
     FileProgressNotifier,
 )
+try:
+    from pipetree.infrastructure.progress.http_progress_notifier import (
+        HTTPProgressNotifier,
+    )
+except ImportError:
+    HTTPProgressNotifier = None  # type: ignore[assignment,misc]
 from pipetree.infrastructure.progress.handler import (
     ConsoleProgressHandler,
     ProgressHandler,
@@ -35,6 +41,7 @@ __all__ = [
     "NullProgressNotifier",
     "InMemoryProgressNotifier",
     "FileProgressNotifier",
+    "HTTPProgressNotifier",
     "SQLiteProgressNotifier",
     "SQLiteProgressWatcher",
     "watch_progress",

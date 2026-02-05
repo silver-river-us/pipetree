@@ -35,6 +35,9 @@ dev = [
 pdf = [
     "pypdf>=4.0.0",
 ]
+http = [
+    "httpx>=0.26.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

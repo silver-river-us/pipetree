@@ -11,6 +11,7 @@ from pipetree.infrastructure.progress.models import Event, Run, Step, get_sessio
 from pydantic import BaseModel
 from sqlmodel import select
 
+from .api import router as ingest_router
 from .controllers import (
     BenchmarksController,
     RunsController,
@@ -93,6 +94,9 @@ def register_routes(
             "databases": databases,
             "current_db": str(db_path),
         }
+
+    # --- Ingest API (v1) ---
+    app.include_router(ingest_router)
 
     # --- Database Management API ---
 
