@@ -11,6 +11,9 @@ websockets = ">=12.0"
 python-multipart = ">=0.0.6"
 python-dotenv = "*"
 sqlmodel = "*"
+peewee = ">=3.17.0"
+peewee-migrate = ">=1.12.0"
+pyjwt = ">=2.8.0"
 pipetree = {path = "../pipetree", editable = true}
 
 [dev-packages]

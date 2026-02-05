@@ -10,9 +10,10 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from .lib import (
     format_duration,
@@ -20,6 +21,11 @@ from .lib import (
     get_status_color,
     organize_steps_with_branches,
 )
+from .controllers.admin_controller import router as admin_router
+from .controllers.admin_controller import set_templates as set_admin_templates
+from .controllers.login_controller import router as login_router
+from .controllers.login_controller import set_templates as set_login_templates
+from .infra.db import init_db, run_migrations
 from .routes import register_routes
 
 load_dotenv()
@@ -88,6 +94,22 @@ def remove_database(path: str) -> bool:
 # Create FastAPI app
 app = FastAPI(title="Pipetree Visualizer", version="1.0.0")
 
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        from .controllers.login_controller import get_current_user
+        request.state.user = get_current_user(request)
+        return await call_next(request)
+
+
+app.add_middleware(AuthMiddleware)
+
+
+@app.on_event("startup")
+def startup():
+    init_db()
+    run_migrations()
+
 # Templates
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
@@ -101,6 +123,12 @@ templates.env.globals["organize_steps_with_branches"] = organize_steps_with_bran
 app.mount(
     "/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static"
 )
+
+# Register admin + login routers
+set_admin_templates(templates)
+set_login_templates(templates)
+app.include_router(admin_router)
+app.include_router(login_router)
 
 # Register all routes
 register_routes(app, templates, DEFAULT_DB_PATH)

@@ -15,7 +15,10 @@ RUN pip install --no-cache-dir \
     "python-multipart>=0.0.6" \
     "python-dotenv" \
     "sqlmodel" \
-    "httpx>=0.26.0"
+    "httpx>=0.26.0" \
+    "peewee>=3.17.0" \
+    "peewee-migrate>=1.12.0" \
+    "pyjwt>=2.8.0"
 
 # Copy visualizer code
 COPY visualizer/visualizer/ /app/visualizer/

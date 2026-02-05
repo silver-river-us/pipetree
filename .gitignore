@@ -27,5 +27,8 @@ htmlcov/
 */**/*.csv
 */**/*.db
 
+# Local dev databases
+visualizer/data/
+
 */**/node_modules/
 
