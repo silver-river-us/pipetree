@@ -137,6 +137,20 @@
     <!-- Flowbite JS -->
     <script src="/static/vendor/js/flowbite.min.js"></script>
 
+    <script>
+    function convertLocalTimes() {
+        document.querySelectorAll('.local-time').forEach(function(el) {
+            var ts = parseFloat(el.dataset.ts);
+            if (!isNaN(ts)) {
+                var d = new Date(ts * 1000);
+                el.textContent = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+            }
+        });
+    }
+    document.addEventListener('DOMContentLoaded', convertLocalTimes);
+    document.addEventListener('htmx:afterSwap', convertLocalTimes);
+    </script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>

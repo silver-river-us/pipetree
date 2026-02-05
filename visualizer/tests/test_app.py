@@ -44,9 +44,9 @@ class TestFormatTimestamp:
         assert format_timestamp(None) == "-"
 
     def test_timestamp(self) -> None:
-        # Just check it returns a time-like string
         result = format_timestamp(1700000000.0)
-        assert ":" in result
+        assert 'class="local-time"' in result
+        assert 'data-ts="1700000000.0"' in result
 
 
 class TestGetStatusColor:
