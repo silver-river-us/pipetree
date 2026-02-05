@@ -9,6 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from visualizer.infra.context import get_tenant_by_api_key
 
 security = HTTPBearer()
+require_bearer = Depends(security)
 
 DB_PATH = Path(os.getenv("DB_PATH", "/data/pipelines"))
 
@@ -32,7 +33,7 @@ def resolve_org(api_key: str) -> tuple[str, Path]:
 
 
 async def get_org_context(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials = require_bearer,
 ) -> tuple[str, Path]:
     """Dependency that validates API key and returns org context."""
     return resolve_org(credentials.credentials)

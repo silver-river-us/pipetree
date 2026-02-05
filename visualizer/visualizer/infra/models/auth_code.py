@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from peewee import BooleanField, CharField, DateTimeField
 
@@ -16,7 +16,7 @@ class AuthCode(BaseModel):
 
     @property
     def is_expired(self) -> bool:
-        return datetime.now(timezone.utc).replace(tzinfo=None) > self.expires_at
+        return datetime.now(UTC).replace(tzinfo=None) > self.expires_at
 
     @property
     def is_valid(self) -> bool:

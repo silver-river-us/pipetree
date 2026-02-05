@@ -205,7 +205,9 @@ def register_routes(
         since_id: int = Query(default=0),
     ):
         """Get events for a specific step (modal content)."""
-        response = StepsController.events(run_id, step_index, get_db_path(db, request), since_id)
+        response = StepsController.events(
+            run_id, step_index, get_db_path(db, request), since_id
+        )
         return render_controller(request, templates, response)
 
     @app.get("/runs/{run_id}/step/{step_index}/summary", response_class=HTMLResponse)
@@ -238,7 +240,9 @@ def register_routes(
         return render_controller(request, templates, response)
 
     @app.get("/api/runs/{run_id}/progress")
-    async def api_run_progress(request: Request, run_id: str, db: str = Query(default=None)):
+    async def api_run_progress(
+        request: Request, run_id: str, db: str = Query(default=None)
+    ):
         """Get current progress data for a run (JSON)."""
         response = RunsController.progress(run_id, get_db_path(db, request))
         return response["json"]
@@ -266,7 +270,9 @@ def register_routes(
     async def api_telemetry_pipelines(request: Request, db: str = Query(default=None)):
         """Get list of unique pipeline names with run counts."""
         databases = []
-        response = TelemetryController.get_pipelines(get_db_path(db, request), databases)
+        response = TelemetryController.get_pipelines(
+            get_db_path(db, request), databases
+        )
         return JSONResponse(content=response["json"])
 
     @app.get("/api/telemetry/step-durations")
@@ -392,11 +398,15 @@ def register_routes(
     async def api_benchmarks_json(request: Request, db: str = Query(default=None)):
         """Get list of all benchmarks as JSON."""
         databases = []
-        response = BenchmarksController.get_benchmarks(get_db_path(db, request), databases)
+        response = BenchmarksController.get_benchmarks(
+            get_db_path(db, request), databases
+        )
         return JSONResponse(content=response["json"])
 
     @app.get("/api/benchmarks/{benchmark_id}")
-    async def api_benchmark_detail(request: Request, benchmark_id: str, db: str = Query(default=None)):
+    async def api_benchmark_detail(
+        request: Request, benchmark_id: str, db: str = Query(default=None)
+    ):
         """Get benchmark details with all results."""
         response = BenchmarksController.get_benchmark_detail(
             benchmark_id, get_db_path(db, request)
@@ -414,7 +424,9 @@ def register_routes(
         return JSONResponse(content=response["json"])
 
     @app.delete("/api/benchmarks/{benchmark_id}")
-    async def api_benchmark_delete(request: Request, benchmark_id: str, db: str = Query(...)):
+    async def api_benchmark_delete(
+        request: Request, benchmark_id: str, db: str = Query(...)
+    ):
         """Delete a benchmark."""
         response = BenchmarksController.delete_benchmark(benchmark_id, Path(db))
         return JSONResponse(content=response["json"])

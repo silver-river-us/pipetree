@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from random import randint
 
 import jwt
@@ -30,13 +30,13 @@ def send_code(email: str) -> bool:
         return False
 
     code = generate_code()
-    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=10)
+    expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=10)
 
     if LOG_AUTH_CODES:
         logger.info(f"Verification code for {email}: {code}")
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print(f"  Verification code for {email}: {code}")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
 
     try:
         mailer.send(
@@ -49,9 +49,7 @@ def send_code(email: str) -> bool:
         return False
 
     # Invalidate existing codes for this email
-    AuthCode.update(used=True).where(
-        AuthCode.email == email, ~AuthCode.used
-    ).execute()
+    AuthCode.update(used=True).where(AuthCode.email == email, ~AuthCode.used).execute()
 
     AuthCode.create(email=email, code=code, expires_at=expires_at)
     return True
@@ -91,7 +89,8 @@ def encode_token(user_id: str, email: str, tenant_id: str) -> str:
         "sub": user_id,
         "email": email,
         "tenant_id": tenant_id,
-        "exp": datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=JWT_EXPIRE_HOURS),
+        "exp": datetime.now(UTC).replace(tzinfo=None)
+        + timedelta(hours=JWT_EXPIRE_HOURS),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=JWT_ALGORITHM)
 

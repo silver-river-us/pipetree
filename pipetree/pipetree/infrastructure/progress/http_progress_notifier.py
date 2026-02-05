@@ -72,9 +72,7 @@ class HTTPProgressNotifier(ProgressNotifier):
             "start_index": start_index,
         }
         try:
-            resp = self._client.post(
-                f"/runs/{self.run_id}/branches", json=payload
-            )
+            resp = self._client.post(f"/runs/{self.run_id}/branches", json=payload)
             resp.raise_for_status()
         except httpx.HTTPError:
             logger.warning(
@@ -87,14 +85,10 @@ class HTTPProgressNotifier(ProgressNotifier):
     def complete_run(self, status: str = "completed") -> None:
         """Mark the run as completed on the remote visualizer."""
         try:
-            resp = self._client.patch(
-                f"/runs/{self.run_id}", json={"status": status}
-            )
+            resp = self._client.patch(f"/runs/{self.run_id}", json={"status": status})
             resp.raise_for_status()
         except httpx.HTTPError:
-            logger.warning(
-                "Failed to complete run %s", self.run_id, exc_info=True
-            )
+            logger.warning("Failed to complete run %s", self.run_id, exc_info=True)
 
     def notify(self, event: ProgressEvent) -> None:
         """Send a progress event to the remote visualizer."""
@@ -117,9 +111,7 @@ class HTTPProgressNotifier(ProgressNotifier):
             ]
         }
         try:
-            resp = self._client.post(
-                f"/runs/{self.run_id}/events", json=payload
-            )
+            resp = self._client.post(f"/runs/{self.run_id}/events", json=payload)
             resp.raise_for_status()
         except httpx.HTTPError:
             logger.warning(

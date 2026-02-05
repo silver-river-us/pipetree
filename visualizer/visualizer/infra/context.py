@@ -56,7 +56,5 @@ def get_user_by_email(email: str) -> User | None:
 
 def list_users_for_tenant(tenant_id: str) -> list[User]:
     return list(
-        User.select()
-        .where(User.tenant == tenant_id)
-        .order_by(User.created_at.desc())
+        User.select().where(User.tenant == tenant_id).order_by(User.created_at.desc())
     )

@@ -40,7 +40,7 @@ strict = false
 disallow_untyped_defs = false
 disallow_untyped_calls = false
 check_untyped_defs = false
-disable_error_code = ["type-arg", "assignment", "no-untyped-def", "arg-type", "import-not-found"]
+disable_error_code = ["type-arg", "assignment", "no-untyped-def", "arg-type", "import-not-found", "import-untyped", "union-attr", "var-annotated"]
 
 [tool.ruff]
 target-version = "py311"

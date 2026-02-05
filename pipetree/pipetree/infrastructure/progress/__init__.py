@@ -4,6 +4,7 @@ from pipetree.infrastructure.progress.benchmark_store import BenchmarkStore
 from pipetree.infrastructure.progress.file_progress_notifier import (
     FileProgressNotifier,
 )
+
 try:
     from pipetree.infrastructure.progress.http_progress_notifier import (
         HTTPProgressNotifier,

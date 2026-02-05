@@ -15,17 +15,17 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from .controllers.admin_controller import router as admin_router
+from .controllers.admin_controller import set_templates as set_admin_templates
+from .controllers.login_controller import router as login_router
+from .controllers.login_controller import set_templates as set_login_templates
+from .infra.db import init_db, run_migrations
 from .lib import (
     format_duration,
     format_timestamp,
     get_status_color,
     organize_steps_with_branches,
 )
-from .controllers.admin_controller import router as admin_router
-from .controllers.admin_controller import set_templates as set_admin_templates
-from .controllers.login_controller import router as login_router
-from .controllers.login_controller import set_templates as set_login_templates
-from .infra.db import init_db, run_migrations
 from .routes import register_routes
 
 load_dotenv()
@@ -98,6 +98,7 @@ app = FastAPI(title="Pipetree Visualizer", version="1.0.0")
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         from .controllers.login_controller import get_current_user
+
         request.state.user = get_current_user(request)
         return await call_next(request)
 
@@ -109,6 +110,7 @@ app.add_middleware(AuthMiddleware)
 def startup():
     init_db()
     run_migrations()
+
 
 # Templates
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")

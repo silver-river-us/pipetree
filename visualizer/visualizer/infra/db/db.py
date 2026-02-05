@@ -1,5 +1,5 @@
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -40,7 +40,7 @@ def generate_uuid() -> str:
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class BaseModel(Model):
@@ -54,5 +54,5 @@ class BaseModel(Model):
     def save(self, *args, **kwargs):
         if not self.id:
             self.id = generate_uuid()
-        self.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        self.updated_at = datetime.now(UTC).replace(tzinfo=None)
         return super().save(*args, **kwargs)

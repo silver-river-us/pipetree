@@ -9,6 +9,7 @@ from visualizer.infra.models import Tenant, User
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 security = HTTPBasic()
+require_basic = Depends(security)
 
 ADMIN_USERNAME = "silver"
 ADMIN_PASSWORD = "river"
@@ -22,7 +23,7 @@ def set_templates(templates: Jinja2Templates):
     _templates = templates
 
 
-def verify_admin(credentials: HTTPBasicCredentials = Depends(security)) -> str:
+def verify_admin(credentials: HTTPBasicCredentials = require_basic) -> str:
     correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
     correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
     if not (correct_username and correct_password):
@@ -71,7 +72,9 @@ async def create_tenant(
 
 
 @router.get("/tenants/{tenant_id}", response_class=HTMLResponse)
-async def tenant_detail(request: Request, tenant_id: str, _: str = Depends(verify_admin)):
+async def tenant_detail(
+    request: Request, tenant_id: str, _: str = Depends(verify_admin)
+):
     tenant = Tenant.get_or_none(Tenant.id == tenant_id)
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
@@ -84,7 +87,9 @@ async def tenant_detail(request: Request, tenant_id: str, _: str = Depends(verif
 
 
 @router.get("/tenants/{tenant_id}/users/new", response_class=HTMLResponse)
-async def new_user_form(request: Request, tenant_id: str, _: str = Depends(verify_admin)):
+async def new_user_form(
+    request: Request, tenant_id: str, _: str = Depends(verify_admin)
+):
     tenant = Tenant.get_or_none(Tenant.id == tenant_id)
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
