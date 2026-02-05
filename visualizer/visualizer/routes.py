@@ -6,17 +6,20 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import Query, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
 from pydantic import BaseModel
 from sqlmodel import select
 
+from .api import router as ingest_router
 from .controllers import (
     BenchmarksController,
     RunsController,
     StepsController,
     TelemetryController,
 )
+from .controllers.login_controller import get_current_user
+from .infra.models import Tenant
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -76,23 +79,32 @@ def register_routes(
     """Register all routes on the FastAPI app."""
     from .app import add_database, load_databases, remove_database
 
-    def get_db_path(db: str | None) -> Path:
-        """Get database path, preferring config list over env default."""
+    def get_db_path_for_tenant(request: Request) -> Path:
+        """Get database path from the logged-in user's tenant."""
+        user = get_current_user(request)
+        if user and user.get("tenant_id"):
+            tenant = Tenant.get_or_none(Tenant.id == user["tenant_id"])
+            if tenant:
+                return default_db_path / tenant.db_name
+        return default_db_path
+
+    def get_db_path(db: str | None, request: Request | None = None) -> Path:
+        """Get database path from explicit param or logged-in tenant."""
         if db:
             return Path(db)
-        # Use first database from config if available
-        databases = load_databases()
-        if databases:
-            return Path(databases[0]["path"])
+        if request:
+            return get_db_path_for_tenant(request)
         return default_db_path
 
     def get_template_context(db_path: Path) -> dict:
-        """Get common template context including databases list."""
-        databases = load_databases()
+        """Get common template context."""
         return {
-            "databases": databases,
+            "databases": [],
             "current_db": str(db_path),
         }
+
+    # --- Ingest API (v1) ---
+    app.include_router(ingest_router)
 
     # --- Database Management API ---
 
@@ -113,6 +125,15 @@ def register_routes(
         success = remove_database(path)
         return JSONResponse(content={"success": success})
 
+    # --- Auth check helper ---
+
+    def require_login(request: Request):
+        """Return redirect response if not authenticated, else None."""
+        user = get_current_user(request)
+        if not user:
+            return RedirectResponse(url="/login", status_code=303)
+        return None
+
     # --- Dashboard ---
 
     @app.get("/", response_class=HTMLResponse)
@@ -125,8 +146,10 @@ def register_routes(
         per_page: int = Query(default=10, ge=1, le=100),
     ):
         """Main dashboard page - shows all runs from all databases."""
-        db_path = get_db_path(db)
-        databases = load_databases()
+        if redirect := require_login(request):
+            return redirect
+        db_path = get_db_path(db, request)
+        databases = []
         response = RunsController.index(
             db_path, databases, status, pipeline, page, per_page
         )
@@ -138,7 +161,9 @@ def register_routes(
     @app.get("/runs/{run_id}", response_class=HTMLResponse)
     async def run_detail(request: Request, run_id: str, db: str = Query(default=None)):
         """Detail view for a specific run."""
-        db_path = get_db_path(db)
+        if redirect := require_login(request):
+            return redirect
+        db_path = get_db_path(db, request)
         response = RunsController.detail(run_id, db_path)
         response["locals"].update(get_template_context(db_path))
         return render_controller(request, templates, response)
@@ -150,7 +175,7 @@ def register_routes(
         request: Request, run_id: str, db: str = Query(default=None)
     ):
         """HTMX partial for steps list."""
-        response = StepsController.steps_partial(run_id, get_db_path(db))
+        response = StepsController.steps_partial(run_id, get_db_path(db, request))
         return render_controller(request, templates, response)
 
     @app.get("/runs/{run_id}/steps/data", response_class=HTMLResponse)
@@ -158,7 +183,7 @@ def register_routes(
         request: Request, run_id: str, db: str = Query(default=None)
     ):
         """HTMX partial for steps data."""
-        response = StepsController.steps_data_partial(run_id, get_db_path(db))
+        response = StepsController.steps_data_partial(run_id, get_db_path(db, request))
         return render_controller(request, templates, response)
 
     @app.get("/runs/{run_id}/steps/list", response_class=HTMLResponse)
@@ -166,7 +191,7 @@ def register_routes(
         request: Request, run_id: str, db: str = Query(default=None)
     ):
         """HTMX partial for step list."""
-        response = StepsController.steps_list_partial(run_id, get_db_path(db))
+        response = StepsController.steps_list_partial(run_id, get_db_path(db, request))
         return render_controller(request, templates, response)
 
     # --- HTMX Partials: Step Events ---
@@ -180,7 +205,9 @@ def register_routes(
         since_id: int = Query(default=0),
     ):
         """Get events for a specific step (modal content)."""
-        response = StepsController.events(run_id, step_index, get_db_path(db), since_id)
+        response = StepsController.events(
+            run_id, step_index, get_db_path(db, request), since_id
+        )
         return render_controller(request, templates, response)
 
     @app.get("/runs/{run_id}/step/{step_index}/summary", response_class=HTMLResponse)
@@ -191,7 +218,7 @@ def register_routes(
         db: str = Query(default=None),
     ):
         """Get a brief summary of the latest step activity."""
-        response = StepsController.summary(run_id, step_index, get_db_path(db))
+        response = StepsController.summary(run_id, step_index, get_db_path(db, request))
         return render_controller(request, templates, response)
 
     # --- API Routes ---
@@ -206,20 +233,22 @@ def register_routes(
         per_page: int = Query(default=10, ge=1, le=100),
     ):
         """HTMX partial for runs list from all databases."""
-        databases = load_databases()
+        databases = []
         response = RunsController.list_partial(
-            get_db_path(db), databases, status, pipeline, page, per_page
+            get_db_path(db, request), databases, status, pipeline, page, per_page
         )
         return render_controller(request, templates, response)
 
     @app.get("/api/runs/{run_id}/progress")
-    async def api_run_progress(run_id: str, db: str = Query(default=None)):
+    async def api_run_progress(
+        request: Request, run_id: str, db: str = Query(default=None)
+    ):
         """Get current progress data for a run (JSON)."""
-        response = RunsController.progress(run_id, get_db_path(db))
+        response = RunsController.progress(run_id, get_db_path(db, request))
         return response["json"]
 
     @app.delete("/api/runs/{run_id}")
-    async def api_run_delete(run_id: str, db: str = Query(...)):
+    async def api_run_delete(request: Request, run_id: str, db: str = Query(...)):
         """Delete a run and all its associated data."""
         response = RunsController.delete_run(run_id, Path(db))
         return JSONResponse(content=response["json"])
@@ -229,68 +258,77 @@ def register_routes(
     @app.get("/telemetry", response_class=HTMLResponse)
     async def telemetry_index(request: Request, db: str = Query(default=None)):
         """Telemetry dashboard page."""
-        db_path = get_db_path(db)
-        databases = load_databases()
+        if redirect := require_login(request):
+            return redirect
+        db_path = get_db_path(db, request)
+        databases = []
         response = TelemetryController.index(db_path, databases)
         response["locals"].update(get_template_context(db_path))
         return render_controller(request, templates, response)
 
     @app.get("/api/telemetry/pipelines")
-    async def api_telemetry_pipelines(db: str = Query(default=None)):
+    async def api_telemetry_pipelines(request: Request, db: str = Query(default=None)):
         """Get list of unique pipeline names with run counts."""
-        databases = load_databases()
-        response = TelemetryController.get_pipelines(get_db_path(db), databases)
+        databases = []
+        response = TelemetryController.get_pipelines(
+            get_db_path(db, request), databases
+        )
         return JSONResponse(content=response["json"])
 
     @app.get("/api/telemetry/step-durations")
     async def api_step_durations(
+        request: Request,
         pipeline: str = Query(...),
         limit: int = Query(default=20),
         db: str = Query(default=None),
     ):
         """Get step duration data for a specific pipeline (for bar/line charts)."""
-        databases = load_databases()
+        databases = []
         response = TelemetryController.get_step_durations(
-            pipeline, limit, get_db_path(db), databases
+            pipeline, limit, get_db_path(db, request), databases
         )
         return JSONResponse(content=response["json"])
 
     @app.get("/api/telemetry/run-trends")
     async def api_run_trends(
+        request: Request,
         pipeline: str = Query(...),
         limit: int = Query(default=20),
         db: str = Query(default=None),
     ):
         """Get run performance trends over time."""
-        databases = load_databases()
+        databases = []
         response = TelemetryController.get_run_trends(
-            pipeline, limit, get_db_path(db), databases
+            pipeline, limit, get_db_path(db, request), databases
         )
         return JSONResponse(content=response["json"])
 
     @app.get("/api/telemetry/throughput")
     async def api_throughput(
+        request: Request,
         pipeline: str = Query(...),
         limit: int = Query(default=20),
         db: str = Query(default=None),
     ):
         """Get throughput metrics (items processed per run)."""
-        databases = load_databases()
+        databases = []
         response = TelemetryController.get_throughput(
-            pipeline, limit, get_db_path(db), databases
+            pipeline, limit, get_db_path(db, request), databases
         )
         return JSONResponse(content=response["json"])
 
     @app.get("/telemetry/{run_id}", response_class=HTMLResponse)
     async def telemetry_run_detail(request: Request, run_id: str, db: str = Query(...)):
         """Telemetry page for a specific run."""
+        if redirect := require_login(request):
+            return redirect
         db_path = Path(db)
         response = TelemetryController.run_detail(run_id, db_path)
         response["locals"].update(get_template_context(db_path))
         return render_controller(request, templates, response)
 
     @app.get("/api/telemetry/run/{run_id}")
-    async def api_telemetry_run(run_id: str, db: str = Query(...)):
+    async def api_telemetry_run(request: Request, run_id: str, db: str = Query(...)):
         """API: Get telemetry data for a specific run."""
         response = TelemetryController.get_run_telemetry(run_id, Path(db))
         return JSONResponse(content=response["json"])
@@ -306,6 +344,8 @@ def register_routes(
         db2: str = Query(...),
     ):
         """Compare telemetry between two runs."""
+        if redirect := require_login(request):
+            return redirect
         response = TelemetryController.compare_runs(run1, Path(db1), run2, Path(db2))
         response["locals"].update(get_template_context(Path(db1)))
         return render_controller(request, templates, response)
@@ -320,8 +360,10 @@ def register_routes(
         per_page: int = Query(default=10, ge=1, le=100),
     ):
         """Benchmarks list page."""
-        db_path = get_db_path(db)
-        databases = load_databases()
+        if redirect := require_login(request):
+            return redirect
+        db_path = get_db_path(db, request)
+        databases = []
         response = BenchmarksController.index(db_path, databases, page, per_page)
         response["locals"].update(get_template_context(db_path))
         return render_controller(request, templates, response)
@@ -331,7 +373,9 @@ def register_routes(
         request: Request, benchmark_id: str, db: str = Query(default=None)
     ):
         """Benchmark detail page."""
-        db_path = get_db_path(db)
+        if redirect := require_login(request):
+            return redirect
+        db_path = get_db_path(db, request)
         response = BenchmarksController.detail(benchmark_id, db_path)
         response["locals"].update(get_template_context(db_path))
         return render_controller(request, templates, response)
@@ -344,39 +388,45 @@ def register_routes(
         per_page: int = Query(default=10, ge=1, le=100),
     ):
         """HTMX partial for benchmarks list."""
-        databases = load_databases()
+        databases = []
         response = BenchmarksController.list_partial(
-            get_db_path(db), databases, page, per_page
+            get_db_path(db, request), databases, page, per_page
         )
         return render_controller(request, templates, response)
 
     @app.get("/api/benchmarks/json")
-    async def api_benchmarks_json(db: str = Query(default=None)):
+    async def api_benchmarks_json(request: Request, db: str = Query(default=None)):
         """Get list of all benchmarks as JSON."""
-        databases = load_databases()
-        response = BenchmarksController.get_benchmarks(get_db_path(db), databases)
+        databases = []
+        response = BenchmarksController.get_benchmarks(
+            get_db_path(db, request), databases
+        )
         return JSONResponse(content=response["json"])
 
     @app.get("/api/benchmarks/{benchmark_id}")
-    async def api_benchmark_detail(benchmark_id: str, db: str = Query(default=None)):
+    async def api_benchmark_detail(
+        request: Request, benchmark_id: str, db: str = Query(default=None)
+    ):
         """Get benchmark details with all results."""
         response = BenchmarksController.get_benchmark_detail(
-            benchmark_id, get_db_path(db)
+            benchmark_id, get_db_path(db, request)
         )
         return JSONResponse(content=response["json"])
 
     @app.get("/api/benchmarks/{benchmark_id}/comparison")
     async def api_benchmark_comparison(
-        benchmark_id: str, db: str = Query(default=None)
+        request: Request, benchmark_id: str, db: str = Query(default=None)
     ):
         """Get benchmark data formatted for comparison charts."""
         response = BenchmarksController.get_comparison_data(
-            benchmark_id, get_db_path(db)
+            benchmark_id, get_db_path(db, request)
         )
         return JSONResponse(content=response["json"])
 
     @app.delete("/api/benchmarks/{benchmark_id}")
-    async def api_benchmark_delete(benchmark_id: str, db: str = Query(...)):
+    async def api_benchmark_delete(
+        request: Request, benchmark_id: str, db: str = Query(...)
+    ):
         """Delete a benchmark."""
         response = BenchmarksController.delete_benchmark(benchmark_id, Path(db))
         return JSONResponse(content=response["json"])
