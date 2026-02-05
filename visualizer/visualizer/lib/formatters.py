@@ -1,6 +1,5 @@
 """Formatting and helper functions for templates."""
 
-import datetime
 from typing import Any
 
 
@@ -25,11 +24,10 @@ def format_duration(seconds: float | None) -> str:
 
 
 def format_timestamp(ts: float | None) -> str:
-    """Format timestamp as time string (12-hour format)."""
+    """Format timestamp as a span with data attribute for client-side local time conversion."""
     if ts is None:
         return "-"
-    dt = datetime.datetime.fromtimestamp(ts)
-    return dt.strftime("%I:%M:%S %p").lstrip("0")
+    return f'<span class="local-time" data-ts="{ts}">-</span>'
 
 
 def get_status_color(status: str) -> dict[str, str]:

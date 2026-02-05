@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .controllers.admin_controller import router as admin_router
@@ -117,7 +118,7 @@ templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 # Add template filters and globals
 templates.env.filters["format_duration"] = format_duration
-templates.env.filters["format_timestamp"] = format_timestamp
+templates.env.filters["format_timestamp"] = lambda ts: Markup(format_timestamp(ts))
 templates.env.globals["get_status_color"] = get_status_color
 templates.env.globals["organize_steps_with_branches"] = organize_steps_with_branches
 
