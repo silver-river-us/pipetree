@@ -1,11 +1,14 @@
 """Business logic for telemetry and analytics."""
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
 from sqlmodel import func, select
+
+logger = logging.getLogger(__name__)
 
 
 def get_all_pipelines(db_path: Path, databases: list[dict] | None = None) -> list[dict]:
@@ -43,7 +46,7 @@ def get_all_pipelines(db_path: Path, databases: list[dict] | None = None) -> lis
                     if db_name not in pipeline_counts[name]["databases"]:
                         pipeline_counts[name]["databases"].append(db_name)
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_file, exc_info=True)
 
     return sorted(pipeline_counts.values(), key=lambda p: p["run_count"], reverse=True)
 
@@ -90,7 +93,7 @@ def get_step_durations(
                         }
                     )
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_file, exc_info=True)
 
     all_runs.sort(key=lambda r: r.get("started_at") or 0)
     limited_runs = all_runs[-limit:]
@@ -133,7 +136,7 @@ def get_step_durations(
                                 run["cpu_time"] = {}
                             run["cpu_time"][step.name] = step.cpu_time_s
         except Exception:  # pragma: no cover
-            pass
+            logger.debug("Failed to query %s", db_path_str, exc_info=True)
 
     step_names: set[str] = set()
     for run in limited_runs:
@@ -188,7 +191,7 @@ def get_run_trends(
                             }
                         )
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_file, exc_info=True)
 
     trends.sort(key=lambda t: t.get("started_at") or 0)
     trends = trends[-limit:]
@@ -253,7 +256,7 @@ def get_throughput(
                         }
                     )
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_file, exc_info=True)
 
     throughput.sort(key=lambda t: t.get("started_at") or 0)
     throughput = throughput[-limit:]
@@ -311,7 +314,7 @@ def get_run_telemetry(run_id: str, db_path: Path) -> dict[str, Any]:
                             }
                         )
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_path, exc_info=True)
 
     return {"run": run_data, "steps": steps_data}
 
@@ -370,6 +373,7 @@ def compare_runs(
                     "db_path": str(db_path),
                 }
         except Exception:
+            logger.debug("Failed to query %s", db_path, exc_info=True)
             return None
 
     run1_data = _get_run_data(run1_id, db1_path)

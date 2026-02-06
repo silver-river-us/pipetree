@@ -1,10 +1,13 @@
 """Business logic for pipetree runs."""
 
+import logging
 from pathlib import Path
 from typing import Any
 
 from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
 from sqlmodel import delete, select
+
+logger = logging.getLogger(__name__)
 
 
 def fetch_runs(
@@ -54,7 +57,7 @@ def fetch_runs(
                     run_dict["db_name"] = db_name
                     all_runs.append(run_dict)
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_file, exc_info=True)
 
     all_runs.sort(key=lambda r: r.get("started_at") or 0, reverse=True)
 
@@ -88,7 +91,7 @@ def get_run_detail(run_id: str, db_path: Path) -> tuple[dict | None, list[dict]]
                 results = session.exec(statement).all()
                 steps = [step.model_dump() for step in results]
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_path, exc_info=True)
 
     return run, steps
 
@@ -130,7 +133,7 @@ def get_run_progress(run_id: str, db_path: Path) -> dict[str, Any]:
 
                 data["steps"] = step_dicts
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_path, exc_info=True)
 
     return data
 
@@ -148,4 +151,5 @@ def delete_run(run_id: str, db_path: Path) -> dict[str, Any]:
             session.commit()
         return {"success": True}
     except Exception as e:
+        logger.debug("Failed to delete run %s", run_id, exc_info=True)
         return {"success": False, "error": str(e)}

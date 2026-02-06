@@ -1,10 +1,13 @@
 """Business logic for pipetree steps."""
 
+import logging
 from pathlib import Path
 from typing import Any
 
 from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
 from sqlmodel import func, select
+
+logger = logging.getLogger(__name__)
 
 
 def get_steps(run_id: str, db_path: Path) -> tuple[dict | None, list[dict]]:
@@ -28,7 +31,7 @@ def get_steps(run_id: str, db_path: Path) -> tuple[dict | None, list[dict]]:
                 results = session.exec(statement).all()
                 steps = [step.model_dump() for step in results]
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_path, exc_info=True)
 
     return run, steps
 
@@ -46,7 +49,7 @@ def get_steps_list(run_id: str, db_path: Path) -> list[dict]:
                 results = session.exec(statement).all()
                 steps = [step.model_dump() for step in results]
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_path, exc_info=True)
 
     return steps
 
@@ -104,7 +107,7 @@ def get_step_events(
                 if since_id == 0:
                     events.reverse()
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_path, exc_info=True)
 
     return {
         "step": step,
@@ -144,6 +147,6 @@ def get_step_summary(run_id: str, step_index: int, db_path: Path) -> dict[str, A
                 if event_obj:
                     latest_event = event_obj.model_dump()
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_path, exc_info=True)
 
     return {"step": step, "latest_event": latest_event}

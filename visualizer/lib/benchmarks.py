@@ -1,10 +1,13 @@
 """Business logic for benchmark results."""
 
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 from pipetree.infrastructure.progress.benchmark_store import BenchmarkStore
+
+logger = logging.getLogger(__name__)
 
 
 def _get_store(db_path: Path) -> BenchmarkStore | None:
@@ -13,6 +16,7 @@ def _get_store(db_path: Path) -> BenchmarkStore | None:
         try:
             return BenchmarkStore(db_path)
         except Exception:
+            logger.debug("Failed to open benchmark store %s", db_path, exc_info=True)
             return None
     return None
 
@@ -52,7 +56,7 @@ def get_all_benchmarks(
             store.close()
             all_benchmarks.extend(benchmarks)
         except Exception:
-            pass
+            logger.debug("Failed to query %s", db_file, exc_info=True)
 
     all_benchmarks.sort(key=lambda b: b.get("created_at") or 0, reverse=True)
     return all_benchmarks
@@ -86,6 +90,7 @@ def get_benchmark_detail(benchmark_id: str, db_path: Path) -> dict[str, Any] | N
             "cpu_count": os.cpu_count() or 1,
         }
     except Exception:
+        logger.debug("Failed to get benchmark %s", benchmark_id, exc_info=True)
         return None
 
 
@@ -162,6 +167,7 @@ def get_comparison_data(benchmark_id: str, db_path: Path) -> dict[str, Any] | No
             "cpu_count": os.cpu_count() or 1,
         }
     except Exception:
+        logger.debug("Failed to get comparison for %s", benchmark_id, exc_info=True)
         return None
 
 
@@ -179,4 +185,5 @@ def delete_benchmark(benchmark_id: str, db_path: Path) -> dict[str, Any]:
         store.close()
         return {"success": success}
     except Exception as e:
+        logger.debug("Failed to delete benchmark %s", benchmark_id, exc_info=True)
         return {"success": False, "error": str(e)}
