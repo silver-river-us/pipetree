@@ -1,6 +1,6 @@
-"""Tests for visualizer.lib.formatters."""
+"""Tests for boundary.formatters."""
 
-from lib.formatters import (
+from boundary.formatters import (
     format_duration,
     format_timestamp,
     get_status_color,
