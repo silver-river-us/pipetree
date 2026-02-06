@@ -1,0 +1,86 @@
+"""Benchmarks API controller."""
+
+from pathlib import Path
+
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import JSONResponse
+
+from visualizer.boundary.controllers.web.shared import get_db_path, templates
+from visualizer.lib import benchmarks as benchmarks_lib
+
+router = APIRouter(prefix="/benchmarks")
+
+
+@router.get("")
+async def api_benchmarks_list(
+    request: Request,
+    db: str = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=10, ge=1, le=100),
+):
+    """HTMX partial for benchmarks list."""
+    databases: list[dict] = []
+    db_path = get_db_path(db, request)
+    all_benchmarks = benchmarks_lib.get_all_benchmarks(db_path, databases)
+    total_count = len(all_benchmarks)
+    total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+
+    start = (page - 1) * per_page
+    end = start + per_page
+    benchmarks = all_benchmarks[start:end]
+
+    return templates().TemplateResponse(
+        "partials/benchmarks_list.html",
+        {
+            "request": request,
+            "benchmarks": benchmarks,
+            "db_path": str(db_path),
+            "page": page,
+            "per_page": per_page,
+            "total_count": total_count,
+            "total_pages": total_pages,
+        },
+    )
+
+
+@router.get("/json")
+async def api_benchmarks_json(request: Request, db: str = Query(default=None)):
+    """Get list of all benchmarks as JSON."""
+    databases: list[dict] = []
+    benchmarks = benchmarks_lib.get_all_benchmarks(
+        get_db_path(db, request), databases
+    )
+    return JSONResponse(content={"benchmarks": benchmarks})
+
+
+@router.get("/{benchmark_id}")
+async def api_benchmark_detail(
+    request: Request, benchmark_id: str, db: str = Query(default=None)
+):
+    """Get benchmark details with all results."""
+    data = benchmarks_lib.get_benchmark_detail(benchmark_id, get_db_path(db, request))
+    if not data:
+        return JSONResponse(content={"error": "Not found"}, status_code=404)
+    return JSONResponse(content=data)
+
+
+@router.get("/{benchmark_id}/comparison")
+async def api_benchmark_comparison(
+    request: Request, benchmark_id: str, db: str = Query(default=None)
+):
+    """Get benchmark data formatted for comparison charts."""
+    data = benchmarks_lib.get_comparison_data(
+        benchmark_id, get_db_path(db, request)
+    )
+    if not data:
+        return JSONResponse(content={"error": "Not found"}, status_code=404)
+    return JSONResponse(content=data)
+
+
+@router.delete("/{benchmark_id}")
+async def api_benchmark_delete(
+    request: Request, benchmark_id: str, db: str = Query(...)
+):
+    """Delete a benchmark."""
+    result = benchmarks_lib.delete_benchmark(benchmark_id, Path(db))
+    return JSONResponse(content=result)

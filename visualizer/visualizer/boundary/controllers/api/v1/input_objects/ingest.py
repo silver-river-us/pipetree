@@ -1,4 +1,4 @@
-"""Request/response schemas for the Ingest API."""
+"""Request schemas for the Ingest API."""
 
 from pydantic import BaseModel
 
@@ -11,14 +11,14 @@ class CreateRunRequest(BaseModel):
 
 
 class UpdateRunRequest(BaseModel):
-    status: str  # "completed" or "failed"
+    status: str
 
 
 class EventPayload(BaseModel):
     step_name: str
     step_index: int
     total_steps: int
-    event_type: str  # "started" | "completed" | "failed" | "progress"
+    event_type: str
     duration_s: float | None = None
     cpu_time_s: float | None = None
     peak_mem_mb: float | None = None
@@ -38,3 +38,8 @@ class RegisterBranchRequest(BaseModel):
     branch_name: str
     step_names: list[str]
     start_index: int
+
+
+class AddDatabaseRequest(BaseModel):
+    name: str
+    path: str

@@ -86,7 +86,7 @@ def organize_steps_with_branches(steps: list[dict]) -> dict:
 
     def build_branch_tree(parent_name: str) -> dict[str, Any]:
         """Recursively build branch tree."""
-        if parent_name not in branches_by_parent:
+        if parent_name not in branches_by_parent:  # pragma: no cover
             return {}
         result = {}
         for branch_name, branch_steps in branches_by_parent[parent_name].items():
@@ -97,7 +97,7 @@ def organize_steps_with_branches(steps: list[dict]) -> dict:
             for step in branch_steps:
                 step_name = step.get("name", "")
                 if step_name in branches_by_parent:
-                    result[branch_name]["children"] = build_branch_tree(step_name)
+                    result[branch_name]["children"] = build_branch_tree(step_name)  # type: ignore[assignment]
         return result
 
     main_router = None

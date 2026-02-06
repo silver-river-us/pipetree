@@ -72,6 +72,12 @@ jobs:
       - name: Run formatter check
         run: pipenv run ruff format --check .
 
+      - name: Run architecture check
+        run: pipenv run python -m bin.check_cmds.arch
+
+      - name: Run style check
+        run: pipenv run python -m bin.check_cmds.style
+
       - name: Run type check
         run: pipenv run mypy visualizer/
 

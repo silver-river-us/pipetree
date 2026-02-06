@@ -1,19 +1,4 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
+#\!/bin/bash
 cd "$(dirname "$0")/.."
-
-echo "=== Lint ==="
-pipenv run ruff check .
-pipenv run ruff format --check .
-
-echo ""
-echo "=== Type Check ==="
-pipenv run mypy visualizer/
-
-echo ""
-echo "=== Tests ==="
-pipenv run pytest tests/ -v
-
-echo ""
-echo "=== All checks passed ==="
+cmd="${1:-all}"
+pipenv run python -m bin.check_cmds."$cmd"

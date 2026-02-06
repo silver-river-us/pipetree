@@ -1,18 +1,16 @@
 import logging
-import os
 from datetime import UTC, datetime, timedelta
 from random import randint
 
 import jwt
 
+from visualizer.config import settings
 from visualizer.infra.mailer import MailerError, mailer
 from visualizer.infra.models.auth_code import AuthCode
 from visualizer.infra.models.user import User
 
 logger = logging.getLogger(__name__)
 
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
-LOG_AUTH_CODES = os.getenv("LOG_AUTH_CODES", "true").lower() in ("true", "1", "yes")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 24
 
@@ -32,7 +30,7 @@ def send_code(email: str) -> bool:
     code = generate_code()
     expires_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=10)
 
-    if LOG_AUTH_CODES:
+    if settings.log_auth_codes:
         logger.info(f"Verification code for {email}: {code}")
         print(f"\n{'=' * 50}")
         print(f"  Verification code for {email}: {code}")
@@ -92,11 +90,11 @@ def encode_token(user_id: str, email: str, tenant_id: str) -> str:
         "exp": datetime.now(UTC).replace(tzinfo=None)
         + timedelta(hours=JWT_EXPIRE_HOURS),
     }
-    return jwt.encode(payload, SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, settings.secret_key, algorithm=JWT_ALGORITHM)
 
 
 def decode_token(token: str) -> dict | None:
     try:
-        return jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return jwt.decode(token, settings.secret_key, algorithms=[JWT_ALGORITHM])
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
         return None

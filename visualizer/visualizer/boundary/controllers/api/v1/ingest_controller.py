@@ -1,20 +1,22 @@
-"""Ingest API router for receiving pipeline progress data."""
+"""Ingest API controller for receiving pipeline progress data."""
 
 import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from pipetree import SQLiteProgressNotifier
 
-from .auth import get_org_context
-from .schemas import (
+from visualizer.lib.ingest import get_org_context
+
+from .input_objects.ingest import (
     BatchEventsRequest,
     CreateRunRequest,
     RegisterBranchRequest,
     UpdateRunRequest,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["ingest"])
+router = APIRouter(prefix="/v1", tags=["ingest"])
 
 
 def _get_notifier(db_path: Path, run_id: str) -> SQLiteProgressNotifier:
@@ -39,7 +41,7 @@ async def create_run(
     finally:
         notifier.close()
 
-    return {"id": data.id, "org": org_name, "status": "running"}
+    return JSONResponse(content={"id": data.id, "org": org_name, "status": "running"})
 
 
 @router.patch("/runs/{run_id}")
@@ -56,7 +58,7 @@ async def update_run(
     finally:
         notifier.close()
 
-    return {"id": run_id, "status": data.status}
+    return JSONResponse(content={"id": run_id, "status": data.status})
 
 
 @router.post("/runs/{run_id}/events")
@@ -91,7 +93,7 @@ async def push_events(
     finally:
         notifier.close()
 
-    return {"run_id": run_id, "events_received": len(data.events)}
+    return JSONResponse(content={"run_id": run_id, "events_received": len(data.events)})
 
 
 @router.post("/runs/{run_id}/branches")
@@ -113,8 +115,10 @@ async def register_branch(
     finally:
         notifier.close()
 
-    return {
-        "run_id": run_id,
-        "branch": data.branch_name,
-        "steps": data.step_names,
-    }
+    return JSONResponse(
+        content={
+            "run_id": run_id,
+            "branch": data.branch_name,
+            "steps": data.step_names,
+        }
+    )

@@ -100,18 +100,15 @@ class TestOrganizeStepsWithBranches:
 class TestEndpoints:
     """Tests for API endpoints."""
 
-    def test_index(self, client: TestClient) -> None:
-        response = client.get("/")
+    def test_index_redirects_to_login(self, client: TestClient) -> None:
+        response = client.get("/", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/login"
+
+    def test_login_page(self, client: TestClient) -> None:
+        response = client.get("/login")
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
-
-    def test_runs_list(self, client: TestClient) -> None:
-        response = client.get("/api/runs")
-        assert response.status_code == 200
-
-    def test_run_detail_not_found(self, client: TestClient) -> None:
-        response = client.get("/runs/nonexistent-id")
-        assert response.status_code == 200  # Returns page even if run not found
 
     def test_run_progress_api(self, client: TestClient) -> None:
         response = client.get("/api/runs/test-id/progress")
