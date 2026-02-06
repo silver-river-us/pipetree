@@ -30,6 +30,10 @@ class AuthCode(BaseModel):
     def invalidate(cls, email: str) -> None:
         cls.update(used=True).where(cls.email == email, ~cls.used).execute()
 
+    def mark_as_used(self) -> None:
+        self.used = True
+        self.save()
+
     @property
     def is_expired(self) -> bool:
         return datetime.now(UTC).replace(tzinfo=None) > self.expires_at

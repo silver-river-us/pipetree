@@ -5,12 +5,13 @@ from lib.ctx.auth.auth_code import AuthCode
 from lib.ctx.auth.session import Session
 from lib.ctx.identity.user import User
 from lib.exceptions import InvalidCodeError, SendCodeError, UserNotFoundError
+from lib.sanitizers import normalize
 
 logger = logging.getLogger(__name__)
 
 
 def send_code(email: str) -> None:
-    email = email.lower().strip()
+    email = normalize(email)
 
     user = User.get_or_none(User.email == email)
     if not user:
@@ -30,7 +31,7 @@ def send_code(email: str) -> None:
 
 
 def authenticate(email: str, code: str) -> Session:
-    email = email.lower().strip()
+    email = normalize(email)
 
     auth_code = AuthCode.get_or_none(
         AuthCode.email == email,
@@ -41,8 +42,7 @@ def authenticate(email: str, code: str) -> Session:
     if not auth_code or not auth_code.is_valid:
         raise InvalidCodeError("Invalid or expired code")
 
-    auth_code.used = True
-    auth_code.save()
+    auth_code.mark_as_used()
 
     user = User.get_or_none(User.email == email)
     if not user:
