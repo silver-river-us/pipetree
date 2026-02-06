@@ -31,6 +31,8 @@ class ConnectionManager:
             and websocket in self.active_connections[run_id]
         ):
             self.active_connections[run_id].remove(websocket)
+            if not self.active_connections[run_id]:
+                del self.active_connections[run_id]
 
     async def broadcast(self, run_id: str, message: dict) -> None:
         if run_id in self.active_connections:
@@ -59,17 +61,20 @@ async def websocket_benchmark_endpoint(
         db_path = get_db_path(None)
         benchmark_db = db_path.parent / "benchmarks.db"
 
-    await manager.connect(websocket, f"benchmark:{benchmark_id}")
+    ws_key = f"benchmark:{benchmark_id}"
+    await manager.connect(websocket, ws_key)
 
-    last_result_count = -1
-    last_status = None
-
+    store = None
     try:
+        last_result_count = -1
+        last_status = None
+
         while True:
             if benchmark_db.exists():
-                store = None
                 try:
-                    store = BenchmarkStore(benchmark_db)
+                    if store is None:
+                        store = BenchmarkStore(benchmark_db)
+
                     benchmark = store.get_benchmark(benchmark_id)
 
                     if benchmark:
@@ -104,19 +109,25 @@ async def websocket_benchmark_endpoint(
                                     "completed_at": benchmark.get("completed_at"),
                                 }
                             )
-                            store.close()
                             break
 
                 except Exception as e:
                     await websocket.send_json({"type": "error", "message": str(e)})
-                finally:
+                    # Reset store on error so next iteration creates a fresh one
                     if store:
-                        store.close()
+                        with contextlib.suppress(Exception):
+                            store.close()
+                        store = None
 
             await asyncio.sleep(0.5)
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket, f"benchmark:{benchmark_id}")
+        pass
+    finally:
+        if store:
+            with contextlib.suppress(Exception):
+                store.close()
+        manager.disconnect(websocket, ws_key)
 
 
 @router.websocket("/ws/{run_id}")
@@ -128,59 +139,75 @@ async def websocket_endpoint(
 
     await manager.connect(websocket, run_id)
 
-    last_event_id = 0
-
+    session = None
     try:
+        last_event_id = 0
+
         while True:
             if db_path.exists():
                 try:
-                    with get_session(db_path) as session:
-                        run_obj = session.get(Run, run_id)
-                        run_status = run_obj.status if run_obj else None
+                    if session is None:
+                        session = get_session(db_path)
 
-                        events_stmt = (
-                            select(Event)
-                            .where(Event.run_id == run_id)
-                            .where(Event.id > last_event_id)  # type: ignore[operator]
-                            .order_by(Event.id)
+                    # Clear cached ORM state so queries see fresh DB writes
+                    session.expire_all()
+
+                    run_obj = session.get(Run, run_id)
+                    run_status = run_obj.status if run_obj else None
+
+                    events_stmt = (
+                        select(Event)
+                        .where(Event.run_id == run_id)
+                        .where(Event.id > last_event_id)  # type: ignore[operator]
+                        .order_by(Event.id)
+                    )
+                    event_results = session.exec(events_stmt).all()
+                    events = [e.model_dump() for e in event_results]
+
+                    if events:
+                        last_event_id = events[-1]["id"]
+
+                        steps_stmt = (
+                            select(Step)
+                            .where(Step.run_id == run_id)
+                            .order_by(Step.step_index)
                         )
-                        event_results = session.exec(events_stmt).all()
-                        events = [e.model_dump() for e in event_results]
+                        step_results = session.exec(steps_stmt).all()
+                        steps = [s.model_dump() for s in step_results]
 
-                        if events:
-                            last_event_id = events[-1]["id"]
+                        await websocket.send_json(
+                            {
+                                "type": "update",
+                                "run_status": run_status,
+                                "events": events,
+                                "steps": steps,
+                            }
+                        )
 
-                            steps_stmt = (
-                                select(Step)
-                                .where(Step.run_id == run_id)
-                                .order_by(Step.step_index)
-                            )
-                            step_results = session.exec(steps_stmt).all()
-                            steps = [s.model_dump() for s in step_results]
-
-                            await websocket.send_json(
-                                {
-                                    "type": "update",
-                                    "run_status": run_status,
-                                    "events": events,
-                                    "steps": steps,
-                                }
-                            )
-
-                        if run_status in ("completed", "failed"):
-                            await websocket.send_json(
-                                {
-                                    "type": "complete",
-                                    "status": run_status,
-                                    "completed_at": run_obj.completed_at,
-                                }
-                            )
-                            break
+                    if run_status in ("completed", "failed"):
+                        await websocket.send_json(
+                            {
+                                "type": "complete",
+                                "status": run_status,
+                                "completed_at": run_obj.completed_at,
+                            }
+                        )
+                        break
 
                 except Exception as e:
                     await websocket.send_json({"type": "error", "message": str(e)})
+                    # Reset session on error so next iteration creates a fresh one
+                    if session:
+                        with contextlib.suppress(Exception):
+                            session.close()
+                        session = None
 
             await asyncio.sleep(0.1)
 
     except WebSocketDisconnect:
+        pass
+    finally:
+        if session:
+            with contextlib.suppress(Exception):
+                session.close()
         manager.disconnect(websocket, run_id)
