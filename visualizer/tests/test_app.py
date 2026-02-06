@@ -3,8 +3,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from visualizer.app import app
-from visualizer.lib import (
+from app import app
+from lib import (
     format_duration,
     format_timestamp,
     get_status_color,
@@ -95,6 +95,14 @@ class TestOrganizeStepsWithBranches:
         result = organize_steps_with_branches(steps)
         assert len(result["main"]) == 2
         assert "ops" in result["branches"]
+
+
+class TestCreateTables:
+    def test_creates_tables(self, peewee_db) -> None:
+        from lib import create_tables
+
+        # Tables already exist from peewee_db fixture, just verify no error
+        create_tables()
 
 
 class TestEndpoints:

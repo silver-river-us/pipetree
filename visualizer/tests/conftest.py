@@ -126,12 +126,12 @@ def seeded_db(pipetree_db: Path) -> Path:
 @pytest.fixture
 def peewee_db(tmp_path: Path) -> Path:
     """Initialize Peewee DB with auth tables."""
-    from visualizer.infra.db.db import db, init_db
-    from visualizer.infra.models.tenant import Tenant
-    from visualizer.infra.models.user import User
-    from visualizer.infra.models.auth_code import AuthCode
+    from infra.db.db import db, init_db
+    from lib.ctx.identity.tenant import Tenant
+    from lib.ctx.identity.user import User
+    from lib.ctx.auth.auth_code import AuthCode
 
-    db_file = tmp_path / "visualizer.db"
+    db_file = tmp_path / "db"
     init_db(db_file)
     db.create_tables([Tenant, User, AuthCode])
     yield db_file

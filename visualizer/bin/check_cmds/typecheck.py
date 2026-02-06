@@ -6,12 +6,12 @@ def main():
     result = subprocess.run(
         [
             "mypy",
-            "visualizer/boundary",
-            "visualizer/lib",
-            "visualizer/infra",
-            "visualizer/app.py",
-            "visualizer/config.py",
-            "visualizer/routes.py",
+            "boundary",
+            "lib",
+            "infra",
+            "app.py",
+            "config.py",
+            "routes.py",
         ],
         capture_output=False,
     )

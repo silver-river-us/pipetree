@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from visualizer.lib.steps import (
+from lib.steps import (
     get_step_events,
     get_step_summary,
     get_steps,

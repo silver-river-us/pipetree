@@ -1,12 +1,13 @@
-"""Tests for visualizer.lib.admin."""
+"""Tests for visualizer.lib.ctx.identity."""
 
 from pathlib import Path
 
-from visualizer.lib.admin import (
+from lib.ctx.identity import (
     create_tenant,
     create_user,
     delete_tenant,
     get_tenant,
+    get_tenant_by_api_key,
     get_user_by_email,
     list_tenants,
     list_users_for_tenant,
@@ -39,11 +40,17 @@ class TestCreateTenant:
         tenant = create_tenant("My Org")
         assert tenant.slug == "my-org"
         assert len(tenant.api_key) > 0
-        assert tenant.db_name == "my-org"
+        assert tenant.db_name == "my-org.db"
 
     def test_custom_db_name(self, peewee_db: Path) -> None:
         tenant = create_tenant("Test Org", db_name="custom.db")
         assert tenant.db_name == "custom.db"
+
+    def test_slug_collision(self, peewee_db: Path) -> None:
+        t1 = create_tenant("Dup Name")
+        t2 = create_tenant("Dup Name")
+        assert t1.slug != t2.slug
+        assert t2.slug.startswith("dup-name-")
 
 
 class TestDeleteTenant:
@@ -90,6 +97,17 @@ class TestGetUserByEmail:
         create_user("Test@Example.COM", tenant)
         user = get_user_by_email("  test@example.com  ")
         assert user is not None
+
+
+class TestGetTenantByApiKey:
+    def test_nonexistent(self, peewee_db: Path) -> None:
+        assert get_tenant_by_api_key("no-such-key") is None
+
+    def test_existing(self, peewee_db: Path) -> None:
+        tenant = create_tenant("Org")
+        result = get_tenant_by_api_key(tenant.api_key)
+        assert result is not None
+        assert result.id == tenant.id
 
 
 class TestCreateUser:

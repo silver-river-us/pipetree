@@ -7,7 +7,7 @@ from pipetree.infrastructure.progress.benchmark_store import BenchmarkStore
 
 from unittest.mock import patch
 
-from visualizer.lib.benchmarks import (
+from lib.benchmarks import (
     _get_store,
     delete_benchmark,
     get_all_benchmarks,
@@ -139,7 +139,7 @@ class TestGetBenchmarkDetail:
         """Cover except block in get_benchmark_detail."""
         db_path = benchmark_db / "benchmarks.db"
         with patch(
-            "visualizer.lib.benchmarks.BenchmarkStore.get_benchmark",
+            "lib.benchmarks.BenchmarkStore.get_benchmark",
             side_effect=RuntimeError("boom"),
         ):
             result = get_benchmark_detail("x", db_path)
@@ -175,7 +175,7 @@ class TestGetComparisonData:
         """Cover except block in get_comparison_data."""
         db_path = benchmark_db / "benchmarks.db"
         with patch(
-            "visualizer.lib.benchmarks.BenchmarkStore.get_benchmark",
+            "lib.benchmarks.BenchmarkStore.get_benchmark",
             side_effect=RuntimeError("boom"),
         ):
             result = get_comparison_data("x", db_path)
@@ -203,7 +203,7 @@ class TestDeleteBenchmark:
         """Cover except block in delete_benchmark."""
         db_path = benchmark_db / "benchmarks.db"
         with patch(
-            "visualizer.lib.benchmarks.BenchmarkStore.delete_benchmark",
+            "lib.benchmarks.BenchmarkStore.delete_benchmark",
             side_effect=RuntimeError("fail"),
         ):
             result = delete_benchmark("x", db_path)

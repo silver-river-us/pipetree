@@ -8,7 +8,7 @@ def main():
     result = subprocess.run(
         [
             "pytest",
-            "--cov=visualizer/lib",
+            "--cov=lib",
             f"--cov-fail-under={MIN_COVERAGE}",
             "--cov-report=term-missing",
         ],

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from visualizer.lib.runs import delete_run, fetch_runs, get_run_detail, get_run_progress
+from lib.runs import delete_run, fetch_runs, get_run_detail, get_run_progress
 
 
 def _corrupt_db(tmp_path: Path) -> Path:

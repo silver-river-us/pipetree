@@ -1,6 +1,6 @@
 """Tests for visualizer.lib.formatters."""
 
-from visualizer.lib.formatters import (
+from lib.formatters import (
     format_duration,
     format_timestamp,
     get_status_color,

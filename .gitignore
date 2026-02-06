@@ -31,7 +31,7 @@ htmlcov/
 */**/*.db
 
 # Local dev databases
-visualizer/data/
+visualizer/infra/db/*.db*
 
 */**/node_modules/
 

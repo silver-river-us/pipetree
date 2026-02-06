@@ -7,7 +7,7 @@ from pipetree.infrastructure.progress.models import Event, Run, Step
 from pipetree.infrastructure.progress.models.database import _engines
 from sqlmodel import Session
 
-from visualizer.lib.telemetry import (
+from lib.telemetry import (
     compare_runs,
     get_all_pipelines,
     get_run_telemetry,
@@ -130,7 +130,9 @@ class TestGetStepDurations:
     def test_with_databases_list(self, pipetree_db: Path) -> None:
         _seed_completed_runs(pipetree_db)
         databases = [{"path": str(pipetree_db), "name": "test"}]
-        result = get_step_durations("etl_pipeline", 10, pipetree_db, databases=databases)
+        result = get_step_durations(
+            "etl_pipeline", 10, pipetree_db, databases=databases
+        )
         assert len(result["runs"]) > 0
 
     def test_corrupted_db(self, tmp_path: Path) -> None:
@@ -254,9 +256,7 @@ class TestCompareRuns:
         assert result["run2"] is not None
 
     def test_nonexistent_db(self, tmp_path: Path) -> None:
-        result = compare_runs(
-            "x", tmp_path / "a.db", "y", tmp_path / "b.db"
-        )
+        result = compare_runs("x", tmp_path / "a.db", "y", tmp_path / "b.db")
         assert result["run1"] is None
         assert result["run2"] is None
 

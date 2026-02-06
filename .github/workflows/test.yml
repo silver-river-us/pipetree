@@ -63,9 +63,6 @@ jobs:
       - name: Install dependencies
         run: pipenv install --dev
 
-      - name: Install package
-        run: pipenv run pip install -e .
-
       - name: Run linter
         run: pipenv run ruff check .
 
@@ -79,7 +76,7 @@ jobs:
         run: pipenv run python -m bin.check_cmds.style
 
       - name: Run type check
-        run: pipenv run mypy visualizer/
+        run: pipenv run mypy boundary lib infra app.py config.py routes.py
 
       - name: Run tests
         run: pipenv run pytest tests/ -v

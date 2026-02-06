@@ -7,4 +7,4 @@ echo "=== Pipetree Visualizer ==="
 echo "URL: http://localhost:8001"
 echo ""
 
-pipenv run python -m visualizer.app
+pipenv run uvicorn app:app --reload --host 0.0.0.0 --port 8001

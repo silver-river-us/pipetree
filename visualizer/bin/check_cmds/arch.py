@@ -19,9 +19,6 @@ RULES = {
 
 INTERNAL_MODULES = {"infra", "lib", "boundary"}
 
-# Prefix used in imports (e.g., "visualizer.infra.auth")
-PACKAGE_PREFIX = "visualizer"
-
 
 def get_imports(file_path: Path) -> list[tuple[str, str]]:
     """Returns list of (internal_top_level, full_import_path) tuples."""
@@ -33,13 +30,13 @@ def get_imports(file_path: Path) -> list[tuple[str, str]]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 parts = alias.name.split(".")
-                if parts[0] == PACKAGE_PREFIX and len(parts) > 1:
-                    imports.append((parts[1], alias.name))
+                if parts[0] in INTERNAL_MODULES:
+                    imports.append((parts[0], alias.name))
         elif isinstance(node, ast.ImportFrom):
             if node.module:
                 parts = node.module.split(".")
-                if parts[0] == PACKAGE_PREFIX and len(parts) > 1:
-                    imports.append((parts[1], node.module))
+                if parts[0] in INTERNAL_MODULES:
+                    imports.append((parts[0], node.module))
     return imports
 
 
@@ -48,8 +45,14 @@ def check_file(file_path: Path, layer: str) -> list[str]:
     allowed = RULES[layer]["allowed"]
 
     for top_level, full_path in get_imports(file_path):
-        if top_level in INTERNAL_MODULES and top_level != layer and top_level not in allowed:
-            violations.append(f"{file_path}: imports '{full_path}' ({top_level} not allowed)")
+        if (
+            top_level in INTERNAL_MODULES
+            and top_level != layer
+            and top_level not in allowed
+        ):
+            violations.append(
+                f"{file_path}: imports '{full_path}' ({top_level} not allowed)"
+            )
 
     return violations
 
@@ -66,7 +69,7 @@ def print_dependency_diagram():
 
 
 def main():
-    root = Path("visualizer")
+    root = Path(".")
     all_violations = []
 
     for layer in RULES:
