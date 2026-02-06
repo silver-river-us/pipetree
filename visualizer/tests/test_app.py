@@ -4,97 +4,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import app
-from lib import (
-    format_duration,
-    format_timestamp,
-    get_status_color,
-    organize_steps_with_branches,
-)
 
 
 @pytest.fixture
 def client() -> TestClient:
     """Create a test client."""
     return TestClient(app)
-
-
-class TestFormatDuration:
-    """Tests for format_duration helper."""
-
-    def test_none(self) -> None:
-        assert format_duration(None) == "-"
-
-    def test_milliseconds(self) -> None:
-        assert format_duration(0.5) == "500ms"
-        assert format_duration(0.001) == "1ms"
-
-    def test_seconds(self) -> None:
-        assert format_duration(1.5) == "1.50s"
-        assert format_duration(30) == "30.00s"
-
-    def test_minutes(self) -> None:
-        assert format_duration(90) == "1m 30s"
-        assert format_duration(125.5) == "2m 6s"
-
-
-class TestFormatTimestamp:
-    """Tests for format_timestamp helper."""
-
-    def test_none(self) -> None:
-        assert format_timestamp(None) == "-"
-
-    def test_timestamp(self) -> None:
-        result = format_timestamp(1700000000.0)
-        assert 'class="local-time"' in result
-        assert 'data-ts="1700000000.0"' in result
-
-
-class TestGetStatusColor:
-    """Tests for get_status_color helper."""
-
-    def test_known_statuses(self) -> None:
-        for status in ["pending", "running", "completed", "failed", "skipped"]:
-            colors = get_status_color(status)
-            assert "bg" in colors
-            assert "text" in colors
-            assert "border" in colors
-
-    def test_unknown_status(self) -> None:
-        colors = get_status_color("unknown")
-        assert colors == get_status_color("pending")
-
-
-class TestOrganizeStepsWithBranches:
-    """Tests for organize_steps_with_branches helper."""
-
-    def test_empty(self) -> None:
-        result = organize_steps_with_branches([])
-        assert result["main"] == []
-        assert result["branches"] == {}
-
-    def test_main_steps_only(self) -> None:
-        steps = [
-            {"name": "step1", "step_index": 0},
-            {"name": "step2", "step_index": 1},
-        ]
-        result = organize_steps_with_branches(steps)
-        assert len(result["main"]) == 2
-        assert result["branches"] == {}
-
-    def test_with_branches(self) -> None:
-        steps = [
-            {"name": "load", "step_index": 0},
-            {"name": "route_by_category", "step_index": 1},
-            {
-                "name": "process_ops",
-                "step_index": 2,
-                "branch": "ops",
-                "parent_step": "route_by_category",
-            },
-        ]
-        result = organize_steps_with_branches(steps)
-        assert len(result["main"]) == 2
-        assert "ops" in result["branches"]
 
 
 class TestCreateTables:

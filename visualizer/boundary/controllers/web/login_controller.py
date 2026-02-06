@@ -4,7 +4,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from lib.ctx.auth import authenticate, send_code
-from lib.security import encode_token
+from lib.exceptions import InvalidCodeError, SendCodeError, UserNotFoundError
 
 from boundary.base.http_context import get_current_user
 from boundary.base.templates import templates
@@ -25,11 +25,12 @@ async def login_page(request: Request):
 
 @router.post("/login", response_class=HTMLResponse)
 async def login_submit(request: Request, email: str = Form(...)):
-    sent = send_code(email)
-    if not sent:
+    try:
+        send_code(email)
+    except (UserNotFoundError, SendCodeError) as e:
         return templates().TemplateResponse(
             "login.html",
-            {"request": request, "error": "No account found for that email"},
+            {"request": request, "error": str(e)},
         )
     return templates().TemplateResponse(
         "login_verify.html",
@@ -39,18 +40,18 @@ async def login_submit(request: Request, email: str = Form(...)):
 
 @router.post("/login/verify", response_class=HTMLResponse)
 async def login_verify(request: Request, email: str = Form(...), code: str = Form(...)):
-    result = authenticate(email, code)
-    if not result:
+    try:
+        session = authenticate(email, code)
+    except (InvalidCodeError, UserNotFoundError) as e:
         return templates().TemplateResponse(
             "login_verify.html",
-            {"request": request, "email": email, "error": "Invalid or expired code"},
+            {"request": request, "email": email, "error": str(e)},
         )
 
-    token = encode_token(result["user_id"], result["email"], result["tenant_id"])
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
         key="session",
-        value=token,
+        value=session.token,
         httponly=True,
         samesite="lax",
         max_age=86400,

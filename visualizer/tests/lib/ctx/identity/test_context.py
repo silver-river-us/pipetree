@@ -1,4 +1,4 @@
-"""Tests for visualizer.lib.ctx.identity."""
+"""Tests for lib.ctx.identity.context."""
 
 from pathlib import Path
 
