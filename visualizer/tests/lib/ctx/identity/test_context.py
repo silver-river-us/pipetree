@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from lib.ctx.identity import (
     create_tenant,
     create_user,
@@ -12,6 +14,7 @@ from lib.ctx.identity import (
     list_tenants,
     list_users_for_tenant,
 )
+from lib.exceptions import TenantNotFoundError
 
 
 class TestListTenants:
@@ -56,11 +59,12 @@ class TestCreateTenant:
 class TestDeleteTenant:
     def test_existing(self, peewee_db: Path) -> None:
         tenant = create_tenant("To Delete")
-        assert delete_tenant(tenant.id) is True
+        delete_tenant(tenant.id)
         assert get_tenant(tenant.id) is None
 
     def test_nonexistent(self, peewee_db: Path) -> None:
-        assert delete_tenant("no-such-id") is False
+        with pytest.raises(TenantNotFoundError):
+            delete_tenant("no-such-id")
 
     def test_cascades_users(self, peewee_db: Path) -> None:
         tenant = create_tenant("With Users")

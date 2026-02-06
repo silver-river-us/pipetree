@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from lib.ctx import identity as identity_lib
+from lib.exceptions import TenantNotFoundError
 
 from boundary.base.templates import templates
 
@@ -116,7 +117,8 @@ async def delete_tenant(
     tenant_id: str,
     _: str = Depends(verify_admin),
 ):
-    success = identity_lib.delete_tenant(tenant_id)
-    if not success:
+    try:
+        identity_lib.delete_tenant(tenant_id)
+    except TenantNotFoundError:
         raise HTTPException(status_code=404, detail="Tenant not found")
     return RedirectResponse(url="/admin", status_code=303)

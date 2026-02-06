@@ -1,0 +1,2 @@
+class TenantNotFoundError(Exception):
+    pass
