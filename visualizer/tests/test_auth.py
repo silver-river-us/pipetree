@@ -1,7 +1,7 @@
 """Tests for visualizer.lib.auth."""
 
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from visualizer.lib.auth import authenticate, encode_token, get_current_user, send_code
 
@@ -39,7 +39,8 @@ class TestSendCode:
         result = send_code("nobody@example.com")
         assert result is False
 
-    def test_existing_user(self, peewee_db: Path) -> None:
+    @patch("visualizer.infra.auth.mailer")
+    def test_existing_user(self, mock_mailer: MagicMock, peewee_db: Path) -> None:
         from visualizer.infra.models.tenant import Tenant
         from visualizer.infra.models.user import User
 
@@ -48,8 +49,10 @@ class TestSendCode:
         )
         User.create(email="user@example.com", tenant=tenant)
 
+        mock_mailer.send.return_value = True
         result = send_code("user@example.com")
         assert result is True
+        mock_mailer.send.assert_called_once()
 
 
 class TestAuthenticate:
@@ -57,7 +60,8 @@ class TestAuthenticate:
         result = authenticate("user@example.com", "000000")
         assert result is None
 
-    def test_valid_code(self, peewee_db: Path) -> None:
+    @patch("visualizer.infra.auth.mailer")
+    def test_valid_code(self, mock_mailer: MagicMock, peewee_db: Path) -> None:
         from visualizer.infra.models.tenant import Tenant
         from visualizer.infra.models.user import User
 
@@ -67,6 +71,7 @@ class TestAuthenticate:
         User.create(email="user@example.com", tenant=tenant)
 
         # Send a code first
+        mock_mailer.send.return_value = True
         send_code("user@example.com")
 
         # Retrieve the code from DB

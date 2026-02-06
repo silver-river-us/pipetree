@@ -19,6 +19,7 @@ class Settings:
     def __init__(self) -> None:
         self.db_path: str = os.getenv("DB_PATH", str(_default_db))
         self.secret_key: str = os.getenv("SECRET_KEY", "dev-secret-change-me")
+        self.sendgrid_api_key: str = os.getenv("SENDGRID_API_KEY", "")
         self.log_auth_codes: bool = os.getenv("LOG_AUTH_CODES", "true").lower() in (
             "true",
             "1",
