@@ -11,266 +11,110 @@
 
 ---
 
-## Features
+Pipetree gives you capability-based contracts, streaming execution, async support, checkpointing, pluggable implementations via a registry, and built-in A/B benchmarking — all wired together with a clean DSL.
 
-- **Capability-based contracts** - Explicit pre/postconditions for each step
-- **Streaming execution** - Memory-bounded processing for huge documents
-- **Async-first** - Supports both sync and async steps transparently
-- **Checkpointing** - Resumable processing with cursor-based checkpoints
-- **Pluggable implementations** - Registry for swapping step implementations
-- **Benchmarking** - A/B testing for steps and pipelines with correctness evaluation
+Monitor your pipelines and benchmark results in real-time at [pipetree.io](https://pipetree.io).
 
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                          Pipetree                               │
-│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐     │
-│  │  Step 1  │──▶│  Step 2  │──▶│  Router  │──▶│  Step N  │     │
-│  │ (cap: A) │   │ (cap: B) │   │ (cap: C) │   │ (cap: D) │     │
-│  └──────────┘   └──────────┘   └────┬─────┘   └──────────┘     │
-│                                     │                           │
-│                              ┌──────┴──────┐                    │
-│                              ▼             ▼                    │
-│                         [Route A]     [Route B]                 │
-└─────────────────────────────────────────────────────────────────┘
-         │                                           │
-         ▼                                           ▼
-┌─────────────────┐                       ┌─────────────────┐
-│ CheckpointStore │                       │    Registry     │
-│  (resumability) │                       │ (swappable impl)│
-└─────────────────┘                       └─────────────────┘
-```
-
-## Core Components
-
-### Capability
-
-Defines a contract for pipeline steps using `requires` (preconditions) and `provides` (postconditions).
-
-```python
-Capability(name="chunking", requires={"texts", "kind"}, provides={"chunks"})
-```
-
-Steps are interchangeable only if they implement the same capability. The pipeline validates contracts at runtime.
-
-### Step
-
-The base processing unit. Each step declares a capability and implements a `run(ctx)` method that transforms context.
-
-```
-┌────────────────────────────┐
-│          Step          │
-├────────────────────────────┤
-│ cap: Capability            │
-│ name: str                  │
-├────────────────────────────┤
-│ run(ctx) → Context             │
-└────────────────────────────┘
-```
-
-### Router
-
-A specialized step that branches to different implementations based on context signals.
-
-```
-         ┌──────────┐
-         │  Router  │
-         │  pick()  │
-         └────┬─────┘
-              │
-    ┌─────────┼─────────┐
-    ▼         ▼         ▼
- [impl_a] [impl_b] [default]
-```
-
-### Pipetree
-
-Orchestrates step execution with:
-- **Chain validation** - Ensures `provides` from step N satisfies `requires` of step N+1
-- **Runtime contract checks** - Validates pre/postconditions during execution
-- **Async support** - Handles both sync and async steps transparently
-
-### CheckpointStore
-
-Enables resumable processing via cursor-based checkpoints.
-
-```python
-# Cursor tracks progress
-Cursor = { page: int, chunk_idx: int, extra: {...} }
-```
-
-Implementations: `InMemoryCheckpointStore`, `FileCheckpointStore`
-
-### Registry
-
-Manages multiple implementations per capability for experimentation and A/B testing.
-
-```python
-registry.register("chunking", "simple", SimpleChunkerFactory)
-registry.register("chunking", "semantic", SemanticChunkerFactory)
-step = registry.make("chunking", "semantic")
-```
-
-## Data Flow
-
-The `Context` (context) object flows through the pipeline as a streaming data bus:
-
-```
-Input: path → pdf → pages → texts → chunks → vec_batches → done
-            (iterator)  (iterator)  (iterator)  (async iter)
-```
-
-For large documents, values are streams/iterators to maintain bounded memory usage.
-
-### Predefined Capabilities
-
-```
-┌────────────────┐     ┌─────────────────┐     ┌──────────┐
-│ CLASSIFICATION │────▶│ PAGE_ITERATION  │────▶│TEXT_EXTR │
-│ pdf→kind,scan  │     │ pdf→pages       │     │pages→txt │
-└────────────────┘     └─────────────────┘     └────┬─────┘
-                                                    │
-┌────────────────┐     ┌─────────────────┐          ▼
-│ INDEX_WRITING  │◀────│    EMBEDDING    │◀────┌──────────┐
-│ vecs→done      │     │ chunks→vecs     │     │ CHUNKING │
-└────────────────┘     └─────────────────┘     │ txt→chunk│
-                                               └──────────┘
-```
-
-## Benchmarking
-
-The `BenchRunner` supports A/B testing of implementations:
-
-```python
-runner = BenchRunner(registry=registry)
-results = await runner.run_step_ab(
-    cap_name="chunking",
-    impls=["simple", "semantic"],
-    fixtures=test_fixtures,
-    judge=accuracy_judge,
-)
-```
-
-Metrics collected: `wall_time_s`, `peak_mem_mb`, `throughput_pages_s`, `correctness`
-
-## Installation
+## Quick Start
 
 ```bash
+cd pipetree
 pipenv install --dev
 pipenv run pip install -e .
 ```
 
-## Running Tests
-
-```bash
-# Run all tests
-pipenv run pytest
-
-# Run with verbose output
-pipenv run pytest -v
-
-# Run a specific test file
-pipenv run pytest tests/test_pipeline.py
-
-# Run with coverage (if installed)
-pipenv run pytest --cov=pipetree
-```
-
-## Linting
-
-```bash
-# Check for issues
-pipenv run ruff check .
-
-# Auto-fix issues
-pipenv run ruff check . --fix
-
-# Format code
-pipenv run ruff format .
-```
-
-## Run All Checks (CI locally)
-
-```bash
-./bin/check
-```
-
-This runs lint, type check, and tests - the same checks as CI.
-
-## Running the Pipeline
-
 ```python
 import asyncio
-from pipetree import Pipetree, Capability, Step, Context
+from pipetree import step, pipeline, Step, Context
 
-# Define a capability
-my_cap = Capability(
-    name="text_extraction",
-    requires={"pages"},
-    provides={"texts"},
-)
-
-# Implement a step
-class MyExtractor(Step):
+@step(requires={"input"}, provides={"words"})
+class Split(Step):
     def run(self, ctx: Context) -> Context:
-        ctx["texts"] = extract_texts(ctx["pages"])
+        ctx["words"] = ctx["input"].split()
         return ctx
 
-# Build and run pipetree
-pipetree = Pipetree(steps=[MyExtractor(my_cap, "extractor")])
+@step(requires={"words"}, provides={"output"})
+class Shout(Step):
+    def run(self, ctx: Context) -> Context:
+        ctx["output"] = "_".join(w.upper() for w in ctx["words"])
+        return ctx
 
-async def main():
-    result = await pipetree.run({"pages": my_pages})
-    print(result)
-
-asyncio.run(main())
+result = asyncio.run(pipeline("demo", [Split, Shout]).run({"input": "hello world"}))
+# result["output"] == "HELLO_WORLD"
 ```
 
-Or run directly from the shell:
+## Benchmarking
+
+Register multiple implementations of the same capability, then A/B test them:
+
+```python
+from pipetree import step, Step, Context, Capability, Registry, BenchRunner
+
+@step(requires={"items"}, provides={"sorted"})
+class BubbleSort(Step):
+    def run(self, ctx: Context) -> Context:
+        arr = list(ctx["items"])
+        for i in range(len(arr)):
+            for j in range(len(arr) - i - 1):
+                if arr[j] > arr[j + 1]:
+                    arr[j], arr[j + 1] = arr[j + 1], arr[j]
+        ctx["sorted"] = arr
+        return ctx
+
+@step(requires={"items"}, provides={"sorted"})
+class BuiltinSort(Step):
+    def run(self, ctx: Context) -> Context:
+        ctx["sorted"] = sorted(ctx["items"])
+        return ctx
+
+# Register both under the same capability
+sorting = Capability(name="sorting", requires={"items"}, provides={"sorted"})
+
+registry = Registry()
+registry.register("sorting", "bubble", lambda: BubbleSort(sorting, "bubble"))
+registry.register("sorting", "builtin", lambda: BuiltinSort(sorting, "builtin"))
+
+# Run the benchmark
+runner = BenchRunner(registry=registry)
+
+results = runner.run_step_ab(
+    cap_name="sorting",
+    impls=["bubble", "builtin"],
+    fixtures=[
+        {"id": "small", "items": list(range(100, 0, -1))},
+        {"id": "large", "items": list(range(10000, 0, -1))},
+    ],
+    judge=lambda fixture, ctx: {"correctness": float(ctx["sorted"] == sorted(fixture["items"]))},
+    setup_ctx=lambda fixture: {"items": fixture["items"]},
+)
+```
+
+## Cloud
+
+Send pipeline progress and benchmark results to [pipetree.io](https://pipetree.io) by setting two env vars:
 
 ```bash
-pipenv run python -c "
-import asyncio
-from pipetree import Pipetree, Step, Capability, Context
-
-# Define your steps and run
-async def main():
-    # Your pipeline code here
-    pass
-
-asyncio.run(main())
-"
+export PIPETREE_HOST=https://pipetree.io
+export PIPETREE_API_KEY=your-api-key
 ```
 
-## Visualizer
+```python
+from pipetree import HTTPProgressNotifier, HTTPBenchmarkStore, BenchRunner, pipeline
 
-Pipetree includes a real-time monitoring dashboard built with FastAPI, HTMX, and Tailwind CSS.
+# Progress tracking
+notifier = HTTPProgressNotifier(base_url=..., api_key=..., pipeline="my-pipeline")
+my_pipeline = pipeline("my-pipeline", [Split, Shout], progress_notifier=notifier)
+
+# Remote benchmark results
+store = HTTPBenchmarkStore(base_url=..., api_key=...)
+runner = BenchRunner(registry=my_registry, store=store)
+```
+
+## Development
 
 ```bash
-cd visualizer
-pipenv install
-pipenv run uvicorn visualizer.app:app --reload
-```
-
-Features:
-- Real-time pipeline progress via WebSocket
-- Multiple database support
-- Interactive step visualization (horizontal, vertical, list views)
-- CircleCI-inspired UI
-
-## Project Structure
-
-```
-pipetree/
-├── pipetree/              # Core library
-│   ├── pipetree/          # Main package
-│   └── tests/             # Unit tests
-├── visualizer/            # Monitoring dashboard
-│   ├── visualizer/        # FastAPI app
-│   └── templates/         # Jinja2 templates
-└── examples/
-    └── pdf_ingestion/     # PDF processing example
+cd pipetree
+bin/check  # lint, types, tests (100% coverage)
 ```
 
 ## License

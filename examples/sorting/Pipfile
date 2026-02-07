@@ -4,8 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+pipetree = {path = "../../pipetree", editable = true}
+pytest = ">=7.0.0"
 
-[dev-packages]
-
-[requires]
-python_version = "3.11"
