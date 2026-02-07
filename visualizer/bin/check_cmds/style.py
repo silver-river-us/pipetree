@@ -5,6 +5,7 @@ from pathlib import Path
 IGNORE_FILES = {
     "__init__.py",
     "conftest.py",
+    "formatters.py",
 }
 
 IGNORE_DIRS = {
