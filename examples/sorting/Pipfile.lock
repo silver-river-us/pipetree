@@ -38,9 +38,9 @@
             "markers": "python_version >= '3.8'",
             "version": "==26.0"
         },
-        "pipetree": {
-            "editable": true,
-            "path": "../../pipetree"
+        "pipetree-io": {
+            "markers": "python_version >= '3.11'",
+            "version": "==0.1.0"
         },
         "pluggy": {
             "hashes": [

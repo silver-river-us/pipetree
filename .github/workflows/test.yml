@@ -51,23 +51,8 @@ jobs:
       - name: Install pipenv
         run: pip install pipenv
 
-      - name: Install pipetree first
-        run: |
-          cd ../../pipetree
-          pipenv install --dev
-          pipenv run pip install -e .
-
       - name: Install dependencies
         run: pipenv install --dev
 
-      - name: Install package
-        run: pipenv run pip install -e .
-
-      - name: Run linter
-        run: pipenv run ruff check .
-
-      - name: Run formatter check
-        run: pipenv run ruff format --check .
-
-      - name: Run tests
-        run: pipenv run pytest tests/ -v
+      - name: Run checks
+        run: bin/check

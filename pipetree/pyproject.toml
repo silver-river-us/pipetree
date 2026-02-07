@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pipetree-io"
-version = "0.1.0"
-description = "Modular, benchmarkable ingestion framework for large PDFs"
-readme = "README.md"
+version = "0.1.1"
+description = "Modular, benchmarkable pipeline framework"
+readme = "../README.md"
 requires-python = ">=3.11"
 license = {text = "O'Saasy License"}
 authors = [
@@ -21,6 +21,11 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Typing :: Typed",
 ]
+[project.urls]
+Homepage = "https://pipetree.io"
+Repository = "https://github.com/silver-river-us/pipetree"
+Issues = "https://github.com/silver-river-us/pipetree/issues"
+
 dependencies = [
     "typing-extensions>=4.0.0",
     "sqlmodel>=0.0.16",
