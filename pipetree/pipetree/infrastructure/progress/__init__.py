@@ -6,6 +6,12 @@ from pipetree.infrastructure.progress.file_progress_notifier import (
 )
 
 try:
+    from pipetree.infrastructure.progress.http_benchmark_store import (
+        HTTPBenchmarkStore,
+    )
+except ImportError:
+    HTTPBenchmarkStore = None  # type: ignore[assignment,misc]
+try:
     from pipetree.infrastructure.progress.http_progress_notifier import (
         HTTPProgressNotifier,
     )
@@ -36,6 +42,7 @@ from pipetree.infrastructure.progress.sqlite_watcher import (
 __all__ = [
     "BenchmarkStore",
     "ConsoleProgressHandler",
+    "HTTPBenchmarkStore",
     "ProgressEvent",
     "ProgressHandler",
     "ProgressNotifier",

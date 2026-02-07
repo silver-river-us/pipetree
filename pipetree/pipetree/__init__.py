@@ -45,6 +45,7 @@ from pipetree.infrastructure.progress import (
     BenchmarkStore,
     ConsoleProgressHandler,
     FileProgressNotifier,
+    HTTPBenchmarkStore,
     HTTPProgressNotifier,
     InMemoryProgressNotifier,
     NullProgressNotifier,
@@ -82,6 +83,7 @@ __all__ = [
     # Progress
     "BenchmarkStore",
     "ConsoleProgressHandler",
+    "HTTPBenchmarkStore",
     "ProgressEvent",
     "ProgressHandler",
     "ProgressNotifier",

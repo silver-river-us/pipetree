@@ -270,8 +270,7 @@ pipetree/
 │   ├── visualizer/        # FastAPI app
 │   └── templates/         # Jinja2 templates
 └── examples/
-    ├── pdf_ingestion/     # PDF processing example
-    └── stress_test/       # Load testing example
+    └── pdf_ingestion/     # PDF processing example
 ```
 
 ## License

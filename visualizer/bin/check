@@ -1,4 +1,0 @@
-#\!/bin/bash
-cd "$(dirname "$0")/.."
-cmd="${1:-all}"
-pipenv run python -m bin.check_cmds."$cmd"

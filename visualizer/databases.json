@@ -1,8 +1,0 @@
-{
-  "databases": [
-    {
-      "name": "CurrentPulse Energy",
-      "path": "../../current_works/current_pulse/api/infra/db/pipelines/energy.db"
-    }
-  ]
-}

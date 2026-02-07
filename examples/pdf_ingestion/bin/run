@@ -3,4 +3,4 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-pipenv run python -m pdf_ingestion.main "$@"
+pipenv run python -m boundary.cli "$@"

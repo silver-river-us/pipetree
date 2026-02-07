@@ -4,4 +4,4 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "=== Running Benchmarks ==="
-pipenv run pytest benchmarks/ -v --capture=no "$@"
+pipenv run python -m pytest benchmarks/ -v --capture=no "$@"

@@ -12,7 +12,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from pipetree import Capability, Registry, Step
 
-from pdf_ingestion.context import PdfContext
+from lib.context import PdfContext
 
 from .workers import (
     extract_pdfplumber_chunk,

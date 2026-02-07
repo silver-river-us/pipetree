@@ -1,7 +1,7 @@
 """Tests for the PDF ingestion pipeline."""
 
-from pdf_ingestion.main import create_pipeline
-from pdf_ingestion.steps import (
+from lib.pipeline import create_pipeline
+from lib.steps import (
     Categorize,
     ExtractText,
     LoadPdf,
@@ -55,8 +55,7 @@ class TestPipelineCreation:
     """Tests for pipeline creation."""
 
     def test_create_pipeline_without_notifier(self) -> None:
-        pipeline, notifier = create_pipeline(db_path=None)
+        pipeline = create_pipeline()
         assert pipeline is not None
-        assert notifier is None
         assert pipeline.name == "PDF Processing Pipeline"
         assert len(pipeline.steps) == 5

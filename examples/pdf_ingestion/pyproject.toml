@@ -14,7 +14,6 @@ authors = [
 dependencies = [
     "pipetree",
     "pymupdf>=1.24.0",
-    "sqlmodel>=0.0.16",
 ]
 
 [project.optional-dependencies]
@@ -23,9 +22,6 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "mypy>=1.0.0",
 ]
-
-[tool.setuptools.packages.find]
-where = ["."]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -45,7 +41,7 @@ disable_error_code = ["import-untyped", "attr-defined", "misc", "index", "arg-ty
 [tool.ruff]
 target-version = "py311"
 line-length = 88
-src = ["src", "tests"]
+src = [".", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -63,4 +59,4 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["pdf_ingestion"]
+known-first-party = ["boundary", "lib", "infra", "config"]
