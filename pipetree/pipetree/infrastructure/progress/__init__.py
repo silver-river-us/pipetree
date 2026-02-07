@@ -9,13 +9,13 @@ try:
     from pipetree.infrastructure.progress.http_benchmark_store import (
         HTTPBenchmarkStore,
     )
-except ImportError:
+except ImportError:  # pragma: no cover
     HTTPBenchmarkStore = None  # type: ignore[assignment,misc]
 try:
     from pipetree.infrastructure.progress.http_progress_notifier import (
         HTTPProgressNotifier,
     )
-except ImportError:
+except ImportError:  # pragma: no cover
     HTTPProgressNotifier = None  # type: ignore[assignment,misc]
 from pipetree.infrastructure.progress.handler import (
     ConsoleProgressHandler,
