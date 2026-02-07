@@ -7,7 +7,7 @@ name = "pdf-ingestion-example"
 version = "0.1.0"
 description = "PDF ingestion example using pipetree"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Pipetree Team"}
 ]
@@ -15,6 +15,9 @@ dependencies = [
     "pipetree",
     "pymupdf>=1.24.0",
 ]
+
+[tool.setuptools.packages.find]
+include = ["lib*", "boundary*", "infra*"]
 
 [project.optional-dependencies]
 dev = [

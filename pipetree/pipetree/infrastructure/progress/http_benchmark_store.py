@@ -4,7 +4,7 @@ import logging
 import uuid
 from typing import Any
 
-import httpx
+import httpx  # type: ignore[import-not-found]
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +49,7 @@ class HTTPBenchmarkStore:
             resp = self._client.post("/benchmarks", json=payload)
             resp.raise_for_status()
         except httpx.HTTPError:
-            logger.warning(
-                "Failed to create benchmark %s", benchmark_id, exc_info=True
-            )
+            logger.warning("Failed to create benchmark %s", benchmark_id, exc_info=True)
         return benchmark_id
 
     def add_result(
@@ -86,7 +84,8 @@ class HTTPBenchmarkStore:
                 f"/benchmarks/{benchmark_id}/results", json=payload
             )
             resp.raise_for_status()
-            return resp.json().get("result_id", 0)
+            result_id: int = resp.json().get("result_id", 0)
+            return result_id
         except httpx.HTTPError:
             logger.warning(
                 "Failed to add result for benchmark %s",
@@ -95,9 +94,7 @@ class HTTPBenchmarkStore:
             )
             return 0
 
-    def complete_benchmark(
-        self, benchmark_id: str, status: str = "completed"
-    ) -> None:
+    def complete_benchmark(self, benchmark_id: str, status: str = "completed") -> None:
         """Mark a benchmark as completed on the remote API."""
         try:
             resp = self._client.patch(

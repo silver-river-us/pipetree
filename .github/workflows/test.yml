@@ -30,56 +30,8 @@ jobs:
       - name: Install package
         run: pipenv run pip install -e .
 
-      - name: Run linter
-        run: pipenv run ruff check .
-
-      - name: Run formatter check
-        run: pipenv run ruff format --check .
-
-      - name: Run type check
-        run: pipenv run mypy pipetree/
-
-      - name: Run tests
-        run: pipenv run pytest tests/ -v
-
-  visualizer:
-    name: visualizer
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: visualizer
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.14
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-
-      - name: Install pipenv
-        run: pip install pipenv
-
-      - name: Install dependencies
-        run: pipenv install --dev
-
-      - name: Run linter
-        run: pipenv run ruff check .
-
-      - name: Run formatter check
-        run: pipenv run ruff format --check .
-
-      - name: Run architecture check
-        run: pipenv run python -m bin.check_cmds.arch
-
-      - name: Run style check
-        run: pipenv run python -m bin.check_cmds.style
-
-      - name: Run type check
-        run: pipenv run mypy boundary lib infra app.py config.py routes.py
-
-      - name: Run tests
-        run: pipenv run pytest tests/ -v
+      - name: Run checks
+        run: bin/check
 
   pdf-ingestion:
     name: pdf-ingestion
@@ -117,9 +69,5 @@ jobs:
       - name: Run formatter check
         run: pipenv run ruff format --check .
 
-      - name: Run type check
-        run: pipenv run mypy pdf_ingestion/
-
       - name: Run tests
         run: pipenv run pytest tests/ -v
-
