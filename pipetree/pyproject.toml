@@ -58,8 +58,17 @@ strict = false
 disable_error_code = ["arg-type"]
 
 [[tool.mypy.overrides]]
-module = "pipetree.infrastructure.progress.http_progress_notifier"
+module = [
+    "pipetree.infrastructure.progress.http_progress_notifier",
+    "pipetree.infrastructure.progress.http_benchmark_store",
+]
 disable_error_code = ["import-not-found"]
+
+[tool.coverage.run]
+omit = [
+    "pipetree/infrastructure/progress/http_progress_notifier.py",
+    "pipetree/infrastructure/progress/http_benchmark_store.py",
+]
 
 [tool.ruff]
 target-version = "py311"
