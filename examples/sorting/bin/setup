@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+echo "Installing pipetree..."
+cd ../../pipetree
+pipenv install --dev
+pipenv run pip install -e .
+
+echo ""
+echo "Installing sorting example..."
+cd ../examples/sorting
+pipenv install --dev
+
+echo ""
+echo "Done! Run bin/benchmark to compare sorting algorithms."

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+echo "Installing pipetree..."
+cd ../../pipetree
+pipenv install --dev
+pipenv run pip install -e .
+
+echo ""
+echo "Installing pdf_ingestion example..."
+cd ../examples/pdf_ingestion
+pipenv install --dev
+pipenv run pip install -e .
+
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo ""
+  echo "Created .env from .env.example"
+fi
+
+echo ""
+echo "Done! Run bin/run to process a PDF."
