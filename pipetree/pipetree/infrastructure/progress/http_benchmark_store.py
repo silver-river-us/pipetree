@@ -4,7 +4,7 @@ import logging
 import uuid
 from typing import Any
 
-import httpx  # type: ignore[import-not-found]
+import httpx
 
 logger = logging.getLogger(__name__)
 
