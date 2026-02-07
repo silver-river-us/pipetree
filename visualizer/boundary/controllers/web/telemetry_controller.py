@@ -16,17 +16,17 @@ router = APIRouter()
 @router.get("/telemetry", response_class=HTMLResponse)
 async def telemetry_index(request: Request, db: str = Query(default=None)):
     """Telemetry dashboard page."""
-
     if redirect := require_login(request):
         return redirect
 
     db_path = get_db_path(db, request)
     databases: list[dict] = []
     pipelines = telemetry_lib.get_all_pipelines(db_path, databases)
+
     return templates().TemplateResponse(
+        request,
         "telemetry.html",
         {
-            "request": request,
             "pipelines": pipelines,
             "db_path": str(db_path),
             **get_template_context(db_path),
@@ -37,16 +37,16 @@ async def telemetry_index(request: Request, db: str = Query(default=None)):
 @router.get("/telemetry/{run_id}", response_class=HTMLResponse)
 async def telemetry_run_detail(request: Request, run_id: str, db: str = Query(...)):
     """Telemetry page for a specific run."""
-
     if redirect := require_login(request):
         return redirect
 
     db_path = Path(db)
     data = telemetry_lib.get_run_telemetry(run_id, db_path)
+
     return templates().TemplateResponse(
+        request,
         "run_telemetry.html",
         {
-            "request": request,
             "run": data["run"],
             "steps": data["steps"],
             "run_id": run_id,
@@ -66,15 +66,15 @@ async def compare_runs(
     db2: str = Query(...),
 ):
     """Compare telemetry between two runs."""
-
     if redirect := require_login(request):
         return redirect
 
     data = telemetry_lib.compare_runs(run1, Path(db1), run2, Path(db2))
+
     return templates().TemplateResponse(
+        request,
         "compare.html",
         {
-            "request": request,
             **data,
             **get_template_context(Path(db1)),
         },

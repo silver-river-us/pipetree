@@ -16,6 +16,7 @@ def encode_token(user_id: str, email: str, tenant_id: str) -> str:
         "exp": datetime.now(UTC).replace(tzinfo=None)
         + timedelta(hours=JWT_EXPIRE_HOURS),
     }
+
     return jwt.encode(payload, settings.secret_key, algorithm=JWT_ALGORITHM)
 
 

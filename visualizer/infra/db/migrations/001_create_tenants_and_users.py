@@ -13,8 +13,10 @@ def migrate(migrator, database, **kwargs):
             db_name VARCHAR(255) NOT NULL
         )
     """)
+
     database.execute_sql("CREATE INDEX idx_tenants_slug ON tenants(slug)")
     database.execute_sql("CREATE INDEX idx_tenants_api_key ON tenants(api_key)")
+
     database.execute_sql("""
         CREATE TABLE users (
             id VARCHAR(32) PRIMARY KEY,
@@ -24,6 +26,7 @@ def migrate(migrator, database, **kwargs):
             tenant_id VARCHAR(32) NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
         )
     """)
+
     database.execute_sql("CREATE INDEX idx_users_email ON users(email)")
     database.execute_sql("CREATE INDEX idx_users_tenant_id ON users(tenant_id)")
 

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 
 from lib import steps as steps_lib
+from lib.exceptions import DatabaseNotFoundError, RunNotFoundError
 
 from boundary.base.http_context import get_db_path
 from boundary.base.templates import templates
@@ -17,11 +18,16 @@ async def run_steps_partial(
 ):
     """HTMX partial for steps list."""
     db_path = get_db_path(db, request)
-    run, steps = steps_lib.get_steps(run_id, db_path)
+
+    try:
+        run, steps = steps_lib.get_steps(run_id, db_path)
+    except (DatabaseNotFoundError, RunNotFoundError):
+        run, steps = None, []
+
     return templates().TemplateResponse(
+        request,
         "partials/steps.html",
         {
-            "request": request,
             "run": run,
             "steps": steps,
             "run_id": run_id,
@@ -36,11 +42,16 @@ async def run_steps_data_partial(
 ):
     """HTMX partial for steps data."""
     db_path = get_db_path(db, request)
-    run, steps = steps_lib.get_steps(run_id, db_path)
+
+    try:
+        run, steps = steps_lib.get_steps(run_id, db_path)
+    except (DatabaseNotFoundError, RunNotFoundError):
+        run, steps = None, []
+
     return templates().TemplateResponse(
+        request,
         "partials/steps_data.html",
         {
-            "request": request,
             "run": run,
             "steps": steps,
             "run_id": run_id,
@@ -55,11 +66,16 @@ async def run_steps_list_partial(
 ):
     """HTMX partial for step list."""
     db_path = get_db_path(db, request)
-    steps = steps_lib.get_steps_list(run_id, db_path)
+
+    try:
+        _, steps = steps_lib.get_steps(run_id, db_path)
+    except (DatabaseNotFoundError, RunNotFoundError):
+        steps = []
+
     return templates().TemplateResponse(
+        request,
         "partials/step_list.html",
         {
-            "request": request,
             "steps": steps,
             "run_id": run_id,
             "db_path": str(db_path),
@@ -77,11 +93,16 @@ async def step_events(
 ):
     """Get events for a specific step (modal content)."""
     db_path = get_db_path(db, request)
-    data = steps_lib.get_step_events(run_id, step_index, db_path, since_id)
+
+    try:
+        data = steps_lib.get_step_events(run_id, step_index, db_path, since_id)
+    except DatabaseNotFoundError:
+        data = {"step": None, "events": [], "total_events": 0}
+
     return templates().TemplateResponse(
+        request,
         "partials/step_events.html",
         {
-            "request": request,
             "step": data["step"],
             "events": data["events"],
             "run_id": run_id,
@@ -101,11 +122,16 @@ async def step_summary(
 ):
     """Get a brief summary of the latest step activity."""
     db_path = get_db_path(db, request)
-    data = steps_lib.get_step_summary(run_id, step_index, db_path)
+
+    try:
+        data = steps_lib.get_step_summary(run_id, step_index, db_path)
+    except DatabaseNotFoundError:
+        data = {"step": None, "latest_event": None}
+
     return templates().TemplateResponse(
+        request,
         "partials/step_summary.html",
         {
-            "request": request,
             "step": data["step"],
             "latest_event": data["latest_event"],
         },

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from boundary.base.http_context import get_db_path
 from boundary.base.templates import templates
 from lib import runs as runs_lib
+from lib.exceptions import DatabaseNotFoundError, RunNotFoundError
 
 router = APIRouter()
 
@@ -24,14 +25,17 @@ async def api_runs_list(
     """HTMX partial for runs list from all databases."""
     databases: list[dict] = []
     db_path = get_db_path(db, request)
+
     runs, total_count, pipeline_names = runs_lib.fetch_runs(
         db_path, databases, status, pipeline, page, per_page
     )
+
     total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+
     return templates().TemplateResponse(
+        request,
         "partials/runs_list.html",
         {
-            "request": request,
             "runs": runs,
             "db_path": str(db_path),
             "total_count": total_count,
@@ -51,12 +55,22 @@ async def api_run_progress(
 ):
     """Get current progress data for a run (JSON)."""
     db_path = get_db_path(db, request)
-    data = runs_lib.get_run_progress(run_id, db_path)
+
+    try:
+        data = runs_lib.get_run_progress(run_id, db_path)
+    except (DatabaseNotFoundError, RunNotFoundError):
+        data = {"run": None, "steps": []}
+
     return data
 
 
 @router.delete("/runs/{run_id}")
 async def api_run_delete(request: Request, run_id: str, db: str = Query(...)):
     """Delete a run and all its associated data."""
-    result = runs_lib.delete_run(run_id, Path(db))
-    return JSONResponse(content=result)
+    try:
+        runs_lib.delete_run(run_id, Path(db))
+        return JSONResponse(content={"success": True})
+    except DatabaseNotFoundError:
+        return JSONResponse(content={"success": False, "error": "Database not found"})
+    except Exception as e:
+        return JSONResponse(content={"success": False, "error": str(e)})

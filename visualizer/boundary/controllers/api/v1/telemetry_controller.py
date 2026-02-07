@@ -28,9 +28,11 @@ async def api_step_durations(
 ):
     """Get step duration data for a specific pipeline."""
     databases: list[dict] = []
+
     data = telemetry_lib.get_step_durations(
         pipeline, limit, get_db_path(db, request), databases
     )
+
     return JSONResponse(content=data)
 
 
@@ -43,9 +45,11 @@ async def api_run_trends(
 ):
     """Get run performance trends over time."""
     databases: list[dict] = []
+
     data = telemetry_lib.get_run_trends(
         pipeline, limit, get_db_path(db, request), databases
     )
+
     return JSONResponse(content=data)
 
 
@@ -58,9 +62,11 @@ async def api_throughput(
 ):
     """Get throughput metrics (items processed per run)."""
     databases: list[dict] = []
+
     data = telemetry_lib.get_throughput(
         pipeline, limit, get_db_path(db, request), databases
     )
+
     return JSONResponse(content=data)
 
 

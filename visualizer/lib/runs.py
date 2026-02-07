@@ -7,7 +7,14 @@ from typing import Any
 from pipetree.infrastructure.progress.models import Event, Run, Step, get_session
 from sqlmodel import delete, select
 
+from lib.exceptions import DatabaseNotFoundError, RunNotFoundError
+
 logger = logging.getLogger(__name__)
+
+
+def _require_db(db_path: Path) -> None:
+    if not db_path.is_file():
+        raise DatabaseNotFoundError(str(db_path))
 
 
 def fetch_runs(
@@ -24,39 +31,13 @@ def fetch_runs(
     """
     all_runs: list[dict] = []
     pipeline_names: set[str] = set()
-    db_sources: list[tuple[Path, str]] = []
-
-    if databases:
-        db_sources = [
-            (Path(db["path"]), db["name"])
-            for db in databases
-            if Path(db["path"]).exists()
-        ]
-    elif db_path.exists():
-        db_sources = [(db_path, db_path.parent.parent.name)]
+    db_sources = _collect_db_sources(db_path, databases)
 
     for db_file, db_name in db_sources:
         try:
-            with get_session(db_file) as session:
-                names_stmt = select(Run.name).distinct().where(Run.name.isnot(None))  # type: ignore[union-attr]
-                names = session.exec(names_stmt).all()
-                pipeline_names.update(n for n in names if n)
-                query = select(Run)
-
-                if status:
-                    query = query.where(Run.status == status)
-
-                if pipeline:
-                    query = query.where(Run.name == pipeline)
-
-                query = query.order_by(Run.started_at.desc())  # type: ignore[union-attr]
-                results = session.exec(query).all()
-
-                for run in results:
-                    run_dict = run.model_dump()
-                    run_dict["db_path"] = str(db_file)
-                    run_dict["db_name"] = db_name
-                    all_runs.append(run_dict)
+            runs, names = _query_runs_from_db(db_file, db_name, status, pipeline)
+            all_runs.extend(runs)
+            pipeline_names.update(names)
         except Exception:
             logger.debug("Failed to query %s", db_file, exc_info=True)
 
@@ -68,93 +49,127 @@ def fetch_runs(
     return paginated_runs, total_count, sorted(pipeline_names)
 
 
-def get_run_detail(run_id: str, db_path: Path) -> tuple[dict | None, list[dict]]:
+def get_run_detail(run_id: str, db_path: Path) -> tuple[Run, list[Step]]:
     """Get run and its steps.
 
-    Returns (run, steps).
+    Raises DatabaseNotFoundError, RunNotFoundError.
     """
-    run: dict | None = None
-    steps: list[dict] = []
+    _require_db(db_path)
 
-    if db_path.exists():
-        try:
-            with get_session(db_path) as session:
-                run_obj = session.get(Run, run_id)
+    with get_session(db_path) as session:
+        run = session.get(Run, run_id)
 
-                if run_obj:
-                    run = run_obj.model_dump()
+        if not run:
+            raise RunNotFoundError(run_id)
 
-                statement = (
-                    select(Step).where(Step.run_id == run_id).order_by(Step.step_index)
-                )
-                results = session.exec(statement).all()
-                steps = [step.model_dump() for step in results]
-        except Exception:
-            logger.debug("Failed to query %s", db_path, exc_info=True)
+        statement = (
+            select(Step).where(Step.run_id == run_id).order_by(Step.step_index)
+        )
+        steps = list(session.exec(statement).all())
 
     return run, steps
 
 
 def get_run_progress(run_id: str, db_path: Path) -> dict[str, Any]:
-    """Get current progress data for a run."""
-    data: dict[str, Any] = {"run": None, "steps": [], "latest_events": []}
+    """Get current progress data for a run.
 
-    if db_path.exists():
-        try:
-            with get_session(db_path) as session:
-                run_obj = session.get(Run, run_id)
+    Raises DatabaseNotFoundError.
+    """
+    _require_db(db_path)
 
-                if run_obj:
-                    data["run"] = run_obj.model_dump()
+    with get_session(db_path) as session:
+        run = session.get(Run, run_id)
 
-                statement = (
-                    select(Step).where(Step.run_id == run_id).order_by(Step.step_index)
-                )
-                steps = session.exec(statement).all()
-                step_dicts = []
+        if not run:
+            raise RunNotFoundError(run_id)
 
-                for step in steps:
-                    step_dict = step.model_dump()
+        statement = (
+            select(Step).where(Step.run_id == run_id).order_by(Step.step_index)
+        )
+        steps = session.exec(statement).all()
+        step_dicts = [_enrich_step(session, run_id, step) for step in steps]
 
-                    if step.status == "running":
-                        progress_stmt = (
-                            select(Event)
-                            .where(Event.run_id == run_id)
-                            .where(Event.step_index == step.step_index)
-                            .where(Event.event_type == "progress")
-                            .order_by(Event.id.desc())  # type: ignore[union-attr]
-                            .limit(1)
-                        )
-                        progress_event = session.exec(progress_stmt).first()
-
-                        if progress_event:
-                            step_dict["current"] = progress_event.current
-                            step_dict["total"] = progress_event.total
-                            step_dict["message"] = progress_event.message
-
-                    step_dicts.append(step_dict)
-
-                data["steps"] = step_dicts
-        except Exception:
-            logger.debug("Failed to query %s", db_path, exc_info=True)
-
-    return data
+    return {"run": run, "steps": step_dicts}
 
 
-def delete_run(run_id: str, db_path: Path) -> dict[str, Any]:
-    """Delete a run and all its associated data."""
+def delete_run(run_id: str, db_path: Path) -> None:
+    """Delete a run and all its associated data.
 
-    if not db_path.exists():
-        return {"success": False, "error": "Database not found"}
+    Raises DatabaseNotFoundError on missing DB.
+    """
+    _require_db(db_path)
 
-    try:
-        with get_session(db_path) as session:
-            session.exec(delete(Event).where(Event.run_id == run_id))  # type: ignore[call-overload]
-            session.exec(delete(Step).where(Step.run_id == run_id))  # type: ignore[call-overload]
-            session.exec(delete(Run).where(Run.id == run_id))  # type: ignore[call-overload]
-            session.commit()
+    with get_session(db_path) as session:
+        session.exec(delete(Event).where(Event.run_id == run_id))  # type: ignore[call-overload]
+        session.exec(delete(Step).where(Step.run_id == run_id))  # type: ignore[call-overload]
+        session.exec(delete(Run).where(Run.id == run_id))  # type: ignore[call-overload]
+        session.commit()
 
-        return {"success": True}
-    except Exception as e:
-        logger.debug("Failed to delete run %s", run_id, exc_info=True)
-        return {"success": False, "error": str(e)}
+
+def _collect_db_sources(
+    db_path: Path, databases: list[dict] | None
+) -> list[tuple[Path, str]]:
+    if databases:
+        return [
+            (Path(db["path"]), db["name"])
+            for db in databases
+            if Path(db["path"]).is_file()
+        ]
+
+    if db_path.is_file():
+        return [(db_path, db_path.parent.parent.name)]
+
+    return []
+
+
+def _query_runs_from_db(
+    db_file: Path, db_name: str, status: str | None, pipeline: str | None
+) -> tuple[list[dict], set[str]]:
+    with get_session(db_file) as session:
+        names_stmt = select(Run.name).distinct().where(Run.name.isnot(None))  # type: ignore[union-attr]
+        names = session.exec(names_stmt).all()
+        pipeline_names = {n for n in names if n}
+        query = select(Run)
+
+        if status:
+            query = query.where(Run.status == status)
+
+        if pipeline:
+            query = query.where(Run.name == pipeline)
+
+        query = query.order_by(Run.started_at.desc())  # type: ignore[union-attr]
+        results = session.exec(query).all()
+        runs = []
+
+        for run in results:
+            run_dict = run.model_dump()
+            run_dict["db_path"] = str(db_file)
+            run_dict["db_name"] = db_name
+            runs.append(run_dict)
+
+    return runs, pipeline_names
+
+
+def _enrich_step(session: Any, run_id: str, step: Step) -> dict:
+    step_dict = step.model_dump()
+
+    if step.status != "running":
+        return step_dict
+
+    progress_stmt = (
+        select(Event)
+        .where(Event.run_id == run_id)
+        .where(Event.step_index == step.step_index)
+        .where(Event.event_type == "progress")
+        .order_by(Event.id.desc())  # type: ignore[union-attr]
+        .limit(1)
+    )
+
+    progress_event = session.exec(progress_stmt).first()
+
+    if progress_event:
+        step_dict["current"] = progress_event.current
+        step_dict["total"] = progress_event.total
+        step_dict["message"] = progress_event.message
+
+    return step_dict

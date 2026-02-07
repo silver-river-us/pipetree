@@ -36,17 +36,16 @@ def verify_admin(credentials: HTTPBasicCredentials = require_basic) -> str:
 @router.get("", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, _: str = Depends(verify_admin)):
     tenants = identity_lib.list_tenants()
+
     return templates().TemplateResponse(
-        "admin/dashboard.html",
-        {"request": request, "tenants": tenants},
+        request, "admin/dashboard.html", {"tenants": tenants},
     )
 
 
 @router.get("/tenants/new", response_class=HTMLResponse)
 async def new_tenant_form(request: Request, _: str = Depends(verify_admin)):
     return templates().TemplateResponse(
-        "admin/tenant_form.html",
-        {"request": request, "error": None},
+        request, "admin/tenant_form.html", {"error": None},
     )
 
 
@@ -71,9 +70,9 @@ async def tenant_detail(
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     users = identity_lib.list_users_for_tenant(tenant_id)
+
     return templates().TemplateResponse(
-        "admin/tenant_detail.html",
-        {"request": request, "tenant": tenant, "users": users},
+        request, "admin/tenant_detail.html", {"tenant": tenant, "users": users},
     )
 
 
@@ -87,8 +86,7 @@ async def new_user_form(
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     return templates().TemplateResponse(
-        "admin/user_form.html",
-        {"request": request, "tenant": tenant, "error": None},
+        request, "admin/user_form.html", {"tenant": tenant, "error": None},
     )
 
 
@@ -108,8 +106,9 @@ async def create_user(
 
     if existing:
         return templates().TemplateResponse(
+            request,
             "admin/user_form.html",
-            {"request": request, "tenant": tenant, "error": "Email already exists"},
+            {"tenant": tenant, "error": "Email already exists"},
             status_code=400,
         )
 

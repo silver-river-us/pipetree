@@ -21,20 +21,22 @@ async def index(
     per_page: int = Query(default=10, ge=1, le=100),
 ):
     """Main dashboard page - shows all runs from all databases."""
-
     if redirect := require_login(request):
         return redirect
 
     db_path = get_db_path(db, request)
     databases: list[dict] = []
+
     runs, total_count, pipeline_names = runs_lib.fetch_runs(
         db_path, databases, status, pipeline, page, per_page
     )
+
     total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+
     return templates().TemplateResponse(
+        request,
         "index.html",
         {
-            "request": request,
             "runs": runs,
             "db_path": str(db_path),
             "total_count": total_count,

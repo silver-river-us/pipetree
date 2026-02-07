@@ -9,13 +9,13 @@ db = DatabaseProxy()
 
 def init_db(db_path: Path | None = None):
     """Initialize the visualizer system database."""
-
     if db_path is None:
         from config import settings
 
         db_path = settings.default_db_path / "visualizer.db"
 
     db_path.parent.mkdir(parents=True, exist_ok=True)
+
     database = SqliteDatabase(
         str(db_path),
         pragmas={
@@ -23,6 +23,7 @@ def init_db(db_path: Path | None = None):
             "foreign_keys": 1,
         },
     )
+
     db.initialize(database)
     db.connect(reuse_if_open=True)
 

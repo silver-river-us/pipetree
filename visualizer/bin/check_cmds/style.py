@@ -103,8 +103,43 @@ COMPOUND_TYPES = (
 
 
 def _is_compound(node: ast.stmt) -> bool:
-    """Check if a statement is a multi-line compound statement."""
-    return isinstance(node, COMPOUND_TYPES)
+    """Check if a statement is compound or spans multiple lines."""
+    if isinstance(node, COMPOUND_TYPES):
+        return True
+
+    end = node.end_lineno or node.lineno
+    return end > node.lineno
+
+
+def _is_docstring(node: ast.stmt) -> bool:
+    """Check if a node is a docstring expression."""
+    return (
+        isinstance(node, ast.Expr)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+    )
+
+
+def _iter_bodies(node: ast.AST):
+    """Yield all body lists from a compound statement."""
+    if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+        yield node.body
+        if node.orelse:
+            yield node.orelse
+    elif isinstance(node, ast.If):
+        yield node.body
+        if node.orelse:
+            yield node.orelse
+    elif isinstance(node, (ast.With, ast.AsyncWith)):
+        yield node.body
+    elif isinstance(node, ast.Try):
+        yield node.body
+        for handler in node.handlers:
+            yield handler.body
+        if node.orelse:
+            yield node.orelse
+        if node.finalbody:
+            yield node.finalbody
 
 
 def check_function_spacing(file_path: Path) -> list[str]:
@@ -113,22 +148,56 @@ def check_function_spacing(file_path: Path) -> list[str]:
     Rules:
     - No blank lines between consecutive one-liner statements
     - Blank line before and after multi-line compound statements (if, for, try, etc.)
+    - No blank line between block header and first statement
     """
     with open(file_path) as f:
         content = f.read()
         tree = ast.parse(content, filename=str(file_path))
 
+    lines = content.splitlines()
     violations = []
 
     for node in ast.walk(tree):
+        # Preamble check for all compound statement bodies
+        for body in _iter_bodies(node):
+            if not body:
+                continue
+
+            first_stmt = body[0]
+            line_before_idx = first_stmt.lineno - 2
+
+            if line_before_idx >= 0 and lines[line_before_idx].strip() == "":
+                violations.append(
+                    f"{file_path}:{first_stmt.lineno}: unnecessary blank line after block header"
+                )
+
+        # Function-specific checks
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
 
         body = node.body
+        if not body:
+            continue
+
+        has_docstring = _is_docstring(body[0])
+        first_real_idx = 1 if has_docstring else 0
+
+        if first_real_idx < len(body):
+            first_stmt = body[first_real_idx]
+            line_before_idx = first_stmt.lineno - 2
+
+            if line_before_idx >= 0 and lines[line_before_idx].strip() == "":
+                violations.append(
+                    f"{file_path}:{first_stmt.lineno}: unnecessary blank line after block header"
+                )
+
         if len(body) < 2:
             continue
 
         for i in range(len(body) - 1):
+            if i == 0 and has_docstring:
+                continue
+
             curr = body[i]
             nxt = body[i + 1]
             curr_end = curr.end_lineno or curr.lineno
@@ -217,6 +286,7 @@ def main():
         print("  - No manual dict returns in boundary layer (use serializers)")
         print("  - Context files should only have functions, not classes")
         print("  - No blank lines between one-liners; blank line around compound statements")
+        print("  - No blank line between block header and first statement")
         print("  - Use find_by instead of get_or_none")
         sys.exit(1)
     else:

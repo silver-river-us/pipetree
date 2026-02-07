@@ -152,6 +152,7 @@ def get_step_durations(
         step_names.update(run["steps"].keys())
 
     sorted_step_names = sorted(step_names)
+
     return {
         "runs": limited_runs,
         "step_names": sorted_step_names,
@@ -331,7 +332,6 @@ def compare_runs(
     Returns dict with run1, run2, db1_path, db2_path, cpu_count.
     Runs are sorted chronologically (run1 = earlier).
     """
-
     def _get_run_data(run_id: str, db_path: Path) -> dict | None:
         if not db_path.exists():
             return None

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from boundary.base.http_context import get_db_path
 from boundary.base.templates import templates
 from lib import benchmarks as benchmarks_lib
+from lib.exceptions import BenchmarkNotFoundError, DatabaseNotFoundError
 
 router = APIRouter(prefix="/benchmarks")
 
@@ -28,10 +29,11 @@ async def api_benchmarks_list(
     start = (page - 1) * per_page
     end = start + per_page
     benchmarks = all_benchmarks[start:end]
+
     return templates().TemplateResponse(
+        request,
         "partials/benchmarks_list.html",
         {
-            "request": request,
             "benchmarks": benchmarks,
             "db_path": str(db_path),
             "page": page,
@@ -55,9 +57,9 @@ async def api_benchmark_detail(
     request: Request, benchmark_id: str, db: str = Query(default=None)
 ):
     """Get benchmark details with all results."""
-    data = benchmarks_lib.get_benchmark_detail(benchmark_id, get_db_path(db, request))
-
-    if not data:
+    try:
+        data = benchmarks_lib.get_benchmark_detail(benchmark_id, get_db_path(db, request))
+    except (DatabaseNotFoundError, BenchmarkNotFoundError):
         return JSONResponse(content={"error": "Not found"}, status_code=404)
 
     return JSONResponse(content=data)
@@ -68,9 +70,9 @@ async def api_benchmark_comparison(
     request: Request, benchmark_id: str, db: str = Query(default=None)
 ):
     """Get benchmark data formatted for comparison charts."""
-    data = benchmarks_lib.get_comparison_data(benchmark_id, get_db_path(db, request))
-
-    if not data:
+    try:
+        data = benchmarks_lib.get_comparison_data(benchmark_id, get_db_path(db, request))
+    except (DatabaseNotFoundError, BenchmarkNotFoundError):
         return JSONResponse(content={"error": "Not found"}, status_code=404)
 
     return JSONResponse(content=data)
@@ -81,5 +83,10 @@ async def api_benchmark_delete(
     request: Request, benchmark_id: str, db: str = Query(...)
 ):
     """Delete a benchmark."""
-    result = benchmarks_lib.delete_benchmark(benchmark_id, Path(db))
-    return JSONResponse(content=result)
+    try:
+        benchmarks_lib.delete_benchmark(benchmark_id, Path(db))
+        return JSONResponse(content={"success": True})
+    except DatabaseNotFoundError:
+        return JSONResponse(content={"success": False, "error": "Database not found"})
+    except Exception as e:
+        return JSONResponse(content={"success": False, "error": str(e)})

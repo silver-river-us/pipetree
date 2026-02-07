@@ -15,7 +15,6 @@ router = APIRouter(prefix="/databases")
 
 def _load_databases() -> list[dict]:
     """Load the list of configured databases."""
-
     if DATABASES_CONFIG_PATH.exists():
         with open(DATABASES_CONFIG_PATH) as f:
             config = json.load(f)

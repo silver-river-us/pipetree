@@ -18,7 +18,7 @@ class Settings:
 
     def __init__(self) -> None:
         self.db_path: str = os.getenv("DB_PATH", str(_default_db))
-        self.secret_key: str = os.getenv("SECRET_KEY", "dev-secret-change-me")
+        self.secret_key: str = os.getenv("SECRET_KEY", "dev-secret-change-me-at-least-32b")
         self.sendgrid_api_key: str = os.getenv("SENDGRID_API_KEY", "")
         self.mailer_enabled: bool = os.getenv("MAILER_ENABLED", "false").lower() in (
             "true",

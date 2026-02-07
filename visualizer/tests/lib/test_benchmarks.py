@@ -14,6 +14,7 @@ from lib.benchmarks import (
     get_benchmark_detail,
     get_comparison_data,
 )
+from lib.exceptions import BenchmarkNotFoundError, DatabaseNotFoundError
 
 
 @pytest.fixture
@@ -69,21 +70,20 @@ def benchmark_db(tmp_path: Path) -> Path:
 
 class TestGetStore:
     def test_nonexistent_path(self, tmp_path: Path) -> None:
-        assert _get_store(tmp_path / "nope.db") is None
+
+        with pytest.raises(DatabaseNotFoundError):
+            _get_store(tmp_path / "nope.db")
 
     def test_existing_path(self, benchmark_db: Path) -> None:
         store = _get_store(benchmark_db / "benchmarks.db")
         assert store is not None
         store.close()
 
-    def test_corrupted_file(self, tmp_path: Path) -> None:
-        bad = tmp_path / "corrupt.db"
-        bad.write_text("not a database")
-        # BenchmarkStore init may or may not raise; _get_store catches it
-        result = _get_store(bad)
-        # Either returns None or a store (SQLite is lenient with file content)
-        if result is not None:
-            result.close()
+    def test_directory_path(self, tmp_path: Path) -> None:
+        """A directory is not a valid database file."""
+
+        with pytest.raises(DatabaseNotFoundError):
+            _get_store(tmp_path)
 
 
 class TestGetAllBenchmarks:
@@ -99,7 +99,6 @@ class TestGetAllBenchmarks:
         assert result == []
 
     def test_with_databases_list(self, benchmark_db: Path) -> None:
-        # databases list points to the parent dir where benchmarks.db lives
         db_path = benchmark_db / "progress.db"
         databases = [{"path": str(db_path), "name": "test"}]
         result = get_all_benchmarks(db_path, databases=databases)
@@ -128,22 +127,26 @@ class TestGetBenchmarkDetail:
 
     def test_nonexistent_benchmark(self, benchmark_db: Path) -> None:
         db_path = benchmark_db / "benchmarks.db"
-        result = get_benchmark_detail("no-such-id", db_path)
-        assert result is None
+
+        with pytest.raises(BenchmarkNotFoundError):
+            get_benchmark_detail("no-such-id", db_path)
 
     def test_nonexistent_db(self, tmp_path: Path) -> None:
-        result = get_benchmark_detail("x", tmp_path / "nope.db")
-        assert result is None
+
+        with pytest.raises(DatabaseNotFoundError):
+            get_benchmark_detail("x", tmp_path / "nope.db")
 
     def test_exception_in_store(self, benchmark_db: Path) -> None:
-        """Cover except block in get_benchmark_detail."""
+        """Cover except block — exception propagates now."""
         db_path = benchmark_db / "benchmarks.db"
+
         with patch(
             "lib.benchmarks.BenchmarkStore.get_benchmark",
             side_effect=RuntimeError("boom"),
         ):
-            result = get_benchmark_detail("x", db_path)
-        assert result is None
+
+            with pytest.raises(RuntimeError):
+                get_benchmark_detail("x", db_path)
 
 
 class TestGetComparisonData:
@@ -164,22 +167,26 @@ class TestGetComparisonData:
 
     def test_nonexistent_benchmark(self, benchmark_db: Path) -> None:
         db_path = benchmark_db / "benchmarks.db"
-        result = get_comparison_data("no-such-id", db_path)
-        assert result is None
+
+        with pytest.raises(BenchmarkNotFoundError):
+            get_comparison_data("no-such-id", db_path)
 
     def test_nonexistent_db(self, tmp_path: Path) -> None:
-        result = get_comparison_data("x", tmp_path / "nope.db")
-        assert result is None
+
+        with pytest.raises(DatabaseNotFoundError):
+            get_comparison_data("x", tmp_path / "nope.db")
 
     def test_exception_in_store(self, benchmark_db: Path) -> None:
-        """Cover except block in get_comparison_data."""
+        """Cover except block — exception propagates now."""
         db_path = benchmark_db / "benchmarks.db"
+
         with patch(
             "lib.benchmarks.BenchmarkStore.get_benchmark",
             side_effect=RuntimeError("boom"),
         ):
-            result = get_comparison_data("x", db_path)
-        assert result is None
+
+            with pytest.raises(RuntimeError):
+                get_comparison_data("x", db_path)
 
 
 class TestDeleteBenchmark:
@@ -188,24 +195,24 @@ class TestDeleteBenchmark:
         benchmarks = get_all_benchmarks(db_path)
         bid = benchmarks[0]["id"]
 
-        result = delete_benchmark(bid, db_path)
-        assert result["success"] is True
+        delete_benchmark(bid, db_path)
 
-        # Verify it's gone
-        assert get_benchmark_detail(bid, db_path) is None
+        with pytest.raises(BenchmarkNotFoundError):
+            get_benchmark_detail(bid, db_path)
 
     def test_nonexistent_db(self, tmp_path: Path) -> None:
-        result = delete_benchmark("x", tmp_path / "nope.db")
-        assert result["success"] is False
-        assert "Database not found" in result["error"]
+
+        with pytest.raises(DatabaseNotFoundError):
+            delete_benchmark("x", tmp_path / "nope.db")
 
     def test_exception_in_delete(self, benchmark_db: Path) -> None:
-        """Cover except block in delete_benchmark."""
+        """Cover except block — exception propagates now."""
         db_path = benchmark_db / "benchmarks.db"
+
         with patch(
             "lib.benchmarks.BenchmarkStore.delete_benchmark",
             side_effect=RuntimeError("fail"),
         ):
-            result = delete_benchmark("x", db_path)
-        assert result["success"] is False
-        assert "fail" in result["error"]
+
+            with pytest.raises(RuntimeError):
+                delete_benchmark("x", db_path)

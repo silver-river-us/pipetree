@@ -4,6 +4,7 @@ import time
 
 import pytest
 from pathlib import Path
+from sqlalchemy.pool import NullPool
 from sqlmodel import SQLModel, Session, create_engine
 
 from pipetree.infrastructure.progress.models import Run, Step, Event
@@ -14,7 +15,7 @@ from pipetree.infrastructure.progress.models.database import _engines
 def pipetree_db(tmp_path: Path) -> Path:
     """Create a temp SQLite DB with pipetree schema (empty)."""
     db_file = tmp_path / "progress.db"
-    engine = create_engine(f"sqlite:///{db_file}")
+    engine = create_engine(f"sqlite:///{db_file}", poolclass=NullPool)
     SQLModel.metadata.create_all(engine)
     # Register in pipetree's engine cache so get_session finds it
     _engines[str(db_file)] = engine

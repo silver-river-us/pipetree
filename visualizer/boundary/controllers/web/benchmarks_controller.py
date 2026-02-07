@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse
 
 from lib import benchmarks as benchmarks_lib
+from lib.exceptions import BenchmarkNotFoundError, DatabaseNotFoundError
 
 from boundary.base.http_context import get_db_path, get_template_context, require_login
 from boundary.base.templates import templates
@@ -19,7 +20,6 @@ async def benchmarks_index(
     per_page: int = Query(default=10, ge=1, le=100),
 ):
     """Benchmarks list page."""
-
     if redirect := require_login(request):
         return redirect
 
@@ -31,10 +31,11 @@ async def benchmarks_index(
     start = (page - 1) * per_page
     end = start + per_page
     benchmarks = all_benchmarks[start:end]
+
     return templates().TemplateResponse(
+        request,
         "benchmarks.html",
         {
-            "request": request,
             "benchmarks": benchmarks,
             "db_path": str(db_path),
             "page": page,
@@ -51,16 +52,20 @@ async def benchmark_detail(
     request: Request, benchmark_id: str, db: str = Query(default=None)
 ):
     """Benchmark detail page."""
-
     if redirect := require_login(request):
         return redirect
 
     db_path = get_db_path(db, request)
-    data = benchmarks_lib.get_benchmark_detail(benchmark_id, db_path)
+
+    try:
+        data = benchmarks_lib.get_benchmark_detail(benchmark_id, db_path)
+    except (DatabaseNotFoundError, BenchmarkNotFoundError):
+        data = None
+
     return templates().TemplateResponse(
+        request,
         "benchmark_detail.html",
         {
-            "request": request,
             "benchmark": data["benchmark"] if data else None,
             "results": data["results"] if data else [],
             "summary": data["summary"] if data else {},

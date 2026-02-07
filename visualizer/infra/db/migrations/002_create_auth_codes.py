@@ -13,6 +13,7 @@ def migrate(migrator, database, **kwargs):
             used BOOLEAN NOT NULL DEFAULT 0
         )
     """)
+
     database.execute_sql("CREATE INDEX idx_auth_codes_email ON auth_codes(email)")
 
 

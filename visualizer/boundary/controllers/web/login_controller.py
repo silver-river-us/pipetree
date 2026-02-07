@@ -20,8 +20,7 @@ async def login_page(request: Request):
         return RedirectResponse(url="/", status_code=303)
 
     return templates().TemplateResponse(
-        "login.html",
-        {"request": request, "error": None},
+        request, "login.html", {"error": None},
     )
 
 
@@ -31,13 +30,11 @@ async def login_submit(request: Request, email: str = Form(...)):
         send_code(email)
     except (UserNotFoundError, SendCodeError) as e:
         return templates().TemplateResponse(
-            "login.html",
-            {"request": request, "error": str(e)},
+            request, "login.html", {"error": str(e)},
         )
 
     return templates().TemplateResponse(
-        "login_verify.html",
-        {"request": request, "email": email, "error": None},
+        request, "login_verify.html", {"email": email, "error": None},
     )
 
 
@@ -47,11 +44,11 @@ async def login_verify(request: Request, email: str = Form(...), code: str = For
         session = authenticate(email, code)
     except (InvalidCodeError, UserNotFoundError) as e:
         return templates().TemplateResponse(
-            "login_verify.html",
-            {"request": request, "email": email, "error": str(e)},
+            request, "login_verify.html", {"email": email, "error": str(e)},
         )
 
     response = RedirectResponse(url="/", status_code=303)
+
     response.set_cookie(
         key="session",
         value=session.token,
@@ -59,6 +56,7 @@ async def login_verify(request: Request, email: str = Form(...), code: str = For
         samesite="lax",
         max_age=86400,
     )
+
     return response
 
 

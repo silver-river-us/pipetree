@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+import pytest
+
+from lib.exceptions import DatabaseNotFoundError, RunNotFoundError
 from lib.runs import delete_run, fetch_runs, get_run_detail, get_run_progress
 
 
@@ -70,25 +73,24 @@ class TestFetchRuns:
 class TestGetRunDetail:
     def test_existing_run(self, seeded_db: Path) -> None:
         run, steps = get_run_detail("run-001", seeded_db)
-        assert run is not None
-        assert run["id"] == "run-001"
+        assert run.id == "run-001"
         assert len(steps) == 3
 
     def test_nonexistent_run(self, seeded_db: Path) -> None:
-        run, steps = get_run_detail("no-such-run", seeded_db)
-        assert run is None
-        assert steps == []
+
+        with pytest.raises(RunNotFoundError):
+            get_run_detail("no-such-run", seeded_db)
 
     def test_nonexistent_db(self, tmp_path: Path) -> None:
-        run, steps = get_run_detail("run-001", tmp_path / "nope.db")
-        assert run is None
-        assert steps == []
+
+        with pytest.raises(DatabaseNotFoundError):
+            get_run_detail("run-001", tmp_path / "nope.db")
 
     def test_corrupted_db(self, tmp_path: Path) -> None:
         db = _corrupt_db(tmp_path)
-        run, steps = get_run_detail("x", db)
-        assert run is None
-        assert steps == []
+
+        with pytest.raises(Exception):
+            get_run_detail("x", db)
 
 
 class TestGetRunProgress:
@@ -107,35 +109,34 @@ class TestGetRunProgress:
         assert running_steps[0]["message"] is not None
 
     def test_nonexistent_run(self, seeded_db: Path) -> None:
-        data = get_run_progress("no-run", seeded_db)
-        assert data["run"] is None
-        assert data["steps"] == []
+
+        with pytest.raises(RunNotFoundError):
+            get_run_progress("no-run", seeded_db)
 
     def test_nonexistent_db(self, tmp_path: Path) -> None:
-        data = get_run_progress("run-001", tmp_path / "nope.db")
-        assert data["run"] is None
+
+        with pytest.raises(DatabaseNotFoundError):
+            get_run_progress("run-001", tmp_path / "nope.db")
 
 
 class TestDeleteRun:
     def test_delete_existing(self, seeded_db: Path) -> None:
-        result = delete_run("run-001", seeded_db)
-        assert result["success"] is True
-        # Verify it's gone
-        run, _ = get_run_detail("run-001", seeded_db)
-        assert run is None
+        delete_run("run-001", seeded_db)
+
+        with pytest.raises(RunNotFoundError):
+            get_run_detail("run-001", seeded_db)
 
     def test_delete_nonexistent_db(self, tmp_path: Path) -> None:
-        result = delete_run("run-001", tmp_path / "nope.db")
-        assert result["success"] is False
-        assert "Database not found" in result["error"]
+
+        with pytest.raises(DatabaseNotFoundError):
+            delete_run("run-001", tmp_path / "nope.db")
 
     def test_delete_nonexistent_run(self, seeded_db: Path) -> None:
         """Deleting a non-existent run still succeeds (no-op)."""
-        result = delete_run("no-such-run", seeded_db)
-        assert result["success"] is True
+        delete_run("no-such-run", seeded_db)
 
     def test_delete_corrupted_db(self, tmp_path: Path) -> None:
         db = _corrupt_db(tmp_path)
-        result = delete_run("x", db)
-        assert result["success"] is False
-        assert "error" in result
+
+        with pytest.raises(Exception):
+            delete_run("x", db)
