@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdf-ingestion-example"
+version = "0.1.0"
+description = "PDF ingestion example using pipetree"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    {name = "Pipetree Team"}
+]
+dependencies = [
+    "pipetree",
+    "pymupdf>=1.24.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["lib*", "boundary*", "infra*"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "mypy>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:builtin type Swig.*:DeprecationWarning",
+    "ignore:builtin type swigvarlink.*:DeprecationWarning",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+disallow_untyped_defs = false
+ignore_missing_imports = true
+disable_error_code = ["import-untyped", "attr-defined", "misc", "index", "arg-type"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = [".", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "RUF",    # ruff-specific
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["boundary", "lib", "infra", "config"]

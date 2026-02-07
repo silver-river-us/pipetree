@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Virtual environments
+.venv/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Linting/Type checking
+.ruff_cache/
+.mypy_cache/
+
+# Tool caches
+.tools/
+
+# Environment files
+.env
+
+# Claude
+.claude/
+
+# Generated data files
+*/**/*.txt
+*/**/*.csv
+*/**/*.db
+
+# Local dev databases
+visualizer/infra/db/*.db*
+
+*/**/node_modules/
+
