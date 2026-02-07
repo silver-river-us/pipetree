@@ -4,16 +4,16 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "=== Lint ==="
-pipenv run ruff check .
-pipenv run ruff format --check .
+pipenv run python -m ruff check .
+pipenv run python -m ruff format --check .
 
 echo ""
 echo "=== Type Check ==="
-pipenv run mypy pipetree/
+pipenv run python -m mypy pipetree/
 
 echo ""
 echo "=== Tests with Coverage ==="
-pipenv run pytest tests/ -v --cov=pipetree --cov-report=term-missing --cov-fail-under=100
+pipenv run python -m pytest tests/ -v --cov=pipetree --cov-report=term-missing --cov-fail-under=100
 
 echo ""
 echo "=== All checks passed ==="

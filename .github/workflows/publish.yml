@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/pipetree
+      url: https://pypi.org/p/pipetree-io
     permissions:
       id-token: write
 
