@@ -84,6 +84,67 @@ def check_context_classes(file_path: Path) -> list[str]:
     return []
 
 
+COMPOUND_TYPES = (
+    ast.If,
+    ast.For,
+    ast.While,
+    ast.Try,
+    ast.With,
+    ast.AsyncWith,
+    ast.AsyncFor,
+    ast.FunctionDef,
+    ast.AsyncFunctionDef,
+    ast.ClassDef,
+)
+
+
+def _is_compound(node: ast.stmt) -> bool:
+    """Check if a statement is a multi-line compound statement."""
+    return isinstance(node, COMPOUND_TYPES)
+
+
+def check_function_spacing(file_path: Path) -> list[str]:
+    """Check spacing inside function bodies.
+
+    Rules:
+    - No blank lines between consecutive one-liner statements
+    - Blank line before and after multi-line compound statements (if, for, try, etc.)
+    """
+    with open(file_path) as f:
+        content = f.read()
+        tree = ast.parse(content, filename=str(file_path))
+
+    violations = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+
+        body = node.body
+        if len(body) < 2:
+            continue
+
+        for i in range(len(body) - 1):
+            curr = body[i]
+            nxt = body[i + 1]
+            curr_end = curr.end_lineno or curr.lineno
+            nxt_start = nxt.lineno
+            blank_lines = nxt_start - curr_end - 1
+
+            if not _is_compound(curr) and not _is_compound(nxt):
+                if blank_lines > 0:
+                    violations.append(
+                        f"{file_path}:{nxt_start}: unnecessary blank line between one-liners"
+                    )
+            else:
+                if blank_lines == 0:
+                    violations.append(
+                        f"{file_path}:{nxt_start}: missing blank line around compound statement"
+                    )
+
+    return violations
+
+
 def should_check(file_path: Path) -> bool:
     """Determine if file should be checked."""
     if file_path.name in IGNORE_FILES:
@@ -104,6 +165,7 @@ def main():
             if should_check(py_file):
                 all_violations.extend(check_manual_dict_return(py_file))
                 all_violations.extend(count_classes(py_file))
+                all_violations.extend(check_function_spacing(py_file))
 
     # Check lib layer
     lib_path = PACKAGE_ROOT / "lib"
@@ -112,6 +174,7 @@ def main():
             if should_check(py_file):
                 all_violations.extend(count_classes(py_file))
                 all_violations.extend(check_context_classes(py_file))
+                all_violations.extend(check_function_spacing(py_file))
 
     # Check infra layer
     infra_path = PACKAGE_ROOT / "infra"
@@ -119,6 +182,7 @@ def main():
         for py_file in infra_path.rglob("*.py"):
             if should_check(py_file):
                 all_violations.extend(count_classes(py_file))
+                all_violations.extend(check_function_spacing(py_file))
 
     if all_violations:
         print("Style violations found:\n")
@@ -128,6 +192,7 @@ def main():
         print("  - One class per file (except __init__.py)")
         print("  - No manual dict returns in boundary layer (use serializers)")
         print("  - Context files should only have functions, not classes")
+        print("  - No blank lines between one-liners; blank line around compound statements")
         sys.exit(1)
     else:
         print("Style check passed")

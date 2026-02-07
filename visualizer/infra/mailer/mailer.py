@@ -20,6 +20,7 @@ class Mailer:
             if not settings.sendgrid_api_key:
                 raise MailerError("SENDGRID_API_KEY is not configured")
             self._client = SendGridAPIClient(settings.sendgrid_api_key)
+
         return self._client
 
     def send(self, to: str, subject: str, body: str) -> bool:

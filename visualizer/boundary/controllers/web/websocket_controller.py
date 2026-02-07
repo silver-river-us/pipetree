@@ -21,8 +21,10 @@ class ConnectionManager:
 
     async def connect(self, websocket: WebSocket, run_id: str) -> None:
         await websocket.accept()
+
         if run_id not in self.active_connections:
             self.active_connections[run_id] = []
+
         self.active_connections[run_id].append(websocket)
 
     def disconnect(self, websocket: WebSocket, run_id: str) -> None:
@@ -31,6 +33,7 @@ class ConnectionManager:
             and websocket in self.active_connections[run_id]
         ):
             self.active_connections[run_id].remove(websocket)
+
             if not self.active_connections[run_id]:
                 del self.active_connections[run_id]
 
@@ -53,6 +56,7 @@ async def websocket_benchmark_endpoint(
 
     if db:
         db_path = Path(db)
+
         if db_path.name == "benchmarks.db":
             benchmark_db = db_path
         else:
@@ -63,8 +67,8 @@ async def websocket_benchmark_endpoint(
 
     ws_key = f"benchmark:{benchmark_id}"
     await manager.connect(websocket, ws_key)
-
     store = None
+
     try:
         last_result_count = -1
         last_status = None
@@ -90,7 +94,6 @@ async def websocket_benchmark_endpoint(
                             last_status = current_status
                             summary = store.get_summary(benchmark_id)
                             implementations = store.get_implementations(benchmark_id)
-
                             await websocket.send_json(
                                 {
                                     "type": "update",
@@ -110,23 +113,24 @@ async def websocket_benchmark_endpoint(
                                 }
                             )
                             break
-
                 except Exception as e:
                     await websocket.send_json({"type": "error", "message": str(e)})
+
                     # Reset store on error so next iteration creates a fresh one
                     if store:
                         with contextlib.suppress(Exception):
                             store.close()
+
                         store = None
 
             await asyncio.sleep(0.5)
-
     except WebSocketDisconnect:
         pass
     finally:
         if store:
             with contextlib.suppress(Exception):
                 store.close()
+
         manager.disconnect(websocket, ws_key)
 
 
@@ -136,10 +140,9 @@ async def websocket_endpoint(
 ):
     """WebSocket endpoint for real-time updates."""
     db_path = get_db_path(db)
-
     await manager.connect(websocket, run_id)
-
     session = None
+
     try:
         last_event_id = 0
 
@@ -151,10 +154,8 @@ async def websocket_endpoint(
 
                     # Clear cached ORM state so queries see fresh DB writes
                     session.expire_all()
-
                     run_obj = session.get(Run, run_id)
                     run_status = run_obj.status if run_obj else None
-
                     events_stmt = (
                         select(Event)
                         .where(Event.run_id == run_id)
@@ -166,7 +167,6 @@ async def websocket_endpoint(
 
                     if events:
                         last_event_id = events[-1]["id"]
-
                         steps_stmt = (
                             select(Step)
                             .where(Step.run_id == run_id)
@@ -174,7 +174,6 @@ async def websocket_endpoint(
                         )
                         step_results = session.exec(steps_stmt).all()
                         steps = [s.model_dump() for s in step_results]
-
                         await websocket.send_json(
                             {
                                 "type": "update",
@@ -193,21 +192,22 @@ async def websocket_endpoint(
                             }
                         )
                         break
-
                 except Exception as e:
                     await websocket.send_json({"type": "error", "message": str(e)})
+
                     # Reset session on error so next iteration creates a fresh one
                     if session:
                         with contextlib.suppress(Exception):
                             session.close()
+
                         session = None
 
             await asyncio.sleep(0.1)
-
     except WebSocketDisconnect:
         pass
     finally:
         if session:
             with contextlib.suppress(Exception):
                 session.close()
+
         manager.disconnect(websocket, run_id)

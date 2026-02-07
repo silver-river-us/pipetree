@@ -20,10 +20,12 @@ class AuthCode(BaseModel):
     def __init__(self, **kwargs: object) -> None:
         if "code" not in kwargs:
             kwargs["code"] = f"{randint(0, 999999):06d}"
+
         if "expires_at" not in kwargs:
             kwargs["expires_at"] = datetime.now(UTC).replace(tzinfo=None) + timedelta(
                 minutes=EXPIRATION_MINUTES
             )
+
         super().__init__(**kwargs)
 
     @classmethod

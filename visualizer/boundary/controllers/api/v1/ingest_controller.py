@@ -32,6 +32,7 @@ async def create_run(
     """Register a new pipeline run."""
     org_name, db_path = org_ctx
     notifier = _get_notifier(db_path, data.id)
+
     try:
         notifier.register_run(
             name=data.pipeline,
@@ -53,6 +54,7 @@ async def update_run(
     """Update run status (complete or fail)."""
     _, db_path = org_ctx
     notifier = _get_notifier(db_path, run_id)
+
     try:
         notifier.complete_run(status=data.status)
     finally:
@@ -70,6 +72,7 @@ async def push_events(
     """Push progress events for a run (batch supported)."""
     _, db_path = org_ctx
     notifier = _get_notifier(db_path, run_id)
+
     try:
         from pipetree import ProgressEvent
 
@@ -105,6 +108,7 @@ async def register_branch(
     """Register a branch for a run."""
     _, db_path = org_ctx
     notifier = _get_notifier(db_path, run_id)
+
     try:
         notifier.register_branch(
             parent_step=data.parent_step,

@@ -15,8 +15,10 @@ router = APIRouter(tags=["auth"])
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     user = get_current_user(request)
+
     if user:
         return RedirectResponse(url="/", status_code=303)
+
     return templates().TemplateResponse(
         "login.html",
         {"request": request, "error": None},
@@ -32,6 +34,7 @@ async def login_submit(request: Request, email: str = Form(...)):
             "login.html",
             {"request": request, "error": str(e)},
         )
+
     return templates().TemplateResponse(
         "login_verify.html",
         {"request": request, "email": email, "error": None},

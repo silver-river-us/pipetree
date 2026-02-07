@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 def get_all_pipelines(db_path: Path, databases: list[dict] | None = None) -> list[dict]:
     """Fetch all unique pipeline names across databases with run counts."""
     pipeline_counts: dict[str, dict] = {}
-
     db_sources: list[tuple[Path, str]] = []
+
     if databases:
         db_sources = [
             (Path(db["path"]), db["name"])
@@ -42,7 +42,9 @@ def get_all_pipelines(db_path: Path, databases: list[dict] | None = None) -> lis
                             "run_count": 0,
                             "databases": [],
                         }
+
                     pipeline_counts[name]["run_count"] += count
+
                     if db_name not in pipeline_counts[name]["databases"]:
                         pipeline_counts[name]["databases"].append(db_name)
         except Exception:
@@ -59,8 +61,8 @@ def get_step_durations(
 ) -> dict[str, Any]:
     """Get step duration comparison data for charts."""
     all_runs: list[dict] = []
-
     db_sources: list[Path] = []
+
     if databases:
         db_sources = [Path(db["path"]) for db in databases if Path(db["path"]).exists()]
     elif db_path.exists():
@@ -97,12 +99,14 @@ def get_step_durations(
 
     all_runs.sort(key=lambda r: r.get("started_at") or 0)
     limited_runs = all_runs[-limit:]
-
     runs_by_db: dict[str, list[dict]] = {}
+
     for run in limited_runs:
         db = run["db_path"]
+
         if db not in runs_by_db:
             runs_by_db[db] = []
+
         runs_by_db[db].append(run)
 
     for db_path_str, runs in runs_by_db.items():
@@ -115,22 +119,26 @@ def get_step_durations(
                     .order_by(Step.step_index)
                 )
                 all_steps = session.exec(steps_stmt).all()
-
                 steps_by_run: dict[str, list] = {}
+
                 for step in all_steps:
                     if step.run_id not in steps_by_run:
                         steps_by_run[step.run_id] = []
+
                     steps_by_run[step.run_id].append(step)
 
                 for run in runs:
                     run_steps = steps_by_run.get(run["full_run_id"], [])
+
                     for step in run_steps:
                         if step.duration_s is not None:
                             run["steps"][step.name] = step.duration_s
+
                         if step.peak_mem_mb is not None:
                             if "memory" not in run:
                                 run["memory"] = {}
                             run["memory"][step.name] = step.peak_mem_mb
+
                         if step.cpu_time_s is not None:
                             if "cpu_time" not in run:
                                 run["cpu_time"] = {}
@@ -139,10 +147,11 @@ def get_step_durations(
             logger.debug("Failed to query %s", db_path_str, exc_info=True)
 
     step_names: set[str] = set()
+
     for run in limited_runs:
         step_names.update(run["steps"].keys())
-    sorted_step_names = sorted(step_names)
 
+    sorted_step_names = sorted(step_names)
     return {
         "runs": limited_runs,
         "step_names": sorted_step_names,
@@ -159,8 +168,8 @@ def get_run_trends(
 ) -> dict[str, Any]:
     """Get run performance trends over time."""
     trends: list[dict] = []
-
     db_sources: list[Path] = []
+
     if databases:
         db_sources = [Path(db["path"]) for db in databases if Path(db["path"]).exists()]
     elif db_path.exists():
@@ -195,7 +204,6 @@ def get_run_trends(
 
     trends.sort(key=lambda t: t.get("started_at") or 0)
     trends = trends[-limit:]
-
     return {"trends": trends, "pipeline": pipeline}
 
 
@@ -207,8 +215,8 @@ def get_throughput(
 ) -> dict[str, Any]:
     """Get throughput metrics from progress events."""
     throughput: list[dict] = []
-
     db_sources: list[Path] = []
+
     if databases:
         db_sources = [Path(db["path"]) for db in databases if Path(db["path"]).exists()]
     elif db_path.exists():
@@ -233,13 +241,11 @@ def get_throughput(
                         .where(Event.total.isnot(None))  # type: ignore[union-attr]
                     )
                     max_total = session.exec(events_stmt).first()
-
                     duration = (
                         run.completed_at - run.started_at
                         if run.completed_at and run.started_at
                         else None
                     )
-
                     throughput.append(
                         {
                             "run_id": run.id[:8],
@@ -260,7 +266,6 @@ def get_throughput(
 
     throughput.sort(key=lambda t: t.get("started_at") or 0)
     throughput = throughput[-limit:]
-
     return {"throughput": throughput, "pipeline": pipeline}
 
 
@@ -292,7 +297,6 @@ def get_run_telemetry(run_id: str, db_path: Path) -> dict[str, Any]:
                             else None
                         ),
                     }
-
                     steps_stmt = (
                         select(Step)
                         .where(Step.run_id == run_id)
@@ -331,6 +335,7 @@ def compare_runs(
     def _get_run_data(run_id: str, db_path: Path) -> dict | None:
         if not db_path.exists():
             return None
+
         try:
             with get_session(db_path) as session:
                 run_stmt = select(Run).where(Run.id == run_id)
@@ -343,8 +348,8 @@ def compare_runs(
                     select(Step).where(Step.run_id == run_id).order_by(Step.step_index)
                 )
                 steps = session.exec(steps_stmt).all()
-
                 steps_data = []
+
                 for step in steps:
                     steps_data.append(
                         {
@@ -384,6 +389,7 @@ def compare_runs(
         t2 = run2_data.get("started_at")
         t1_val = float(t1) if t1 is not None else 0
         t2_val = float(t2) if t2 is not None else 0
+
         if t1_val > t2_val:
             run1_data, run2_data = run2_data, run1_data
             db1_path, db2_path = db2_path, db1_path

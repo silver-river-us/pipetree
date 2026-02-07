@@ -12,12 +12,14 @@ logger = logging.getLogger(__name__)
 
 def _get_store(db_path: Path) -> BenchmarkStore | None:
     """Get a BenchmarkStore instance if the database exists."""
+
     if db_path.exists():
         try:
             return BenchmarkStore(db_path)
         except Exception:
             logger.debug("Failed to open benchmark store %s", db_path, exc_info=True)
             return None
+
     return None
 
 
@@ -26,7 +28,6 @@ def get_all_benchmarks(
 ) -> list[dict]:
     """Fetch all benchmarks across databases."""
     all_benchmarks: list[dict] = []
-
     db_sources: list[tuple[Path, str]] = []
     seen_paths: set[str] = set()
 
@@ -34,11 +35,13 @@ def get_all_benchmarks(
         for db in databases:
             db_file = Path(db["path"])
             benchmark_db = db_file.parent / "benchmarks.db"
+
             if benchmark_db.exists() and str(benchmark_db) not in seen_paths:
                 db_sources.append((benchmark_db, db["name"]))
                 seen_paths.add(str(benchmark_db))
 
     benchmark_db = db_path.parent / "benchmarks.db"
+
     if benchmark_db.exists() and str(benchmark_db) not in seen_paths:
         db_sources.append((benchmark_db, db_path.parent.parent.name))
         seen_paths.add(str(benchmark_db))
@@ -47,12 +50,14 @@ def get_all_benchmarks(
         try:
             store = BenchmarkStore(db_file)
             benchmarks = store.get_all_benchmarks()
+
             for bench in benchmarks:
                 bench["db_path"] = str(db_file)
                 bench["db_name"] = db_name
                 summary = store.get_summary(bench["id"])
                 bench["summary"] = summary
                 bench["impl_count"] = len(summary)
+
             store.close()
             all_benchmarks.extend(benchmarks)
         except Exception:
@@ -69,11 +74,13 @@ def get_benchmark_detail(benchmark_id: str, db_path: Path) -> dict[str, Any] | N
     or None if not found.
     """
     store = _get_store(db_path)
+
     if not store:
         return None
 
     try:
         benchmark = store.get_benchmark(benchmark_id)
+
         if not benchmark:
             return None
 
@@ -81,7 +88,6 @@ def get_benchmark_detail(benchmark_id: str, db_path: Path) -> dict[str, Any] | N
         summary = store.get_summary(benchmark_id)
         implementations = store.get_implementations(benchmark_id)
         store.close()
-
         return {
             "benchmark": benchmark,
             "results": results,
@@ -100,11 +106,13 @@ def get_comparison_data(benchmark_id: str, db_path: Path) -> dict[str, Any] | No
     Returns dict with chart data or None if not found.
     """
     store = _get_store(db_path)
+
     if not store:
         return None
 
     try:
         benchmark = store.get_benchmark(benchmark_id)
+
         if not benchmark:
             return None
 
@@ -112,17 +120,18 @@ def get_comparison_data(benchmark_id: str, db_path: Path) -> dict[str, Any] | No
         summary = store.get_summary(benchmark_id)
         implementations = store.get_implementations(benchmark_id)
         store.close()
-
         by_fixture: dict[str, dict[str, dict]] = {}
+
         for result in results:
             fixture_id = result["fixture_id"]
             impl_name = result["impl_name"]
+
             if fixture_id not in by_fixture:
                 by_fixture[fixture_id] = {}
+
             by_fixture[fixture_id][impl_name] = result
 
         fixtures = list(by_fixture.keys())
-
         time_data = {
             impl: [
                 by_fixture.get(f, {}).get(impl, {}).get("wall_time_s", 0)
@@ -130,7 +139,6 @@ def get_comparison_data(benchmark_id: str, db_path: Path) -> dict[str, Any] | No
             ]
             for impl in implementations
         }
-
         memory_data = {
             impl: [
                 by_fixture.get(f, {}).get(impl, {}).get("peak_mem_mb", 0)
@@ -138,7 +146,6 @@ def get_comparison_data(benchmark_id: str, db_path: Path) -> dict[str, Any] | No
             ]
             for impl in implementations
         }
-
         correctness_data = {
             impl: [
                 by_fixture.get(f, {}).get(impl, {}).get("correctness", 0)
@@ -146,7 +153,6 @@ def get_comparison_data(benchmark_id: str, db_path: Path) -> dict[str, Any] | No
             ]
             for impl in implementations
         }
-
         cpu_data = {
             impl: [
                 by_fixture.get(f, {}).get(impl, {}).get("cpu_time_s", 0)
@@ -154,7 +160,6 @@ def get_comparison_data(benchmark_id: str, db_path: Path) -> dict[str, Any] | No
             ]
             for impl in implementations
         }
-
         return {
             "benchmark": benchmark,
             "fixtures": fixtures,
@@ -177,6 +182,7 @@ def delete_benchmark(benchmark_id: str, db_path: Path) -> dict[str, Any]:
     Returns dict with success and optional error.
     """
     store = _get_store(db_path)
+
     if not store:
         return {"success": False, "error": "Database not found"}
 

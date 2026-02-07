@@ -19,18 +19,18 @@ async def benchmarks_index(
     per_page: int = Query(default=10, ge=1, le=100),
 ):
     """Benchmarks list page."""
+
     if redirect := require_login(request):
         return redirect
+
     db_path = get_db_path(db, request)
     databases: list[dict] = []
     all_benchmarks = benchmarks_lib.get_all_benchmarks(db_path, databases)
     total_count = len(all_benchmarks)
     total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
-
     start = (page - 1) * per_page
     end = start + per_page
     benchmarks = all_benchmarks[start:end]
-
     return templates().TemplateResponse(
         "benchmarks.html",
         {
@@ -51,11 +51,12 @@ async def benchmark_detail(
     request: Request, benchmark_id: str, db: str = Query(default=None)
 ):
     """Benchmark detail page."""
+
     if redirect := require_login(request):
         return redirect
+
     db_path = get_db_path(db, request)
     data = benchmarks_lib.get_benchmark_detail(benchmark_id, db_path)
-
     return templates().TemplateResponse(
         "benchmark_detail.html",
         {

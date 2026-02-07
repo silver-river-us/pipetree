@@ -22,12 +22,14 @@ ADMIN_PASSWORD = "river"
 def verify_admin(credentials: HTTPBasicCredentials = require_basic) -> str:
     correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
     correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
+
     if not (correct_username and correct_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Basic"},
         )
+
     return credentials.username
 
 
@@ -64,6 +66,7 @@ async def tenant_detail(
     request: Request, tenant_id: str, _: str = Depends(verify_admin)
 ):
     tenant = identity_lib.get_tenant(tenant_id)
+
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
@@ -79,6 +82,7 @@ async def new_user_form(
     request: Request, tenant_id: str, _: str = Depends(verify_admin)
 ):
     tenant = identity_lib.get_tenant(tenant_id)
+
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
@@ -96,10 +100,12 @@ async def create_user(
     _: str = Depends(verify_admin),
 ):
     tenant = identity_lib.get_tenant(tenant_id)
+
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     existing = identity_lib.get_user_by_email(email)
+
     if existing:
         return templates().TemplateResponse(
             "admin/user_form.html",
@@ -121,4 +127,5 @@ async def delete_tenant(
         identity_lib.delete_tenant(tenant_id)
     except TenantNotFoundError:
         raise HTTPException(status_code=404, detail="Tenant not found")
+
     return RedirectResponse(url="/admin", status_code=303)

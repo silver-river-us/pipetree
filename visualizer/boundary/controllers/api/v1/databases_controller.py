@@ -15,24 +15,32 @@ router = APIRouter(prefix="/databases")
 
 def _load_databases() -> list[dict]:
     """Load the list of configured databases."""
+
     if DATABASES_CONFIG_PATH.exists():
         with open(DATABASES_CONFIG_PATH) as f:
             config = json.load(f)
             databases = config.get("databases", [])
+
             for db in databases:
                 db_path = Path(db["path"])
+
                 if not db_path.is_absolute():
                     db["path"] = str(PROJECT_ROOT / db_path)
+
                 db["exists"] = Path(db["path"]).exists()
+
             return databases
+
     return []
 
 
 def _save_databases(databases: list[dict]) -> None:
     """Save the list of configured databases."""
     save_data = []
+
     for db in databases:
         db_path = Path(db["path"])
+
         try:
             relative_path = db_path.relative_to(PROJECT_ROOT)
             save_data.append({"name": db["name"], "path": str(relative_path)})
@@ -65,7 +73,9 @@ async def delete_database(path: str = Query(...)):
     databases = _load_databases()
     original_len = len(databases)
     databases = [db for db in databases if db["path"] != path]
+
     if len(databases) < original_len:
         _save_databases(databases)
         return JSONResponse(content={"success": True})
+
     return JSONResponse(content={"success": False})

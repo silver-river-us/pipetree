@@ -9,10 +9,12 @@ db = DatabaseProxy()
 
 def init_db(db_path: Path | None = None):
     """Initialize the visualizer system database."""
+
     if db_path is None:
         from config import settings
 
         db_path = settings.default_db_path / "visualizer.db"
+
     db_path.parent.mkdir(parents=True, exist_ok=True)
     database = SqliteDatabase(
         str(db_path),
@@ -28,7 +30,6 @@ def init_db(db_path: Path | None = None):
 def run_migrations():
     """Run pending database migrations."""
     from peewee_migrate import Router
-
     migrations_dir = Path(__file__).parent / "migrations"
     router = Router(db.obj, migrate_dir=str(migrations_dir))
     router.run()
@@ -50,8 +51,14 @@ class BaseModel(Model):
     class Meta:
         database = db
 
+    @classmethod
+    def find_by(cls, **kwargs):
+        expressions = [getattr(cls, k) == v for k, v in kwargs.items()]
+        return cls.get_or_none(*expressions)
+
     def save(self, *args, **kwargs):
         if not self.id:
             self.id = generate_uuid()
+
         self.updated_at = datetime.now(UTC).replace(tzinfo=None)
         return super().save(*args, **kwargs)

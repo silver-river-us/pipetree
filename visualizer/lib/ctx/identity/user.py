@@ -14,4 +14,5 @@ class User(BaseModel):
     def save(self, *args, **kwargs):
         if self.email:
             self.email = self.email.lower().strip()
+
         return super().save(*args, **kwargs)

@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 def send_code(email: str) -> None:
     email = normalize(email)
-
-    user = User.get_or_none(User.email == email)
+    user = User.find_by(email=email)
+    
     if not user:
         raise UserNotFoundError(f"No account found for {email}")
 
@@ -32,19 +32,14 @@ def send_code(email: str) -> None:
 
 def authenticate(email: str, code: str) -> Session:
     email = normalize(email)
-
-    auth_code = AuthCode.get_or_none(
-        AuthCode.email == email,
-        AuthCode.code == code,
-        ~AuthCode.used,
-    )
+    auth_code = AuthCode.find_by(email=email, code=code, used=False)
 
     if not auth_code or not auth_code.is_valid:
         raise InvalidCodeError("Invalid or expired code")
 
     auth_code.mark_as_used()
+    user = User.find_by(email=email)
 
-    user = User.get_or_none(User.email == email)
     if not user:
         raise UserNotFoundError(f"No account found for {email}")
 

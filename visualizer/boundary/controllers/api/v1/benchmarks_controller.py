@@ -25,11 +25,9 @@ async def api_benchmarks_list(
     all_benchmarks = benchmarks_lib.get_all_benchmarks(db_path, databases)
     total_count = len(all_benchmarks)
     total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
-
     start = (page - 1) * per_page
     end = start + per_page
     benchmarks = all_benchmarks[start:end]
-
     return templates().TemplateResponse(
         "partials/benchmarks_list.html",
         {
@@ -58,8 +56,10 @@ async def api_benchmark_detail(
 ):
     """Get benchmark details with all results."""
     data = benchmarks_lib.get_benchmark_detail(benchmark_id, get_db_path(db, request))
+
     if not data:
         return JSONResponse(content={"error": "Not found"}, status_code=404)
+
     return JSONResponse(content=data)
 
 
@@ -69,8 +69,10 @@ async def api_benchmark_comparison(
 ):
     """Get benchmark data formatted for comparison charts."""
     data = benchmarks_lib.get_comparison_data(benchmark_id, get_db_path(db, request))
+
     if not data:
         return JSONResponse(content={"error": "Not found"}, status_code=404)
+
     return JSONResponse(content=data)
 
 

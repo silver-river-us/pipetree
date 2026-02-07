@@ -18,7 +18,6 @@ async def run_steps_partial(
     """HTMX partial for steps list."""
     db_path = get_db_path(db, request)
     run, steps = steps_lib.get_steps(run_id, db_path)
-
     return templates().TemplateResponse(
         "partials/steps.html",
         {
@@ -38,7 +37,6 @@ async def run_steps_data_partial(
     """HTMX partial for steps data."""
     db_path = get_db_path(db, request)
     run, steps = steps_lib.get_steps(run_id, db_path)
-
     return templates().TemplateResponse(
         "partials/steps_data.html",
         {
@@ -58,7 +56,6 @@ async def run_steps_list_partial(
     """HTMX partial for step list."""
     db_path = get_db_path(db, request)
     steps = steps_lib.get_steps_list(run_id, db_path)
-
     return templates().TemplateResponse(
         "partials/step_list.html",
         {
@@ -81,7 +78,6 @@ async def step_events(
     """Get events for a specific step (modal content)."""
     db_path = get_db_path(db, request)
     data = steps_lib.get_step_events(run_id, step_index, db_path, since_id)
-
     return templates().TemplateResponse(
         "partials/step_events.html",
         {
@@ -106,7 +102,6 @@ async def step_summary(
     """Get a brief summary of the latest step activity."""
     db_path = get_db_path(db, request)
     data = steps_lib.get_step_summary(run_id, step_index, db_path)
-
     return templates().TemplateResponse(
         "partials/step_summary.html",
         {

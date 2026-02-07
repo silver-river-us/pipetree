@@ -24,8 +24,8 @@ def fetch_runs(
     """
     all_runs: list[dict] = []
     pipeline_names: set[str] = set()
-
     db_sources: list[tuple[Path, str]] = []
+
     if databases:
         db_sources = [
             (Path(db["path"]), db["name"])
@@ -41,16 +41,17 @@ def fetch_runs(
                 names_stmt = select(Run.name).distinct().where(Run.name.isnot(None))  # type: ignore[union-attr]
                 names = session.exec(names_stmt).all()
                 pipeline_names.update(n for n in names if n)
-
                 query = select(Run)
+
                 if status:
                     query = query.where(Run.status == status)
+
                 if pipeline:
                     query = query.where(Run.name == pipeline)
 
                 query = query.order_by(Run.started_at.desc())  # type: ignore[union-attr]
-
                 results = session.exec(query).all()
+
                 for run in results:
                     run_dict = run.model_dump()
                     run_dict["db_path"] = str(db_file)
@@ -60,13 +61,10 @@ def fetch_runs(
             logger.debug("Failed to query %s", db_file, exc_info=True)
 
     all_runs.sort(key=lambda r: r.get("started_at") or 0, reverse=True)
-
     total_count = len(all_runs)
-
     start = (page - 1) * per_page
     end = start + per_page
     paginated_runs = all_runs[start:end]
-
     return paginated_runs, total_count, sorted(pipeline_names)
 
 
@@ -82,6 +80,7 @@ def get_run_detail(run_id: str, db_path: Path) -> tuple[dict | None, list[dict]]
         try:
             with get_session(db_path) as session:
                 run_obj = session.get(Run, run_id)
+
                 if run_obj:
                     run = run_obj.model_dump()
 
@@ -104,6 +103,7 @@ def get_run_progress(run_id: str, db_path: Path) -> dict[str, Any]:
         try:
             with get_session(db_path) as session:
                 run_obj = session.get(Run, run_id)
+
                 if run_obj:
                     data["run"] = run_obj.model_dump()
 
@@ -115,6 +115,7 @@ def get_run_progress(run_id: str, db_path: Path) -> dict[str, Any]:
 
                 for step in steps:
                     step_dict = step.model_dump()
+
                     if step.status == "running":
                         progress_stmt = (
                             select(Event)
@@ -125,10 +126,12 @@ def get_run_progress(run_id: str, db_path: Path) -> dict[str, Any]:
                             .limit(1)
                         )
                         progress_event = session.exec(progress_stmt).first()
+
                         if progress_event:
                             step_dict["current"] = progress_event.current
                             step_dict["total"] = progress_event.total
                             step_dict["message"] = progress_event.message
+
                     step_dicts.append(step_dict)
 
                 data["steps"] = step_dicts
@@ -140,6 +143,7 @@ def get_run_progress(run_id: str, db_path: Path) -> dict[str, Any]:
 
 def delete_run(run_id: str, db_path: Path) -> dict[str, Any]:
     """Delete a run and all its associated data."""
+
     if not db_path.exists():
         return {"success": False, "error": "Database not found"}
 
@@ -149,6 +153,7 @@ def delete_run(run_id: str, db_path: Path) -> dict[str, Any]:
             session.exec(delete(Step).where(Step.run_id == run_id))  # type: ignore[call-overload]
             session.exec(delete(Run).where(Run.id == run_id))  # type: ignore[call-overload]
             session.commit()
+
         return {"success": True}
     except Exception as e:
         logger.debug("Failed to delete run %s", run_id, exc_info=True)

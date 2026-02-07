@@ -15,7 +15,6 @@ def migrate(migrator, database, **kwargs):
     """)
     database.execute_sql("CREATE INDEX idx_tenants_slug ON tenants(slug)")
     database.execute_sql("CREATE INDEX idx_tenants_api_key ON tenants(api_key)")
-
     database.execute_sql("""
         CREATE TABLE users (
             id VARCHAR(32) PRIMARY KEY,

@@ -18,6 +18,7 @@ require_bearer = Depends(security)
 def resolve_org(api_key: str) -> tuple[str, Path]:
     """Resolve an API key to a tenant slug and its pipeline database path."""
     tenant = get_tenant_by_api_key(api_key)
+
     if tenant is None:
         raise HTTPException(status_code=401, detail="Invalid API key")
 

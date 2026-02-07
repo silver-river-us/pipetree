@@ -35,6 +35,7 @@ def create_tenant(name: str, db_name: str | None = None) -> Tenant:
     """Create a new tenant with auto-generated slug and API key."""
     slug = _slugify(name)
     base_slug = slug
+
     while get_tenant_by_slug(slug):
         slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
 
@@ -42,7 +43,6 @@ def create_tenant(name: str, db_name: str | None = None) -> Tenant:
         db_name = f"{slug}.db"
 
     api_key = secrets.token_hex(32)
-
     return Tenant.create(name=name, slug=slug, api_key=api_key, db_name=db_name)
 
 
@@ -69,6 +69,7 @@ def list_users_for_tenant(tenant_id: str) -> list[User]:
 def delete_tenant(tenant_id: str) -> None:
     """Delete a tenant and all associated users."""
     tenant = Tenant.get_or_none(Tenant.id == tenant_id)
+
     if not tenant:
         raise TenantNotFoundError(f"No tenant found for {tenant_id}")
 
