@@ -8,3 +8,7 @@ class SendCodeError(Exception):
 
 class InvalidCodeError(Exception):
     pass
+
+
+class InvalidApiKeyError(Exception):
+    pass

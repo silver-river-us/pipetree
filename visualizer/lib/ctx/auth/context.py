@@ -43,4 +43,4 @@ def authenticate(email: str, code: str) -> Session:
     if not user:
         raise UserNotFoundError(f"No account found for {email}")
 
-    return Session(user=user, tenant=user.tenant)
+    return Session(user=user)

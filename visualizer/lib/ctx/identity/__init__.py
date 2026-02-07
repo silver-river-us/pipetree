@@ -10,6 +10,7 @@ from lib.ctx.identity.context import (
     get_user_by_email as get_user_by_email,
     list_tenants as list_tenants,
     list_users_for_tenant as list_users_for_tenant,
+    resolve_org as resolve_org,
 )
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "get_user_by_email",
     "list_tenants",
     "list_users_for_tenant",
+    "resolve_org",
 ]

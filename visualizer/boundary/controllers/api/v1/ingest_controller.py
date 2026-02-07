@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from pipetree import SQLiteProgressNotifier
 
-from lib.ingest import get_org_context
+from boundary.base.http_context import get_org_context
 
 from .input_objects.ingest import (
     BatchEventsRequest,

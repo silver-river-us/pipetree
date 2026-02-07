@@ -8,6 +8,10 @@ IGNORE_FILES = {
     "formatters.py",
 }
 
+GET_OR_NONE_ALLOWED_FILES = {
+    "db.py",
+}
+
 IGNORE_DIRS = {
     "tests",
     "bin",
@@ -145,6 +149,23 @@ def check_function_spacing(file_path: Path) -> list[str]:
     return violations
 
 
+def check_get_or_none(file_path: Path) -> list[str]:
+    """Check for usage of get_or_none (use find_by instead)."""
+    if file_path.name in GET_OR_NONE_ALLOWED_FILES:
+        return []
+
+    violations = []
+
+    with open(file_path) as f:
+        for lineno, line in enumerate(f, 1):
+            if "get_or_none" in line:
+                violations.append(
+                    f"{file_path}:{lineno}: use find_by instead of get_or_none"
+                )
+
+    return violations
+
+
 def should_check(file_path: Path) -> bool:
     """Determine if file should be checked."""
     if file_path.name in IGNORE_FILES:
@@ -166,6 +187,7 @@ def main():
                 all_violations.extend(check_manual_dict_return(py_file))
                 all_violations.extend(count_classes(py_file))
                 all_violations.extend(check_function_spacing(py_file))
+                all_violations.extend(check_get_or_none(py_file))
 
     # Check lib layer
     lib_path = PACKAGE_ROOT / "lib"
@@ -175,6 +197,7 @@ def main():
                 all_violations.extend(count_classes(py_file))
                 all_violations.extend(check_context_classes(py_file))
                 all_violations.extend(check_function_spacing(py_file))
+                all_violations.extend(check_get_or_none(py_file))
 
     # Check infra layer
     infra_path = PACKAGE_ROOT / "infra"
@@ -183,6 +206,7 @@ def main():
             if should_check(py_file):
                 all_violations.extend(count_classes(py_file))
                 all_violations.extend(check_function_spacing(py_file))
+                all_violations.extend(check_get_or_none(py_file))
 
     if all_violations:
         print("Style violations found:\n")
@@ -193,6 +217,7 @@ def main():
         print("  - No manual dict returns in boundary layer (use serializers)")
         print("  - Context files should only have functions, not classes")
         print("  - No blank lines between one-liners; blank line around compound statements")
+        print("  - Use find_by instead of get_or_none")
         sys.exit(1)
     else:
         print("Style check passed")

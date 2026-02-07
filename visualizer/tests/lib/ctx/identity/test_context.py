@@ -4,17 +4,21 @@ from pathlib import Path
 
 import pytest
 
+from unittest.mock import MagicMock, patch
+
 from lib.ctx.identity import (
     create_tenant,
     create_user,
     delete_tenant,
     get_tenant,
     get_tenant_by_api_key,
+    get_tenant_by_slug,
     get_user_by_email,
     list_tenants,
     list_users_for_tenant,
+    resolve_org,
 )
-from lib.exceptions import TenantNotFoundError
+from lib.exceptions import InvalidApiKeyError, TenantNotFoundError
 
 
 class TestListTenants:
@@ -36,6 +40,17 @@ class TestGetTenant:
         result = get_tenant(tenant.id)
         assert result is not None
         assert result.name == "Acme Corp"
+
+
+class TestGetTenantBySlug:
+    def test_nonexistent(self, peewee_db: Path) -> None:
+        assert get_tenant_by_slug("no-such-slug") is None
+
+    def test_existing(self, peewee_db: Path) -> None:
+        tenant = create_tenant("Acme Corp")
+        result = get_tenant_by_slug(tenant.slug)
+        assert result is not None
+        assert result.id == tenant.id
 
 
 class TestCreateTenant:
@@ -112,6 +127,26 @@ class TestGetTenantByApiKey:
         result = get_tenant_by_api_key(tenant.api_key)
         assert result is not None
         assert result.id == tenant.id
+
+
+class TestResolveOrg:
+    def test_valid_api_key(self) -> None:
+        mock_tenant = MagicMock()
+        mock_tenant.slug = "acme"
+        mock_tenant.db_name = "acme.db"
+
+        with patch("lib.ctx.identity.context.get_tenant_by_api_key", return_value=mock_tenant):
+            with patch("lib.ctx.identity.context.settings") as mock_settings:
+                mock_settings.default_db_path = Path("/data")
+                slug, db_path = resolve_org("valid-key")
+
+        assert slug == "acme"
+        assert db_path == Path("/data/acme.db")
+
+    def test_invalid_api_key(self) -> None:
+        with patch("lib.ctx.identity.context.get_tenant_by_api_key", return_value=None):
+            with pytest.raises(InvalidApiKeyError):
+                resolve_org("bad-key")
 
 
 class TestCreateUser:

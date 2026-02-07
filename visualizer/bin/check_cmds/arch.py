@@ -19,9 +19,12 @@ RULES = {
 
 INTERNAL_MODULES = {"infra", "lib", "boundary"}
 
+HTTP_PACKAGES = {"fastapi", "starlette", "uvicorn"}
+HTTP_BANNED_LAYERS = {"lib", "infra"}
+
 
 def get_imports(file_path: Path) -> list[tuple[str, str]]:
-    """Returns list of (internal_top_level, full_import_path) tuples."""
+    """Returns list of (top_level_package, full_import_path) tuples."""
     with open(file_path) as f:
         tree = ast.parse(f.read(), filename=str(file_path))
 
@@ -30,13 +33,11 @@ def get_imports(file_path: Path) -> list[tuple[str, str]]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 parts = alias.name.split(".")
-                if parts[0] in INTERNAL_MODULES:
-                    imports.append((parts[0], alias.name))
+                imports.append((parts[0], alias.name))
         elif isinstance(node, ast.ImportFrom):
             if node.module:
                 parts = node.module.split(".")
-                if parts[0] in INTERNAL_MODULES:
-                    imports.append((parts[0], node.module))
+                imports.append((parts[0], node.module))
     return imports
 
 
@@ -52,6 +53,11 @@ def check_file(file_path: Path, layer: str) -> list[str]:
         ):
             violations.append(
                 f"{file_path}: imports '{full_path}' ({top_level} not allowed)"
+            )
+
+        if layer in HTTP_BANNED_LAYERS and top_level in HTTP_PACKAGES:
+            violations.append(
+                f"{file_path}: imports '{full_path}' (HTTP packages not allowed in {layer})"
             )
 
     return violations
@@ -74,6 +80,7 @@ def main():
 
     for layer in RULES:
         layer_path = root / layer
+
         if not layer_path.exists():
             continue
 

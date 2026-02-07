@@ -1,49 +1,40 @@
 import logging
-import re
-import secrets
-import uuid
+from pathlib import Path
 
+from config import settings
 from lib.ctx.identity.tenant import Tenant
 from lib.ctx.identity.user import User
-from lib.exceptions import TenantNotFoundError
+from lib.exceptions import InvalidApiKeyError, TenantNotFoundError
 from lib.sanitizers import normalize
 
 logger = logging.getLogger(__name__)
 
 
-def _slugify(name: str) -> str:
-    """Convert name to URL-safe slug."""
-    slug = name.lower().strip()
-    slug = re.sub(r"[^a-z0-9]+", "-", slug)
-    slug = slug.strip("-")
-    return slug or f"tenant-{uuid.uuid4().hex[:8]}"
-
-
 def get_tenant(tenant_id: str) -> Tenant | None:
-    return Tenant.get_or_none(Tenant.id == tenant_id)
+    return Tenant.find_by(id=tenant_id)
 
 
 def get_tenant_by_slug(slug: str) -> Tenant | None:
-    return Tenant.get_or_none(Tenant.slug == slug)
+    return Tenant.find_by(slug=slug)
 
 
 def get_tenant_by_api_key(api_key: str) -> Tenant | None:
-    return Tenant.get_or_none(Tenant.api_key == api_key)
+    return Tenant.find_by(api_key=api_key)
+
+
+def resolve_org(api_key: str) -> tuple[str, Path]:
+    """Resolve an API key to a tenant slug and its pipeline database path."""
+    tenant = get_tenant_by_api_key(api_key)
+
+    if tenant is None:
+        raise InvalidApiKeyError("Invalid API key")
+
+    db_path = settings.default_db_path / tenant.db_name
+    return tenant.slug, db_path
 
 
 def create_tenant(name: str, db_name: str | None = None) -> Tenant:
-    """Create a new tenant with auto-generated slug and API key."""
-    slug = _slugify(name)
-    base_slug = slug
-
-    while get_tenant_by_slug(slug):
-        slug = f"{base_slug}-{uuid.uuid4().hex[:6]}"
-
-    if db_name is None:
-        db_name = f"{slug}.db"
-
-    api_key = secrets.token_hex(32)
-    return Tenant.create(name=name, slug=slug, api_key=api_key, db_name=db_name)
+    return Tenant.create(name=name, db_name=db_name)
 
 
 def list_tenants() -> list[Tenant]:
@@ -57,7 +48,7 @@ def create_user(email: str, tenant: Tenant) -> User:
 
 def get_user_by_email(email: str) -> User | None:
     email = normalize(email)
-    return User.get_or_none(User.email == email)
+    return User.find_by(email=email)
 
 
 def list_users_for_tenant(tenant_id: str) -> list[User]:
@@ -68,10 +59,11 @@ def list_users_for_tenant(tenant_id: str) -> list[User]:
 
 def delete_tenant(tenant_id: str) -> None:
     """Delete a tenant and all associated users."""
-    tenant = Tenant.get_or_none(Tenant.id == tenant_id)
+    tenant = Tenant.find_by(id=tenant_id)
 
     if not tenant:
         raise TenantNotFoundError(f"No tenant found for {tenant_id}")
 
     User.delete().where(User.tenant == tenant_id).execute()
     tenant.delete_instance()
+
